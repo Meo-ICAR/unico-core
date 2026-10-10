@@ -34,11 +34,12 @@ e contratto `DocumentGenerator`; `Mail\SenderIdentifier` (+ `SenderMatcher` per 
 firma elettronica `Signature\*` (Yousign + fake, webhook, `signature:sync`/`signature:check`; il firmato va in `signed` dello stesso documento).
 
 ## Da fare (in ordine)
-1. Collegare le app una alla volta. **unicooam: fatto sul ramo `core-integration`** (non ancora unito a `main`): modelli come sottoclassi, migration del pacchetto
-   caricate dall'app, enum di stato, requisiti su `document_types`/`document_requirements`/`document_requests`, seeder; 149 test su 156 passano (i 6 che falliscono
-   c'erano già prima), più un test di fumo sulle pagine elenco. Restano in unicooam: unire il ramo; sostituire `DocumentReminderService`, `Jobs\UploadDocumentToSharePoint`
-   e il listener con quelli del pacchetto (`Documents\Reminders`, `SharePoint\*`); le 6 rotture preesistenti. Poi unicoloan, unicobpm, unicogdpr e proforma
-   (riscrivere le 34 viste di proforma, allineare proforma a Laravel 13 e Filament 5).
+1. Collegare le app una alla volta. **unicooam: fatto e su `main`.** **unicoloan: fatto sul ramo `core-integration`** (non ancora unito): 511 test su 516 passano
+   (i 5 che falliscono c'erano già prima) e un test di fumo sulle pagine elenco. I modelli che in unicoloan vivono nel database Proforma (`Client`, `ClientMandate`,
+   `Tipoprodotto*`, `PraticaClient`...) restano lì; gli id che li richiamano sono `varchar(36)` senza FK. Restano in entrambe le app: sostituire le versioni locali con
+   quelle del pacchetto (`DocumentReminderService`, job e listener SharePoint; in unicoloan anche `Services\Signature`, `PdfFormFiller`, `DocumentVerifier`, con
+   il problema del firmato: nel pacchetto resta nel documento, in unicoloan sostituisce il documento). Poi unicobpm, unicogdpr e proforma (riscrivere le 34 viste di
+   proforma, allineare proforma a Laravel 13 e Filament 5).
 2. Correzioni nelle app: documenti su disco pubblico, `db_password` in chiaro (enum di stato: fatto in unicooam).
 3. unicoagent resta separata e parla via API (`documents.channel = 'whatsapp'`).
 
