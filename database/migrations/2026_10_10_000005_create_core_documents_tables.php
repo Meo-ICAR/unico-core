@@ -379,6 +379,7 @@ return new class extends Migration
             $table->string('trigger_field')->nullable()->comment('Campo del modello da controllare');
             $table->string('trigger_state')->nullable()->comment('filled, empty, equals');
             $table->string('trigger_value')->nullable()->comment('Il valore specifico da controllare');
+            $table->string('severity', 20)->nullable()->comment('Grado di severity del controllo a cui risponde il template (ok, regular, warning, alert); nullo = non legato a un controllo');
             $table->string('name')->comment('Nome descrittivo per gli utenti');
             $table->string('subject')->comment('Oggetto della mail');
             $table->longText('body')->comment('Corpo della mail (supporta HTML e placeholders)');
@@ -387,7 +388,7 @@ return new class extends Migration
             $table->string('app_identifier', 50)->nullable()->comment('Identificativo dell\'app Unico a cui è riservato il record; nullo = visibile a tutte');
             $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
             $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
-            $table->unique(['code'], 'email_templates_code_unique');
+            $table->unique(['code', 'severity'], 'email_templates_code_severity_unique');
             $table->index(['app_identifier'], 'email_templates_app_identifier_index');
             $table->comment('Registro dei template email configurabili');
         });

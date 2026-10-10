@@ -178,7 +178,9 @@ t("document_reminders", "documents", ["loan.document_reminders", "oam.document_r
 t("document_schedules", "documents", ["loan.document_schedules", "oam.document_schedules"])
 t("tasks", "documents", ["loan.tasks", "oam.tasks"])
 t("media", "documents", ["oam.media", "loan.media", "bpm.media"])
-t("email_templates", "documents", ["oam.email_templates", "loan.email_templates"])
+# severity (da unicobpm) e unicità (code, severity) al posto di (code): applicati a mano alla migration generata.
+t("email_templates", "documents", ["oam.email_templates", "loan.email_templates"],
+  add=[col("severity", "varchar", "20", comment="Grado di severity del controllo a cui risponde il template (ok, regular, warning, alert); nullo = non legato a un controllo")])
 _imap = {"incoming_host": "imap_host", "incoming_port": "imap_port", "incoming_username": "imap_username",
          "incoming_password": "imap_password", "incoming_encryption": "imap_encryption", "incoming_protocol": "protocol"}
 t("mail_accounts", "documents", ["oam.mail_accounts", "loan.mail_accounts"],

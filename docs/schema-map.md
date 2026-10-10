@@ -573,6 +573,7 @@ Sorgenti: `oam.email_templates`, `loan.email_templates`
 |---|---|
 | loan+oam | id, code, name, subject, body, placeholders, is_active, app_identifier, created_at, updated_at |
 | oam | emailable, email_field, trigger_field, trigger_state, trigger_value |
+| bpm | severity (aggiunta da unicobpm; l'unicità passa da `code` a `code` + `severity`, così lo stesso codice può avere un template per ogni grado) |
 
 ### `mail_accounts`
 Sorgenti: `oam.mail_accounts`, `loan.mail_accounts`
