@@ -15,7 +15,7 @@ Codice di partenza (repo `Meo-ICAR/unicogdpr`): `app/Services/Mail`, `app/Servic
 | Da unicogdpr | Nel pacchetto | Modifiche |
 |---|---|---|
 | `Contracts\ImapConnector` | `Mail\Contracts\ImapConnector` | nessuna |
-| `Services\Mail\ImapConnectionFactory` | `Mail\ImapConnectionFactory` | supportare anche `protocol = pop3` |
+| `Services\Mail\ImapConnectionFactory` | `Mail\ImapConnectionFactory` | POP3 non supportato da webklex: errore esplicito |
 | `Services\Mail\OutgoingMailerFactory` | `Mail\OutgoingMailer` | nome mittente passato come parametro, non fisso "- DPO" |
 | `Jobs\FetchMailAccountJob` (parte generica) | `Mail\MailFetcher` + `Mail\Jobs\FetchMailAccount` | vedi sotto |
 | `Services\Mail\EmailClassifier` | `Mail\Contracts\EmailClassifier` + `Mail\RuleBasedClassifier` | regole da config, non enum GDPR |

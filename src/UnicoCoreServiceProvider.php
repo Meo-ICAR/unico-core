@@ -4,13 +4,22 @@ namespace Unico\Core;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
+use Unico\Core\Console\FetchMailCommand;
+use Unico\Core\Console\MailHealthCommand;
 use Unico\Core\Console\MigrateCoreCommand;
+use Unico\Core\Mail\Contracts\EmailClassifier;
+use Unico\Core\Mail\Contracts\ImapConnector;
+use Unico\Core\Mail\ImapConnectionFactory;
+use Unico\Core\Mail\RuleBasedClassifier;
 
 class UnicoCoreServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/unico-core.php', 'unico-core');
+
+        $this->app->bindIf(ImapConnector::class, ImapConnectionFactory::class);
+        $this->app->bindIf(EmailClassifier::class, RuleBasedClassifier::class);
     }
 
     public function boot(): void
@@ -31,7 +40,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
                 __DIR__.'/../config/unico-core.php' => config_path('unico-core.php'),
             ], 'unico-core-config');
 
-            $this->commands([MigrateCoreCommand::class]);
+            $this->commands([MigrateCoreCommand::class, FetchMailCommand::class, MailHealthCommand::class]);
         }
     }
 

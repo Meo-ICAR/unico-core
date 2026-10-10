@@ -23,6 +23,14 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 - Le scadenze si calcolano dal tipo documento solo se mancano o se cambia la data di emissione: una scadenza inserita a mano non viene mai sovrascritta.
 - `Document::renew()` crea il nuovo documento e valorizza `replaced_by_id` sul vecchio.
 
+## Email
+
+- `Unico\Core\Mail\MailFetcher` scarica una casella in `incoming_emails` (finestra di date con sovrapposizione, deduplica per `company_id` + `message_id` anche sui record eliminati, thread da `References`/`In-Reply-To`, allegati nella collection `email_attachments`) e per ogni nuova email emette `Unico\Core\Events\IncomingEmailReceived`. Gli ascoltatori sono delle app: unicogdpr apre richieste e reclami, unicobpm collega gli allegati ai processi, unicoloan alle pratiche. Un ascoltatore che fallisce non ferma la scansione.
+- `ImapConnectionFactory`: Basic Auth o OAuth2 (Google, Microsoft) con rinnovo del token tramite Socialite. Solo IMAP: webklex/php-imap non supporta POP3.
+- `RuleBasedClassifier`: riconosce da solo mancati recapiti, notifiche dei provider, inviti e spam; le classi dell'app (reclami, richieste GDPR...) si aggiungono in `unico-core.mail.rules`.
+- `BounceParser`, `OutgoingMailer` (invio con le credenziali SMTP della casella).
+- Comandi: `unico-core:mail-fetch {account?} {--sync}` e `unico-core:mail-health`, che emette `MailAccountsUnhealthy`. La pianificazione resta all'app.
+
 ## Test
 
 `composer install && vendor/bin/phpunit`. I test usano un database MySQL/MariaDB vuoto (variabili `CORE_TEST_DB_HOST`, `CORE_TEST_DB_PORT`, `CORE_TEST_DB_DATABASE`, `CORE_TEST_DB_USERNAME`, `CORE_TEST_DB_PASSWORD`; default `unico_core_test`, utente `unico`) e ne ricreano le tabelle a ogni avvio: non puntarli a un database con dati.

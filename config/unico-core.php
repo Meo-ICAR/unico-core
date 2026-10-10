@@ -71,6 +71,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Posta
+    |--------------------------------------------------------------------------
+    |
+    | `rules` aggiunge classi al classificatore: ['etichetta' => ['/regex/iu']],
+    | valutate nell'ordine dopo mancati recapiti, notifiche dei provider e inviti.
+    | La scansione guarda indietro di `overlap_days` giorni dall'ultima sincronizzazione
+    | (`initial_days` alla prima) e deduplica per message_id.
+    |
+    */
+
+    'mail' => [
+        'queue' => env('UNICO_CORE_MAIL_QUEUE', 'mail'),
+        'limit' => 50,
+        'overlap_days' => 2,
+        'initial_days' => 30,
+        'validate_cert' => true,
+        'rules' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Rotte
     |--------------------------------------------------------------------------
     */

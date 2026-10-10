@@ -36,6 +36,13 @@ class CoreDatabase
         $app->instance('config', $config);
         self::$auth = new FakeAuth;
         $app->instance('auth', self::$auth);
+        $app->instance('log', new class
+        {
+            public function __call(string $name, array $arguments): void {}
+        });
+        $app->instance('events', $events = new \Illuminate\Events\Dispatcher($app));
+        $app->instance(\Illuminate\Contracts\Events\Dispatcher::class, $events);
+        \Illuminate\Database\Eloquent\Model::encryptUsing(new \Illuminate\Encryption\Encrypter(str_repeat('k', 32), 'aes-256-cbc'));
         Facade::setFacadeApplication($app);
 
         $capsule = new Capsule($app);
@@ -53,7 +60,7 @@ class CoreDatabase
             'engine' => 'InnoDB',
         ], 'core');
         $capsule->getDatabaseManager()->setDefaultConnection('core');
-        $capsule->setEventDispatcher(new \Illuminate\Events\Dispatcher($app));
+        $capsule->setEventDispatcher($events);
         $capsule->setAsGlobal();
         $capsule->bootEloquent();
         $app->instance('db', $capsule->getDatabaseManager());

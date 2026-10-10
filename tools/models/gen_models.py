@@ -44,7 +44,7 @@ CLASSES = {
     "tipoprodotto_sub": "TipoProdottoSub", "tipoprodotto_sub_constraints": "TipoProdottoSubConstraint",
     "training_records": "TrainingRecord", "users": "User",
 }
-HANDWRITTEN = {"documents", "document_types", "document_reminders", "companies", "media", "users"}
+HANDWRITTEN = {"documents", "document_types", "document_reminders", "companies", "media", "users", "mail_accounts", "incoming_emails"}
 USER_FKS = {"created_by": "creator", "updated_by": "updater", "deleted_by": "deleter", "verified_by": "verifier",
             "uploaded_by": "uploader", "renewed_by": "renewer", "requested_by": "requester",
             "reviewer_user_id": "reviewer", "user_id": "user"}

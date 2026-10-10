@@ -17,3 +17,10 @@ if (! function_exists('now')) {
         return Illuminate\Support\Carbon::now($tz);
     }
 }
+
+if (! function_exists('event')) {
+    function event(...$args)
+    {
+        return Illuminate\Container\Container::getInstance()->make('events')->dispatch(...$args);
+    }
+}
