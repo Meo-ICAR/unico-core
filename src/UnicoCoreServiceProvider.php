@@ -37,6 +37,7 @@ use Unico\Core\Mail\Contracts\EmailClassifier;
 use Unico\Core\Mail\Contracts\ImapConnector;
 use Unico\Core\Mail\ImapConnectionFactory;
 use Unico\Core\Mail\RuleBasedClassifier;
+use Unico\Core\Mail\SenderIdentifier;
 
 class UnicoCoreServiceProvider extends ServiceProvider
 {
@@ -46,6 +47,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
 
         $this->app->bindIf(ImapConnector::class, ImapConnectionFactory::class);
         $this->app->bindIf(EmailClassifier::class, RuleBasedClassifier::class);
+        $this->app->bind(SenderIdentifier::class, fn ($app) => new SenderIdentifier($app->tagged('unico-core.sender-matchers')));
 
         // Il client Drive si costruisce solo quando serve: le app senza credenziali Google non falliscono all'avvio.
         $this->app->bindIf(Drive::class, fn () => GoogleDriveFactory::make());
