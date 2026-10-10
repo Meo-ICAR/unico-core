@@ -242,7 +242,7 @@ return new class extends Migration
             $table->date('termination_date')->nullable()->comment('Data di cessazione del rapporto lavorativo');
             $table->foreignId('coordinated_by_id')->nullable()->comment('ID del responsabile/coordinatore diretto');
             $table->string('employee_types')->default('dipendente')->comment('Tipologia contrattuale');
-            $table->json('employee_roles')->comment('Ruoli ricoperti dal dipendente (JSON)');
+            $table->json('employee_roles')->nullable()->comment('Ruoli ricoperti dal dipendente (JSON)');
             $table->string('supervisor_type')->default('no')->comment('Livello di supervisione');
             $table->string('privacy_role')->nullable()->comment('Ruolo designato ai fini privacy');
             $table->text('purpose')->nullable()->comment('Finalità del trattamento dati affidato');

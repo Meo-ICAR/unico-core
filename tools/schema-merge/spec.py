@@ -50,7 +50,7 @@ t("employee_types", "tenancy", ["bpm.employee_types", "loan.employee_types", "oa
 t("employee_type_permissions", "tenancy", ["bpm.employee_type_permissions", "loan.employee_type_permissions", "oam.employee_type_permissions"],
   drop=["resource"])
 t("employee_type_resource_presets", "tenancy", ["bpm.employee_type_resource_presets"])
-t("employees", "tenancy", ["oam.employees", "loan.employees"])
+t("employees", "tenancy", ["oam.employees", "loan.employees"], patch={"employee_roles": {"nullable": True}})
 
 # ---------------------------------------------------------------- registry
 t("client_types", "registry", ["oam.client_types", "loan.client_types", "proforma.client_types"])

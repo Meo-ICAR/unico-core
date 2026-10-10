@@ -145,6 +145,25 @@ return [
             'price_input' => env('UNICO_CORE_AI_PRICE_INPUT'),
             'price_output' => env('UNICO_CORE_AI_PRICE_OUTPUT'),
         ],
+        'reminders' => [
+            'window_days' => 90,
+            'resend_after_days' => 5,
+            'missing_reminder_days' => 7,
+            'default_notify_days_before' => [30, 15, 7, 1, 0],
+            'template_code' => 'DOC_EXPIRING',
+            'fallback_email' => env('UNICO_CORE_REMINDER_FALLBACK_EMAIL'),
+            // Per alias del soggetto: campi provati in ordine ('a+b' unisce due campi). Le app aggiungono i propri alias.
+            'recipients' => [
+                'user' => ['label' => 'Utente', 'name' => ['name'], 'email' => ['email']],
+                'employee' => ['label' => 'Dipendente', 'name' => ['name'], 'email' => ['email', 'pec']],
+                'fornitore' => ['label' => 'Fornitore', 'name' => ['nome', 'name'], 'email' => ['email', 'email_private', 'pec']],
+                'cliente' => ['label' => 'Cliente', 'name' => ['nome', 'name'], 'email' => ['email', 'privacy_contact_email', 'dpo_email']],
+                'client' => ['label' => 'Cliente', 'name' => ['name+first_name'], 'email' => ['email', 'pec']],
+                'company' => ['label' => 'Azienda', 'name' => ['name'], 'email' => []],
+                'audit' => ['label' => 'Audit', 'name' => ['title'], 'email' => []],
+                'complaint_registry' => ['label' => 'Reclamo', 'name' => ['complainant_name', 'protocol_number'], 'email' => ['complainant_email', 'receiving_email']],
+            ],
+        ],
         'checks' => [
             'leggibile' => \Unico\Core\Documents\Checks\ReadableCheck::class,
             'tipo_documento' => \Unico\Core\Documents\Checks\KindCheck::class,

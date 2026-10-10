@@ -61,6 +61,15 @@ L'AI non parte su file mancanti, non apribili o duplicati, né se il `AnalysisGa
 
 Il file si legge sempre da Spatie Media Library (`MediaDocumentFileSource`): Drive e SharePoint sono destinazioni di sincronizzazione, non la sorgente. Punti di aggancio sostituibili con `bind`: `DocumentReader` (Anthropic con `ANTHROPIC_API_KEY`, altrimenti nessuna lettura AI), `DeclaredData` (dati noti con cui confrontare), `AnalysisGate`, `DocumentFileSource`. `unico-core.documents.analysis.auto=true` mette in coda l'analisi a ogni file caricato; oppure `AnalyzeDocument::dispatch($document)`.
 
+## Scadenziario e solleciti
+
+`DocumentReminderService` (unione di unicooam e unicoloan) decide cosa sollecitare: documenti monitorati in scadenza entro `window_days`, richiesti e non arrivati, respinti, e caricati con anomalie tecniche (ultima riga `verification` fallita in `document_analyses`). Le versioni sostituite (`replaced_by_id`), superate da una più recente o rinnovate da un altro tipo (`renewed_by_id`) restano fuori.
+
+- I solleciti vanno raggruppati per soggetto, una mail per soggetto, una volta per soglia di giorni (`document_types.notify_days_before`, altrimenti `default_notify_days_before`); i documenti senza scadenza si ripetono ogni `missing_reminder_days`. Template email `DOC_EXPIRING` (segnaposto `{agente_nome}`, `{documento_nome}`, `{data_scadenza}`, `{elenco_documenti}`).
+- Il destinatario si configura per alias in `documents.reminders.recipients` (campi provati in ordine); senza email vale `fallback_email`. Regole diverse (es. i documenti di una pratica vanno al cliente): legare una propria `RecipientResolver`.
+- `ScheduleSynchronizer` riscrive `document_schedules`; `expiryStatus()` e `expiredStatus()` danno conteggio e grado (`ok`, `regular`, `warning`, `alert`) per i controlli periodici di unicobpm.
+- Comandi: `unico-core:documents-schedule-sync`, `unico-core:documents-remind [--force] [--sync]`.
+
 ## Test
 
 `composer install && vendor/bin/phpunit`. I test usano un database MySQL/MariaDB vuoto (variabili `CORE_TEST_DB_HOST`, `CORE_TEST_DB_PORT`, `CORE_TEST_DB_DATABASE`, `CORE_TEST_DB_USERNAME`, `CORE_TEST_DB_PASSWORD`; default `unico_core_test`, utente `unico`) e ne ricreano le tabelle a ogni avvio: non puntarli a un database con dati.
