@@ -15,6 +15,7 @@
         "illuminate/mail": "^13.0",
         "illuminate/queue": "^13.0",
         "illuminate/events": "^13.0",
+        "illuminate/http": "^13.0",
         "google/apiclient": "^2.18"
     },
     "autoload": {

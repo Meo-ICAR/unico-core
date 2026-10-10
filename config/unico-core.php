@@ -122,6 +122,43 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Documenti: analisi automatica
+    |--------------------------------------------------------------------------
+    |
+    | Pipeline verifica tecnica -> classificazione -> lettura AI con controlli a plug-in.
+    | `analysis.auto`: al caricamento di un file (Spatie) l'analisi parte in coda.
+    | `ai`: senza `api_key` la lettura AI è spenta (restano verifica tecnica e regex).
+    |   I prezzi sono in dollari per milione di token, per calcolare `document_analyses.ai_cost`.
+    | `checks`: codice => classe. Le app aggiungono i propri con CheckRegistry::extend().
+    | `default_checks`: controlli se il tipo documento non ne indica (`document_types.checks`).
+    |
+    */
+
+    'documents' => [
+        'analysis' => [
+            'auto' => env('UNICO_CORE_ANALYSIS_AUTO', false),
+            'queue' => env('UNICO_CORE_ANALYSIS_QUEUE', 'documents'),
+        ],
+        'ai' => [
+            'api_key' => env('ANTHROPIC_API_KEY'),
+            'model' => env('UNICO_CORE_AI_MODEL', 'claude-sonnet-5-5'),
+            'price_input' => env('UNICO_CORE_AI_PRICE_INPUT'),
+            'price_output' => env('UNICO_CORE_AI_PRICE_OUTPUT'),
+        ],
+        'checks' => [
+            'leggibile' => \Unico\Core\Documents\Checks\ReadableCheck::class,
+            'tipo_documento' => \Unico\Core\Documents\Checks\KindCheck::class,
+            'dati_coerenti' => \Unico\Core\Documents\Checks\MatchesDeclaredCheck::class,
+            'non_scaduto' => \Unico\Core\Documents\Checks\NotExpiredCheck::class,
+        ],
+        'default_checks' => [
+            '*' => ['leggibile', 'tipo_documento', 'dati_coerenti'],
+            'identita' => ['leggibile', 'tipo_documento', 'dati_coerenti', 'non_scaduto'],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Rotte
     |--------------------------------------------------------------------------
     */

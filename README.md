@@ -39,6 +39,18 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 - Struttura delle cartelle, gruppi degli audit e nome della cartella email sono in `unico-core.drive`.
 - `google/apiclient` pesa centinaia di MB con tutti i servizi: nell'`composer.json` **dell'app** (non del pacchetto) servono `"scripts": {"pre-autoload-dump": "Google\\Task\\Composer::cleanup"}` e `"extra": {"google/apiclient-services": ["Drive"]}`.
 
+## Analisi documenti
+
+`Unico\Core\Documents\DocumentPipeline` analizza un `Document` in tre passi, ognuno con una riga in `document_analyses` (esito, confidenza, modello AI, token, costo):
+
+1. **verification** (senza AI): file mancante o non apribile, duplicato SHA-256 per soggetto e tipo, scaduto, firma (otp / digitale / olografa / assente).
+2. **classification**, se il tipo manca: regex del tipo sul nome file, poi AI sul contenuto (soglia `min_confidence` del tipo). Non forza mai un abbinamento.
+3. **extraction**: una sola lettura AI (`document_types.ai_kind`) e controlli a plug-in (`document_types.checks`, altrimenti `documents.default_checks`): `leggibile`, `tipo_documento`, `dati_coerenti`, `non_scaduto`. Le app aggiungono i propri con `CheckRegistry::extend()`.
+
+L'AI non parte su file mancanti, non apribili o duplicati, né se il `AnalysisGate` dell'app lo nega (es. informativa privacy non ancora verificata). La pipeline non respinge mai da sola; approva solo se il tipo ha `allow_auto_verification` e ogni passo è superato. A fine analisi parte `DocumentAnalyzed` con i dati letti da proporre.
+
+Il file si legge sempre da Spatie Media Library (`MediaDocumentFileSource`): Drive e SharePoint sono destinazioni di sincronizzazione, non la sorgente. Punti di aggancio sostituibili con `bind`: `DocumentReader` (Anthropic con `ANTHROPIC_API_KEY`, altrimenti nessuna lettura AI), `DeclaredData` (dati noti con cui confrontare), `AnalysisGate`, `DocumentFileSource`. `unico-core.documents.analysis.auto=true` mette in coda l'analisi a ogni file caricato; oppure `AnalyzeDocument::dispatch($document)`.
+
 ## Test
 
 `composer install && vendor/bin/phpunit`. I test usano un database MySQL/MariaDB vuoto (variabili `CORE_TEST_DB_HOST`, `CORE_TEST_DB_PORT`, `CORE_TEST_DB_DATABASE`, `CORE_TEST_DB_USERNAME`, `CORE_TEST_DB_PASSWORD`; default `unico_core_test`, utente `unico`) e ne ricreano le tabelle a ogni avvio: non puntarli a un database con dati.
