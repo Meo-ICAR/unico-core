@@ -134,6 +134,12 @@ return [
     |
     */
 
+    'pdf' => [
+        // Moduli PDF compilabili (AcroForm): binario pdftk e disco dove stanno i modelli (file_path di pdf_modules).
+        'pdftk_binary' => env('PDFTK_BINARY', 'pdftk'),
+        'modules_disk' => env('UNICO_CORE_PDF_MODULES_DISK', 'public'),
+    ],
+
     'documents' => [
         // Percorsi leggibili dei file (azienda / tipo proprietario / istanza) al posto delle cartelle numeriche di Spatie.
         'readable_paths' => env('UNICO_CORE_READABLE_PATHS', true),
