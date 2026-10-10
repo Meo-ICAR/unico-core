@@ -70,10 +70,10 @@ class ImapConnectionFactory implements ImapConnector
         ])->save();
     }
 
-    private function normalizeEncryption(?string $encryption): string|false
+    private function normalizeEncryption(?string $encryption): string
     {
         return match ($encryption) {
-            null, '', 'none', 'false' => false,
+            null, '', 'none', 'false' => '',
             default => $encryption,
         };
     }

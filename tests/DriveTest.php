@@ -494,7 +494,7 @@ class DriveTest extends TestCase
     public function test_factory_builds_a_drive_service_with_optional_impersonation(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'cred_');
-        file_put_contents($path, json_encode(['type' => 'service_account', 'client_email' => 'sa@example.iam.gserviceaccount.com', 'private_key' => 'x']));
+        file_put_contents($path, json_encode(['type' => 'service_account', 'client_id' => '1234567890', 'client_email' => 'sa@example.iam.gserviceaccount.com', 'private_key' => 'x']));
         config(['unico-core.drive.credentials' => $path, 'unico-core.drive.impersonate' => 'utente@azienda.it']);
 
         $this->assertTrue(GoogleDriveFactory::make() instanceof \Google\Service\Drive);

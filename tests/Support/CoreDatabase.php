@@ -31,6 +31,7 @@ class CoreDatabase
         ]);
         $config->set('unico-core.connection', 'core');
         $config->set('unico-core.documents_disk', 'documents');
+        $config->set('media-library.media_model', \Spatie\MediaLibrary\MediaCollections\Models\Media::class);
 
         $app = Container::getInstance();
         $app->instance('config', $config);

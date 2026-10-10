@@ -80,7 +80,7 @@ class MailAccountTest extends TestCase
 
         $this->assertSame('imap.example.com', $config->host);
         $this->assertSame('segreta', $config->password);
-        $this->assertSame(false, $config->encryption);
+        $this->assertSame('', $config->encryption);
         $this->assertNull($config->authentication);
     }
 
