@@ -2,6 +2,7 @@
 
 namespace Unico\Core;
 
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 use Unico\Core\Console\MigrateCoreCommand;
 
@@ -15,6 +16,11 @@ class UnicoCoreServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerDocumentsDisk();
+
+        Relation::morphMap(MorphMap::all(), merge: true);
+        if (config('unico-core.enforce_morph_map')) {
+            Relation::requireMorphMap();
+        }
 
         if (config('unico-core.routes.enabled')) {
             $this->loadRoutesFrom(__DIR__.'/../routes/web.php');

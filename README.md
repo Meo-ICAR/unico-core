@@ -15,7 +15,9 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 
 ## Modelli
 
-- `Unico\Core\Models\Document`, `DocumentType`, `DocumentReminder`, `Company`: usano la connessione `core` (trait `UsesCoreConnection`).
+- Un modello Eloquent per ognuna delle 66 tabelle, tutti sulla connessione `core` (trait `UsesCoreConnection`). `Document`, `DocumentType`, `DocumentReminder`, `Company`, `User` e `Media` sono scritti a mano; gli altri sono generati dallo schema reale con `tools/models/gen_models.py` (colonne JSON, booleani, date, cast `encrypted` per password e token, relazioni dalle chiavi esterne).
+- `Unico\Core\MorphMap`: alias stabili (`company`, `employee`, `cliente`, `fornitore`, `pratica`, ...) per i campi `*_type`, registrati dal provider. Con `UNICO_CORE_ENFORCE_MORPH_MAP=true` Laravel rifiuta i modelli senza alias. Le app aggiungono i propri alias con `Relation::morphMap()`.
+- `Media` va indicato in `config/media-library.php` come `media_model`.
 - `Unico\Core\Enums\DocumentStatus`: unico elenco ammesso per `documents.status`, con cast sul modello.
 - File dei documenti: media collection `documents` (e `signed` per la versione firmata) sul disco privato `documents`, registrato dal pacchetto se l'app non lo definisce. Il download passa da `documents.download` (rotta con `auth`, policy `download`/`view` dell'app o filtro per `company_id`).
 - Le scadenze si calcolano dal tipo documento solo se mancano o se cambia la data di emissione: una scadenza inserita a mano non viene mai sovrascritta.
@@ -81,8 +83,7 @@ Non vengono caricate da `php artisan migrate`, quindi nessuna app le esegue per 
 
 ## Da fare nelle app
 
-1. Altri modelli Eloquent condivisi (restano `Client`, `Employee`, `Pratica`, ...), sul modello di `Document`.
-2. `Relation::enforceMorphMap()` con alias stabili (`company`, `client`, `fornitore`, `employee`, ...): oggi ogni app salva nomi di classe diversi nei campi `*_type`.
-3. Togliere le tabelle core dalle migration delle singole app e puntare i modelli locali al pacchetto.
-4. Riscrivere le 34 viste di proforma: usano `pratiches_statos`, `stato_pratica` e gli ID UUID.
-5. Se le app usano lo stesso database: dare a ciascuna nomi propri per le tabelle di framework (sessioni, cache, code, `migrations`). Non usare mai `migrate:fresh` o `db:wipe`, che svuotano l'intero database.
+1. Convertire i valori già salvati nei campi `*_type` (nome di classe → alias) quando si importano dati dalle app; i database attuali sono di sviluppo.
+2. Togliere le tabelle core dalle migration delle singole app e puntare i modelli locali al pacchetto.
+3. Riscrivere le 34 viste di proforma: usano `pratiches_statos`, `stato_pratica` e gli ID UUID.
+4. Se le app usano lo stesso database: dare a ciascuna nomi propri per le tabelle di framework (sessioni, cache, code, `migrations`). Non usare mai `migrate:fresh` o `db:wipe`, che svuotano l'intero database.

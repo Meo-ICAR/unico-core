@@ -194,7 +194,7 @@ class Document extends Model implements HasMedia
 
     protected function userModel(): string
     {
-        return config('unico-core.user_model') ?? config('auth.providers.users.model');
+        return config('unico-core.user_model') ?? User::class;
     }
 
     // --- Accessor ---

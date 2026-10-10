@@ -48,12 +48,26 @@ return [
     | Modello utente
     |--------------------------------------------------------------------------
     |
-    | Classe usata per le relazioni "utente" dei documenti. Se nullo si usa
-    | il modello del provider `users` in config/auth.php.
+    | Classe usata dai documenti per le relazioni "utente". Se nullo si usa
+    | Unico\Core\Models\User; un'app con un proprio modello User sulla stessa
+    | tabella può indicarlo qui.
     |
     */
 
     'user_model' => null,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Alias dei modelli polimorfici
+    |--------------------------------------------------------------------------
+    |
+    | Il pacchetto registra gli alias di Unico\Core\MorphMap. Con `true` Laravel
+    | rifiuta di salvare una relazione polimorfica il cui modello non ha un alias,
+    | invece di scrivere il nome della classe nel database.
+    |
+    */
+
+    'enforce_morph_map' => env('UNICO_CORE_ENFORCE_MORPH_MAP', false),
 
     /*
     |--------------------------------------------------------------------------
