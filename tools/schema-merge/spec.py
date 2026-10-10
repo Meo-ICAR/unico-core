@@ -290,6 +290,7 @@ STRING_MORPH_IDS = {
     ("training_records", "trainable"),
     ("complaint_registry", "complainant"),
     ("complaint_registry", "subject"),
+    ("websites", "websiteable"),
 }
 
 
@@ -305,4 +306,7 @@ EXTERNAL_REFS = {
     ("complaint_registry", "agent_id"),
     ("complaint_registry", "bank_id"),
     ("suspicious_activity_reports", "client_id"),
+    ("pratica_clients", "pratica_id"),
+    ("pratica_status_history", "pratica_id"),
+    ("websites", "clienti_id"),
 }

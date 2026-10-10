@@ -81,7 +81,7 @@ return new class extends Migration
 
         Schema::create('pratica_clients', function (Blueprint $table) {
             $table->id()->comment('ID univoco del legame');
-            $table->foreignId('pratica_id')->comment('pratiches.id');
+            $table->string('pratica_id', 36)->comment('pratiches.id');
             $table->foreignId('client_id')->comment('clients.id');
             $table->string('role', 20)->comment('richiedente | coobbligato | garante');
             $table->string('name')->nullable()->comment('Descrizione');
@@ -96,7 +96,7 @@ return new class extends Migration
 
         Schema::create('pratica_status_history', function (Blueprint $table) {
             $table->id()->comment('ID intero autoincrementante');
-            $table->foreignId('pratica_id')->comment('ID della pratica (riferito a pratiches.id)');
+            $table->string('pratica_id', 36)->comment('ID della pratica (riferito a pratiches.id)');
             $table->string('status_from', 191)->nullable()->comment('Stato precedente (NULL se è il primo inserimento)');
             $table->string('status_to', 191)->comment('Nuovo stato impostato');
             $table->dateTime('changed_at')->comment('Data e ora esatta del cambio di stato');

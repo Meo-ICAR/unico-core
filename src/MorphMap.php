@@ -44,6 +44,7 @@ final class MorphMap
             'training_record' => Models\TrainingRecord::class,
             'tipoprodotto' => Models\TipoProdotto::class,
             'tipoprodotto_sub' => Models\TipoProdottoSub::class,
+            'website' => Models\Website::class,
         ];
     }
 }

@@ -7,7 +7,7 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 
 ## Contenuto
 
-- `database/migrations/`: 66 tabelle core in 7 aree e 120 chiavi esterne, aggiunte in una migration finale
+- `database/migrations/`: 67 tabelle core in 7 aree e 120 chiavi esterne, aggiunte in una migration finale
 - `docs/documents-design.md`: schema di documenti e tipi documento e, funzione per funzione, quale implementazione portare da ciascuna app
 - `docs/porting-email-drive.md`: piano per portare nel pacchetto la lettura email e la gestione di Google Drive da unicogdpr
 - `docs/schema-map.md`: per ogni tabella, da quali app arriva ogni colonna e quali conversioni sono state fatte
@@ -15,7 +15,7 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 
 ## Modelli
 
-- Un modello Eloquent per ognuna delle 66 tabelle, tutti sulla connessione `core` (trait `UsesCoreConnection`). `Document`, `DocumentType`, `DocumentReminder`, `Company`, `User` e `Media` sono scritti a mano; gli altri sono generati dallo schema reale con `tools/models/gen_models.py` (colonne JSON, booleani, date, cast `encrypted` per password e token, relazioni dalle chiavi esterne).
+- Un modello Eloquent per ognuna delle 67 tabelle, tutti sulla connessione `core` (trait `UsesCoreConnection`). `Document`, `DocumentType`, `DocumentReminder`, `Company`, `User` e `Media` sono scritti a mano; gli altri sono generati dallo schema reale con `tools/models/gen_models.py` (colonne JSON, booleani, date, cast `encrypted` per password e token, relazioni dalle chiavi esterne).
 - `Unico\Core\MorphMap`: alias stabili (`company`, `employee`, `cliente`, `fornitore`, `pratica`, ...) per i campi `*_type`, registrati dal provider. Con `UNICO_CORE_ENFORCE_MORPH_MAP=true` Laravel rifiuta i modelli senza alias. Le app aggiungono i propri alias con `Relation::morphMap()`.
 - `Media` va indicato in `config/media-library.php` come `media_model`.
 - `Unico\Core\Enums\DocumentStatus`: unico elenco ammesso per `documents.status`, con cast sul modello.
@@ -130,7 +130,7 @@ Non vengono caricate da `php artisan migrate`, quindi nessuna app le esegue per 
 ## Decisioni di schema
 
 - **ID interi ovunque.** Tutte le chiavi primarie sono `bigint unsigned auto_increment`. I campi che erano UUID (`char(36)`) e le relazioni polimorfiche sono convertiti in `bigint`.
-  **Eccezione:** `documents.documentable_id`, `document_schedules.documentable_id`, `audits.auditable_id`, `document_requests.requestable_id`, `branches.branchable_id`, `suspicious_activity_reports.reportable_id`, `training_records.trainable_id` e `complaint_registry.complainant_id`/`subject_id` sono `varchar(36)`, perché un'app può collegarli a soggetti letti da un database esterno (Proforma: clienti e fornitori con UUID, pratiche con codice testuale). L'elenco è in `STRING_MORPH_IDS` di `tools/schema-merge/spec.py`; altre colonne, che puntano a clienti e fornitori letti da Proforma (`complaint_registry.agent_id`/`bank_id`, `clienti_oam.clienti_id`, `provvigioni_rules.clienti_id`/`fornitori_id`, `tipoprodotto_sub_constraints.clienti_id`, `blacklist_clienti_fornitori.*`, `suspicious_activity_reports.client_id`), sono `varchar(36)` **senza chiave esterna** (`EXTERNAL_REFS`): perdono l'integrità referenziale finché quei record non passano sulle tabelle del pacchetto. le migration già generate sono state corrette a mano su quelle quattro colonne, perché i dump di partenza non erano più riproducibili.
+  **Eccezione:** `documents.documentable_id`, `document_schedules.documentable_id`, `audits.auditable_id`, `document_requests.requestable_id`, `branches.branchable_id`, `suspicious_activity_reports.reportable_id`, `training_records.trainable_id` e `complaint_registry.complainant_id`/`subject_id` sono `varchar(36)`, perché un'app può collegarli a soggetti letti da un database esterno (Proforma: clienti e fornitori con UUID, pratiche con codice testuale). L'elenco è in `STRING_MORPH_IDS` di `tools/schema-merge/spec.py`; altre colonne, che puntano a clienti e fornitori letti da Proforma (`complaint_registry.agent_id`/`bank_id`, `clienti_oam.clienti_id`, `provvigioni_rules.clienti_id`/`fornitori_id`, `tipoprodotto_sub_constraints.clienti_id`, `blacklist_clienti_fornitori.*`, `suspicious_activity_reports.client_id`, `pratica_clients.pratica_id`, `pratica_status_history.pratica_id`), sono `varchar(36)` **senza chiave esterna** (`EXTERNAL_REFS`): perdono l'integrità referenziale finché quei record non passano sulle tabelle del pacchetto. le migration già generate sono state corrette a mano su quelle quattro colonne, perché i dump di partenza non erano più riproducibili.
 - **Una tabella per concetto, con tutti i campi.** Per ogni tabella la prima sorgente elencata in `docs/schema-map.md` decide tipi e vincoli. Le colonne che arrivano solo dalle altre app sono aggiunte come nullable.
 - **Tabelle fuse.** `pratiches_statos` in `pratica_stati`; `client_pratiches` in `pratica_clients`; `tipo_prodottos` in `tipoprodotto`.
 - **Documenti.** `pratica_requisiti` in `document_types`; `requisito_tipo_finanziamento` e `task_document_types` in `document_requirements`; `pratica_requisiti_operativi` e `pratica_document_requests` in `document_requests`; nuova `document_analyses`. Dettagli in `docs/documents-design.md`.

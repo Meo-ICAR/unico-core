@@ -693,6 +693,15 @@ Conversioni: `company_id` da char(36) a bigint, FK → `companies`; `trainable_i
 
 FK: `company_id` → `companies`
 
+### `websites`
+Sorgenti: `loan.websites`, `oam.websites` (stessa struttura). Migration scritta a mano: `2026_10_10_000009_create_core_websites_table.php`.
+
+| Provenienza | Colonne |
+|---|---|
+| loan+oam | id, company_id, name, type, clienti_id, is_active, domain, is_typical, privacy_date, transparency_date, privacy_prior_date, transparency_prior_date, url_privacy, url_cookies, is_footercompilant, url_transparency, is_iso27001_certified, websiteable_type, websiteable_id, created_at, updated_at, deleted_at |
+
+Conversioni: `company_id` da char(36) a bigint, FK → `companies`; `websiteable_id` varchar(36) (morph: company, fornitore, client, cliente; l'id può venire da un database esterno); `clienti_id` varchar(36) senza FK.
+
 ## Log attività e chat AI
 
 ### `activity_log`

@@ -144,12 +144,10 @@ return new class extends Migration
         });
 
         Schema::table('pratica_clients', function (Blueprint $table) {
-            $table->foreign('pratica_id')->references('id')->on('pratiches')->cascadeOnDelete();
             $table->foreign('client_id')->references('id')->on('clients')->cascadeOnDelete();
         });
 
         Schema::table('pratica_status_history', function (Blueprint $table) {
-            $table->foreign('pratica_id')->references('id')->on('pratiches')->cascadeOnDelete();
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
         });
 
@@ -410,12 +408,10 @@ return new class extends Migration
         });
 
         Schema::table('pratica_clients', function (Blueprint $table) {
-            $table->dropForeign(['pratica_id']);
             $table->dropForeign(['client_id']);
         });
 
         Schema::table('pratica_status_history', function (Blueprint $table) {
-            $table->dropForeign(['pratica_id']);
             $table->dropForeign(['user_id']);
         });
 
