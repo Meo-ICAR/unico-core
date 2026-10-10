@@ -29,22 +29,23 @@ return new class extends Migration
             $table->boolean('is_estingued')->default(false)->comment('Indica se lo stato rappresenta una pratica estinta.');
             $table->string('colore')->default('gray')->comment('Colore associato allo stato per la visualizzazione nell\'interfaccia.');
             $table->string('icona')->nullable()->comment('Icona associata allo stato per la visualizzazione nell\'interfaccia.');
-            $table->timestamps();
-            $table->softDeletes();
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
+            $table->timestamp('deleted_at')->nullable()->comment('Data di eliminazione logica dello stato (Soft Delete).');
             $table->unique(['codice'], 'pratica_stati_codice_unique');
             $table->comment('Stati del workflow di una pratica di finanziamento.');
         });
 
         Schema::create('pratica_stati_transizioni', function (Blueprint $table) {
             $table->id()->comment('ID univoco della transizione');
-            $table->foreignId('stato_da_id');
-            $table->foreignId('stato_a_id');
+            $table->foreignId('stato_da_id')->comment('Stato di partenza della transizione');
+            $table->foreignId('stato_a_id')->comment('Stato di arrivo della transizione');
             $table->unique(['stato_da_id', 'stato_a_id'], 'unique_stato_transizione');
             $table->comment('Transizioni di stato ammesse tra gli stati del workflow di una pratica.');
         });
 
         Schema::create('pratiches', function (Blueprint $table) {
-            $table->id();
+            $table->id()->comment('ID univoco pratica');
             $table->string('codice_pratica')->nullable()->comment('Codice identificativo della pratica');
             $table->string('nome_cliente', 191)->nullable()->comment('Nome del cliente');
             $table->string('cognome_cliente', 191)->nullable()->comment('Cognome del cliente');
@@ -72,7 +73,8 @@ return new class extends Migration
             $table->foreignId('tipoprodotto_id')->nullable()->comment('Categoria finanziaria');
             $table->foreignId('fornitori_id')->nullable()->comment('Agente/collaboratore');
             $table->foreignId('clienti_id')->nullable()->comment('Banca/istituto erogante');
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultimo aggiornamento del record');
             $table->index(['cognome_cliente'], 'idx_cliente_cf');
             $table->comment('Registro delle pratiche di finanziamento/mutuo caricate');
         });
@@ -85,14 +87,15 @@ return new class extends Migration
             $table->string('name')->nullable()->comment('Descrizione');
             $table->text('notes')->nullable()->comment('Note specifiche sul ruolo');
             $table->text('purpose_of_relationship')->nullable()->comment('Es: Acquisto prima casa');
-            $table->text('funds_origin')->nullable();
-            $table->timestamps();
+            $table->text('funds_origin')->nullable()->comment('Origine dei fondi dichiarata dal cliente (antiriciclaggio)');
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
             $table->unique(['pratica_id', 'client_id', 'role'], 'pratica_clients_pratica_id_client_id_role_unique');
             $table->comment('Richiedente, coobbligati e garanti di una pratica');
         });
 
         Schema::create('pratica_status_history', function (Blueprint $table) {
-            $table->id();
+            $table->id()->comment('ID intero autoincrementante');
             $table->foreignId('pratica_id')->comment('ID della pratica (riferito a pratiches.id)');
             $table->string('status_from', 191)->nullable()->comment('Stato precedente (NULL se è il primo inserimento)');
             $table->string('status_to', 191)->comment('Nuovo stato impostato');
@@ -100,18 +103,19 @@ return new class extends Migration
             $table->string('source', 50)->default('manual')->comment('Origine del cambio: manual, api_banca, import_excel');
             $table->text('notes')->nullable()->comment('Note o messaggi di errore restituiti dal portale bancario');
             $table->foreignId('user_id')->nullable()->comment('mysql.users.id: chi ha cambiato lo stato o inserito l\'annotazione');
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
             $table->comment('Storico dei cambi di stato delle pratiche per la pipeline di avanzamento.');
         });
 
         Schema::create('oam_pratiches', function (Blueprint $table) {
-            $table->id();
+            $table->id()->comment('ID intero autoincrementante');
             $table->foreignId('company_id')->nullable()->comment('ID Azienda (Tenant)');
             $table->char('period', 8)->nullable()->comment('Anno e mese di riferimento del report');
             $table->string('riga')->nullable()->comment('riga');
             $table->string('prodotto_creditizio')->nullable()->comment('PRODOTTO/O CREDITIZIO OGGETTO DELLA CONVENZIONE');
-            $table->string('abi_name')->nullable();
-            $table->string('submission_type')->nullable();
+            $table->string('abi_name')->nullable()->comment('Nome della banca (codice ABI)');
+            $table->string('submission_type')->nullable()->comment('Tipo di invio previsto dalla segnalazione OAM');
             $table->integer('intermediari_convenzionati')->default(0)->comment('N° intermediari convenzionati');
             $table->integer('intermediari_non_convenzionati')->default(0)->comment('N° intermediari NON convenzionati');
             $table->integer('pratiche_intermediate')->default(0)->comment('N° Pratiche intermediate per prodotto/servizio');
@@ -141,21 +145,22 @@ return new class extends Migration
             $table->dateTime('erogated_at')->nullable()->comment('Data erogazione');
             $table->dateTime('rejected_at')->nullable()->comment('Data respinto');
             $table->dateTime('storned_at')->nullable()->comment('Data storno');
-            $table->timestamps();
-            $table->softDeletes();
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
+            $table->timestamp('deleted_at')->nullable()->comment('Data e ora di eliminazione logica (soft delete); nullo = record attivo');
             $table->index(['period'], 'oam_pratiches_period_index');
             $table->comment('Dati aggregati per il report OAM: Profilo Economico/Operativo Base');
         });
 
         Schema::create('oam_semestrales', function (Blueprint $table) {
-            $table->id();
+            $table->id()->comment('ID intero autoincrementante');
             $table->foreignId('company_id')->nullable()->comment('ID Azienda (Tenant)');
             $table->char('period', 8)->nullable()->comment('Anno e mese di riferimento del report');
             $table->string('numero_iscrizione_m510')->nullable()->comment('Numero iscrizione (M510)');
             $table->string('prodotto_creditizio')->nullable()->comment('PRODOTTO/O CREDITIZIO OGGETTO DELLA CONVENZIONE');
-            $table->string('abi_name')->nullable();
-            $table->string('submission_type')->nullable();
-            $table->string('gestione')->nullable();
+            $table->string('abi_name')->nullable()->comment('Nome della banca (codice ABI)');
+            $table->string('submission_type')->nullable()->comment('Tipo di invio previsto dalla segnalazione OAM');
+            $table->string('gestione')->nullable()->comment('Tipo di gestione della segnalazione semestrale');
             $table->integer('intermediari_convenzionati')->default(0)->comment('N° intermediari convenzionati');
             $table->integer('intermediari_non_convenzionati')->default(0)->comment('N° intermediari NON convenzionati');
             $table->integer('pratiche_intermediate')->default(0)->comment('N° Pratiche intermediate per prodotto/servizio');
@@ -175,7 +180,8 @@ return new class extends Migration
             $table->integer('num_rivalse')->default(0)->comment('N° RIVALSE AI SENSI DELL ART. 125 - SEXIES, DEL TUB');
             $table->decimal('importo_retrocesse', 15, 2)->default(0.00)->comment('AMMONTARE DELLE PROVVIGIONI RETROCESSE AL FINANZIATORE');
             $table->boolean('is_convenzione')->default(true)->comment('Convenzione SI/NO');
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
             $table->index(['period'], 'oam_semestrales_period_index');
             $table->comment('Dati aggregati per il report OAM: Profilo Economico/Operativo Base');
         });

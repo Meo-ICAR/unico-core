@@ -11,7 +11,7 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 - `docs/documents-design.md`: schema di documenti e tipi documento e, funzione per funzione, quale implementazione portare da ciascuna app
 - `docs/porting-email-drive.md`: piano per portare nel pacchetto la lettura email e la gestione di Google Drive da unicogdpr
 - `docs/schema-map.md`: per ogni tabella, da quali app arriva ogni colonna e quali conversioni sono state fatte
-- `tools/schema-merge/`: script che rigenerano le migration dai dump e dalle regole in `spec.py`
+- `tools/schema-merge/`: script che rigenerano le migration dai dump e dalle regole in `spec.py`; i commenti di tabelle e colonne sono in `comments.py` (la generazione si ferma se ne manca uno)
 
 ## Modelli
 

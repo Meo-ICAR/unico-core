@@ -7,7 +7,10 @@ from collections import OrderedDict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from comments import GENERIC, SPECIFIC, TABLES  # noqa: E402
 from spec import AREAS, GLOBAL_FK, MERGED_AWAY, T, WEAK_REFS  # noqa: E402
+
+MISSING = []
 
 S = json.load(open(Path(__file__).parent / "schema2.json"))
 OUT = Path(sys.argv[1])
@@ -116,6 +119,23 @@ def default_clause(c, nodefault):
     return f"->default({php(raw)})"
 
 
+def find_comment(table, col, existing, ref=None):
+    """Commento di una colonna: sorgente, poi SPECIFIC, GENERIC, infine dedotto dal nome."""
+    c = existing or SPECIFIC.get(f"{table}.{col}") or GENERIC.get(col)
+    if not c and col.endswith("_type"):
+        c = "Alias del modello collegato (morph map)"
+    if not c and col.endswith("_id"):
+        c = f"Riferimento a {ref}" if ref else "ID del record collegato"
+    if not c:
+        MISSING.append(f"{table}.{col}")
+    return c
+
+
+def cm_of(table, col, existing, ref=None):
+    c = find_comment(table, col, existing, ref)
+    return f"->comment({php(c)})" if c else ""
+
+
 def build(name, spec):
     cols, uniques, indexes, src_fks, tcomment = merge(name, spec)
     names = list(cols)
@@ -132,27 +152,33 @@ def build(name, spec):
         if n in done:
             continue
         c = cols[n]
-        cm = f"->comment({php(c['comment'])})" if c.get("comment") else ""
+        cm = cm_of(name, n, c.get("comment"))
         if n in morph_cols:
             p = n[:-5] if n.endswith("_type") else n[:-3]
             if p in morphs and p + "_type" not in done:
-                lines.append(f"$table->{'nullableMorphs' if morphs[p] else 'morphs'}({php(p)});")
+                nl = "->nullable()" if morphs[p] else ""
+                lines.append(f"$table->string({php(p + '_type')}){nl}"
+                             f"{cm_of(name, p + '_type', cols[p + '_type'].get('comment'))};")
+                lines.append(f"$table->unsignedBigInteger({php(p + '_id')}){nl}"
+                             f"{cm_of(name, p + '_id', cols[p + '_id'].get('comment'))};")
+                lines.append(f"$table->index([{php(p + '_type')}, {php(p + '_id')}]);")
                 done |= {p + "_type", p + "_id"}
                 if cols[p + "_id"]["base"] in ("char", "varchar"):
                     notes.append(f"`{p}_id` da {cols[p + '_id']['base']} a bigint (morph)")
             continue
         if n == "id":
-            lines.append(f"$table->id(){cm if c['base'] == 'bigint' else ''};")
+            lines.append(f"$table->id(){cm};")
             if c["base"] != "bigint":
                 notes.append(f"`id` da {c['base']}({c['args']}) a bigint auto-increment")
             done.add(n)
             continue
         if n in ("created_at", "updated_at") and {"created_at", "updated_at"} <= set(cols):
-            tail.append("$table->timestamps();")
+            tail.append(f"$table->timestamp('created_at')->nullable(){cm_of(name, 'created_at', cols['created_at'].get('comment'))};")
+            tail.append(f"$table->timestamp('updated_at')->nullable(){cm_of(name, 'updated_at', cols['updated_at'].get('comment'))};")
             done |= {"created_at", "updated_at"}
             continue
         if n == "deleted_at":
-            tail.append("$table->softDeletes();")
+            tail.append(f"$table->timestamp('deleted_at')->nullable(){cm};")
             done.add(n)
             continue
         ref = None
@@ -161,6 +187,7 @@ def build(name, spec):
             if not ref and n in src_fks and src_fks[n][0] in T:
                 ref = src_fks[n][0]
         if ref and ref in T:
+            cm = cm_of(name, n, c.get("comment"), ref)
             ondel = (src_fks.get(n, (None, None))[1] or "").upper()
             mode = {"CASCADE": "cascade", "SET NULL": "null", "RESTRICT": "restrict"}.get(
                 ondel, "null" if c["nullable"] else "cascade")
@@ -200,6 +227,9 @@ def build(name, spec):
         seen.add(tuple(kc))
         nm = f", {php(kname)}" if kname and len(kname) <= 64 else ""
         lines.append(f"$table->index([{', '.join(php(x) for x in kc)}]{nm});")
+    tcomment = tcomment or TABLES.get(name)
+    if not tcomment:
+        MISSING.append(f"{name} (tabella)")
     if tcomment:
         lines.append(f"$table->comment({php(tcomment)});")
     return lines, fks, notes, cols
@@ -288,4 +318,7 @@ md += [f"- `{s}` → `{d}`\n" for s, d in MERGED_AWAY.items()]
 (OUT / "docs").mkdir(exist_ok=True)
 (OUT / "docs" / "schema-map.md").write_text("".join(md))
 
+if MISSING:
+    print("SENZA COMMENTO:", *MISSING, sep="\n  ")
+    sys.exit(1)
 print("tabelle:", len(T), "fk:", sum(len(v) for v in all_fks.values()))

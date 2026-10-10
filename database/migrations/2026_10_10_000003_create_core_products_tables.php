@@ -20,35 +20,39 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tipoprodotto', function (Blueprint $table) {
-            $table->id();
+            $table->id()->comment('ID intero autoincrementante');
             $table->string('name', 50)->nullable()->comment('Tipologia di prodotto finanziario');
-            $table->string('tipo_prodotto', 50)->nullable();
-            $table->string('code', 20)->nullable();
-            $table->boolean('is_external')->nullable()->default(false);
-            $table->boolean('is_active')->nullable();
-            $table->boolean('is_oneclient')->nullable()->default(true);
-            $table->string('oam', 20)->nullable();
-            $table->enum('tipo_provvigioni', ['Lordo', 'Erogato', 'Netto'])->nullable();
+            $table->string('tipo_prodotto', 50)->nullable()->comment('Nome del tipo di prodotto');
+            $table->string('code', 20)->nullable()->comment('Codice mnemonico del prodotto');
+            $table->boolean('is_external')->nullable()->default(false)->comment('Prodotto di una banca o società esterna');
+            $table->boolean('is_active')->nullable()->comment('Prodotto attivo');
+            $table->boolean('is_oneclient')->nullable()->default(true)->comment('Il prodotto prevede un solo cliente per pratica');
+            $table->string('oam', 20)->nullable()->comment('Codice della categoria di prodotto nelle segnalazioni OAM');
+            $table->enum('tipo_provvigioni', ['Lordo', 'Erogato', 'Netto'])->nullable()->comment('Base di calcolo delle provvigioni: lordo, erogato o netto');
             $table->boolean('for_person')->default(true)->comment('Prodotto per persona fisica');
             $table->boolean('for_company')->default(true)->comment('Prodotto per persona giuridica');
             $table->boolean('requires_mandate')->default(true)->comment('Serve il mandato (non per es. utenze)');
             $table->boolean('is_third_party')->default(false)->comment('Finanziamento / impegno di terzi (non e\' una pratica di lavorazione)');
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
             $table->unique(['tipo_prodotto'], 'uq_tipoprodotto_tipo_prodotto');
+            $table->comment('Tipi di prodotto finanziario (mutuo, cessione del quinto, prestito, ...)');
         });
 
         Schema::create('tipoprodotto_sub', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tipoprodotto_id');
+            $table->id()->comment('ID intero autoincrementante');
+            $table->foreignId('tipoprodotto_id')->comment('Tipo di prodotto di cui è un sottotipo');
             $table->string('name', 50)->comment('Tipologia di prodotto finanziario');
-            $table->string('code', 20)->nullable();
-            $table->tinyText('vincoli')->nullable();
-            $table->boolean('is_active')->nullable()->default(true);
-            $table->timestamps();
+            $table->string('code', 20)->nullable()->comment('Codice mnemonico del sottoprodotto');
+            $table->tinyText('vincoli')->nullable()->comment('Vincoli e condizioni da rispettare');
+            $table->boolean('is_active')->nullable()->default(true)->comment('Sottoprodotto attivo');
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
+            $table->comment('Sottotipi di prodotto finanziario, con i relativi vincoli');
         });
 
         Schema::create('tipoprodotto_sub_constraints', function (Blueprint $table) {
-            $table->id();
+            $table->id()->comment('ID intero autoincrementante');
             $table->foreignId('tipoprodotto_id')->nullable()->comment('ID Prodotto (collegato a tipoprodotto). Se NULL, si applica a tutti i prodotti.');
             $table->foreignId('tipoprodotto_sub_id')->nullable()->comment('ID Sottoprodotto (collegato a tipoprodotto_sub). Se NULL, si applica a tutti i sottoprodotti del prodotto selezionato.');
             $table->foreignId('clienti_id')->nullable()->comment('UUID della Banca/Istituto erogante (collegato alla tabella clienti). Se NULL, si applica a tutte le banche/clienti.');
@@ -65,15 +69,16 @@ return new class extends Migration
             $table->json('allowed_employment_types')->nullable()->comment('Tipi di impiego accettati JSON (es. ["indeterminato", "pensionato"]).');
             $table->json('additional_rules_json')->nullable()->comment('Ulteriori vincoli dinamici in formato chiave-valore. Es: {"requires_co_signer": true, "blocked_ateco_codes": ["96.09"]}');
             $table->text('additional_notes')->nullable()->comment('Eventuali note descrittive testuali dei vincoli per l\'operatore.');
-            $table->tinyInteger('is_active')->nullable()->default(1);
-            $table->timestamps();
-            $table->softDeletes();
+            $table->tinyInteger('is_active')->nullable()->default(1)->comment('Vincolo attivo');
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
+            $table->timestamp('deleted_at')->nullable()->comment('Data di eliminazione logica del vincolo (Soft Delete).');
             $table->index(['tipoprodotto_id', 'tipoprodotto_sub_id', 'clienti_id'], 'idx_commission_hierarchy');
             $table->comment('Matrice delle regole provvigionali. Gestisce la gerarchia a cascata (Prodotto -> Sottoprodotto -> Cliente UUID) con eliminazione logica.');
         });
 
         Schema::create('provvigioni_rules', function (Blueprint $table) {
-            $table->id();
+            $table->id()->comment('ID intero autoincrementante');
             $table->foreignId('tipoprodotto_id')->nullable()->comment('Prodotto a cui si applica il vincolo. Se NULL, si applica a tutti i prodotti della banca (DB Esterno).');
             $table->foreignId('tipoprodotto_sub_id')->nullable()->comment('Sottoprodotto specifico (es. CQS Pensionati). Se NULL, si applica a tutto il macro-prodotto.');
             $table->foreignId('clienti_id')->nullable()->comment('L\'istituto di credito che impone il vincolo (DB Esterno).');
@@ -86,7 +91,8 @@ return new class extends Migration
             $table->date('valid_from')->nullable()->comment('Inizio validità temporale di questa specifica tariffa.');
             $table->date('valid_to')->nullable()->comment('Fine validità temporale di questa specifica tariffa.');
             $table->text('notes')->nullable()->comment('Note interne o chiarimenti sulla specifica regola provvigionale.');
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
             $table->index(['valid_from', 'valid_to'], 'idx_commission_validity');
             $table->comment('Matrice delle regole provvigionali. Gestisce la gerarchia a cascata (Prodotto -> Sottoprodotto -> Banca).');
         });
