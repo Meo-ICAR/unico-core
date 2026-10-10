@@ -1,0 +1,42 @@
+# unico-core
+
+Pacchetto Composer `meo-icar/unico-core` (namespace `Unico\Core`): moduli condivisi dalle app Unico di un mediatore creditizio
+(unicoagent, unicoloan, proforma, unicooam, unicobpm, unicogdpr). Stack: PHP 8.3, MySQL, Laravel 13, Filament 5, Spatie Media Library.
+Le app restano separate e possono avere viste diverse sulle stesse tabelle. Tutti gli ID sono bigint interi. I database sono tutti di sviluppo.
+Leggere prima `README.md` e `docs/` (schema-map, documents-design, porting-email-drive): contengono le decisioni già prese.
+
+## Regole che non vanno rotte
+- Una tabella per concetto, con tutti i campi uniti. Ogni tabella e ogni colonna ha un `comment` (lo verifica `SchemaCommentsTest`).
+- Le migration sono **generate**: non modificarle a mano. Si cambia `tools/schema-merge/spec.py` (regole) o `comments.py` (commenti) e si rigenera
+  con `python3 tools/schema-merge/gen.py <cartella>`, poi si copia il risultato in `database/migrations`. Modelli generati: `tools/models/gen_models.py`
+  (a mano restano quelli in `HANDWRITTEN`).
+- Le migration girano sulla connessione `core` (`UNICO_CORE_DB_CONNECTION`), tabella `migrations_core`, comando `unico-core:migrate`.
+- Relazioni polimorfiche: si salva sempre l'alias stabile di `Unico\Core\MorphMap` (`employee`, `company`...), mai il nome della classe.
+- I file dei documenti stanno in Spatie Media Library (disco privato `documents`, collection `documents` e `signed`). Drive e SharePoint sono copie di
+  sincronizzazione (stesse colonne `document_url`, `app_id`, `app_drive_id`, `app_etag`, `source_app`, `sync_status`), mai la sorgente.
+- Stati documento: solo `DocumentStatus` (valori italiani). Sync: `SyncStatus`. Niente altre stringhe.
+- Multi-tenant: `company_id` su `users` e sulle tabelle principali; un'app diventa multicompany filtrando per company o per holding.
+- Niente dati personali nei log (solo id e nome della classe dell'eccezione).
+
+## Test
+`composer install`, un database MySQL vuoto, poi `vendor/bin/phpunit`. Variabili: `CORE_TEST_DB_HOST/PORT/DATABASE/USERNAME/PASSWORD`
+(default `127.0.0.1:3306`, `unico_core_test`, `unico`/`unico`). I test sono scritti senza un'app Laravel completa (`tests/Support/CoreDatabase.php`);
+rete e servizi esterni sono sostituiti da finti (`FakeImap`, `FakeDrive`, `FakeGraph`, `FakeReader`, `FakeMailManager`, `FakeFiles`).
+**I test sono stati eseguiti finora solo con un runner locale e librerie simulate (Spatie, Webklex, Socialite, Google, Filament): la prima esecuzione
+con le librerie vere può rivelare piccoli errori di integrazione. Sono da correggere, non da aggirare.**
+
+## Fatto
+Schema (66 tabelle) e modelli; Document/DocumentType; email (IMAP, OAuth, classificazione, rimbalzi); Google Drive; SharePoint;
+pipeline di analisi documenti (`Documents\DocumentPipeline`); scadenziario e solleciti (`Documents\Reminders`).
+
+## Da fare (in ordine)
+1. Prima esecuzione di `vendor/bin/phpunit` con le librerie vere e correzioni.
+2. `SenderIdentifier` (riconoscere il mittente di una email), firma elettronica (Yousign: `SignatureRequestService` e provider), moduli PDF (AcroForm),
+   `DocumentGenerator`, `DocumentPathGenerator` generico (da unicogdpr).
+3. Collegare le app una alla volta, partendo da unicooam: sostituire i modelli locali con quelli del pacchetto, convertire i valori `*_type` agli alias,
+   riscrivere le 34 viste di proforma, allineare proforma a Laravel 13 e Filament 5.
+4. Correzioni nelle app: documenti su disco pubblico, `db_password` in chiaro, enum di stato.
+5. unicoagent resta separata e parla via API (`documents.channel = 'whatsapp'`).
+
+## Commit
+I messaggi finiscono con le righe di attribuzione richieste dall'ambiente in uso.
