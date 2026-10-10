@@ -178,4 +178,51 @@ class SharePointTest extends TestCase
             $this->assertStringStartsWith('heroicon-', $status->getIcon());
         }
     }
+
+    public function test_sync_uploads_the_signed_file_and_runs_again_after_a_signature(): void
+    {
+        $original = tempnam(sys_get_temp_dir(), 'o');
+        $signed = tempnam(sys_get_temp_dir(), 's');
+        file_put_contents($original, 'originale');
+        file_put_contents($signed, 'firmato');
+        $media = function (string $name, string $path) {
+            $media = new class extends \Spatie\MediaLibrary\MediaCollections\Models\Media
+            {
+                public string $path = '';
+
+                public function getPath(string $conversionName = ''): string
+                {
+                    return $this->path;
+                }
+            };
+            $media->file_name = $name;
+            $media->path = $path;
+
+            return $media;
+        };
+
+        $document = new class extends Document
+        {
+            public ?\Spatie\MediaLibrary\MediaCollections\Models\Media $current = null;
+
+            public function currentMedia(): ?\Spatie\MediaLibrary\MediaCollections\Models\Media
+            {
+                return $this->current;
+            }
+        };
+        $document->fill(['documentable_type' => 'company', 'documentable_id' => 99, 'name' => 'Doc'])->save();
+        $sync = new DocumentSharePointSync($this->uploader);
+
+        $document->current = $media('qav.pdf', $original);
+        $this->assertTrue($sync->sync($document));
+        $this->assertFalse($sync->sync($document), 'già sincronizzato');
+
+        $document->current = $media('qav-firmato.pdf', $signed);
+        $document->sync_status = 'local';
+        $this->assertTrue($sync->sync($document));
+        $this->assertStringContainsString('qav-firmato.pdf', end($this->graph->calls)['url'] ?? json_encode(end($this->graph->calls)));
+
+        @unlink($original);
+        @unlink($signed);
+    }
 }

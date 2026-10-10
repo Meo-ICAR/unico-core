@@ -17,7 +17,7 @@ class QueueSharePointUpload
     {
         $document = $event->media->model;
 
-        if (! $document instanceof Document || $event->media->collection_name !== Document::COLLECTION || ! $this->uploader->isConfigured()) {
+        if (! $document instanceof Document || ! in_array($event->media->collection_name, [Document::COLLECTION, Document::COLLECTION_SIGNED], true) || ! $this->uploader->isConfigured()) {
             return;
         }
 

@@ -14,10 +14,10 @@ class DocumentSharePointSync
 {
     public function __construct(private SharePointUploader $uploader) {}
 
-    /** Carica il file della collection `documents`. Non fa nulla se manca la configurazione, il file o se è già sincronizzato. */
+    /** Carica il file del documento (il firmato, se c'è). Non fa nulla se manca la configurazione, il file o se è già sincronizzato. */
     public function sync(Document $document): bool
     {
-        $media = $document->getFirstMedia(Document::COLLECTION);
+        $media = $document->currentMedia();
 
         if ($media === null || ! $this->uploader->isConfigured()) {
             return false;

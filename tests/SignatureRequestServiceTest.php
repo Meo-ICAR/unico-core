@@ -274,4 +274,28 @@ class SignatureRequestServiceTest extends TestCase
         $this->assertSame(SignatureRequestStatus::Sent, $found->refresh()->status);
         $this->assertNull($service->applyWebhook('fake', new SignatureEvent('altro', 'signer.done', 'evt2')));
     }
+
+    public function test_completed_signature_puts_a_synced_document_back_to_upload(): void
+    {
+        $provider = new FakeSignatureProvider;
+        $request = $this->sentRequest($service, $provider);
+        Document::whereKey($request->document_id)->update(['sync_status' => 'synced', 'app_id' => 'cloud-1']);
+        $provider->completeAll($request->provider_ref);
+
+        $service->reconcile($request);
+
+        $this->assertSame('local', Document::find($request->document_id)->sync_status);
+    }
+
+    public function test_completed_signature_leaves_failed_or_unsynced_documents_as_they_are(): void
+    {
+        $provider = new FakeSignatureProvider;
+        $request = $this->sentRequest($service, $provider);
+        Document::whereKey($request->document_id)->update(['sync_status' => 'failed']);
+        $provider->completeAll($request->provider_ref);
+
+        $service->reconcile($request);
+
+        $this->assertSame('failed', Document::find($request->document_id)->sync_status);
+    }
 }

@@ -21,7 +21,7 @@ class SharePointRetryCommand extends Command
 
         Document::query()
             ->whereIn('sync_status', $statuses)
-            ->whereHas('media', fn ($q) => $q->where('collection_name', Document::COLLECTION))
+            ->whereHas('media', fn ($q) => $q->whereIn('collection_name', [Document::COLLECTION, Document::COLLECTION_SIGNED]))
             ->each(function (Document $document) use (&$count): void {
                 UploadDocumentToSharePoint::dispatch($document);
                 $count++;

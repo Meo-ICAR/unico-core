@@ -4,6 +4,7 @@ namespace Unico\Core\Signature;
 
 use Unico\Core\Enums\SignatureRequestStatus;
 use Unico\Core\Enums\SignerStatus;
+use Unico\Core\Enums\SyncStatus;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\SignatureRequest;
 use Unico\Core\Events\SignatureCancelled;
@@ -353,7 +354,12 @@ class SignatureRequestService
 
         $this->storeSigned($document, $pdf, (Str::slug((string) $document->name) ?: 'documento').'-firmato.pdf');
 
-        $document->forceFill(['is_signed' => true, 'signed_at' => $signedAt])->save();
+        $document->forceFill(['is_signed' => true, 'signed_at' => $signedAt]);
+        // Il firmato sostituisce l'originale anche sul cloud: un documento già sincronizzato torna da caricare.
+        if ($document->sync_status === SyncStatus::SYNCED->value) {
+            $document->sync_status = SyncStatus::LOCAL->value;
+        }
+        $document->save();
         $request->forceFill(['status' => SignatureRequestStatus::Signed, 'signed_at' => $signedAt, 'failure_reason' => null])->save();
 
         event(new SignatureCompleted($request, $document));

@@ -66,9 +66,9 @@ class DocumentDriveSync
         return $result;
     }
 
-    /** File locale del documento; punto di sostituzione per i test. */
+    /** File locale del documento (il firmato, se c'è); punto di sostituzione per i test. */
     protected function mediaFor(Document $document): ?object
     {
-        return $document->getFirstMedia(Document::COLLECTION);
+        return $document->currentMedia();
     }
 }
