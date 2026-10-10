@@ -86,7 +86,7 @@ return new class extends Migration
             $table->id()->comment('UUID v4 del documento');
             $table->foreignId('company_id')->nullable()->comment('ID Tenant proprietario');
             $table->string('documentable_type')->comment('Alias del modello a cui è collegato il documento (morph map)');
-            $table->unsignedBigInteger('documentable_id')->comment('ID del record a cui è collegato il documento');
+            $table->string('documentable_id', 36)->comment('ID del record a cui è collegato il documento');
             $table->index(['documentable_type', 'documentable_id']);
             $table->foreignId('document_type_id')->nullable()->comment('Tipo di documento di riferimento');
             $table->string('name')->nullable()->comment('Titolo logico o nome file del documento');
@@ -160,7 +160,7 @@ return new class extends Migration
         Schema::create('document_requests', function (Blueprint $table) {
             $table->id()->comment('ID univoco dell\'istanza del requisito sulla pratica');
             $table->string('requestable_type')->comment('Record per cui si chiede il documento (pratica, cliente, dipendente...)');
-            $table->unsignedBigInteger('requestable_id')->comment('Collegamento alla pratica');
+            $table->string('requestable_id', 36)->comment('Collegamento alla pratica');
             $table->index(['requestable_type', 'requestable_id']);
             $table->string('name', 150)->nullable()->comment('Nome/Tipo di documento richiesto (es. Cedolino, Certificato di servizio)');
             $table->text('description')->nullable()->comment('Istruzioni dettagliate o motivo della richiesta della banca');
@@ -305,7 +305,7 @@ return new class extends Migration
             $table->id()->comment('ID intero autoincrementante');
             $table->foreignId('document_id')->comment('Documento di riferimento');
             $table->string('documentable_type')->comment('Alias del modello proprietario del documento in scadenza');
-            $table->unsignedBigInteger('documentable_id')->comment('ID del proprietario del documento in scadenza');
+            $table->string('documentable_id', 36)->comment('ID del proprietario del documento in scadenza');
             $table->index(['documentable_type', 'documentable_id']);
             $table->string('entity_name')->comment('Nome del proprietario del documento, copiato per le liste');
             $table->string('documentable_group_key')->comment('Chiave che raggruppa le scadenze dello stesso proprietario');

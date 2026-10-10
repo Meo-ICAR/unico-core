@@ -56,7 +56,7 @@ return new class extends Migration
             $table->foreignId('quality_review_id')->nullable()->comment('Revisione di qualità di cui fa parte l\'audit');
             $table->text('name')->nullable()->comment('Nome audit');
             $table->string('auditable_type')->comment('Alias del modello controllato (morph map)');
-            $table->unsignedBigInteger('auditable_id')->comment('ID del soggetto controllato');
+            $table->string('auditable_id', 36)->comment('ID del soggetto controllato');
             $table->index(['auditable_type', 'auditable_id']);
             $table->string('auditor_name')->nullable()->comment('Nome dell\'ispettore o dell\'auditor esterno/interno');
             $table->foreignId('organization_id')->nullable()->comment('Organizzazione che esegue o riceve l\'audit');

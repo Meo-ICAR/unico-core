@@ -276,3 +276,13 @@ GLOBAL_FK = {
 # Colonne *_id che restano riferimenti deboli (tabelle fuori dal core o significato non univoco)
 WEAK_REFS = {"audit_checklist_item_id", "external_processor_id", "data_subject_request_id",
              "coordinated_id", "coordinated_type"}
+
+
+# Colonne polimorfiche `<prefisso>_id` che possono puntare a soggetti letti da un database esterno (es. Proforma, con ID UUID
+# o codici testuali): sono varchar(36) invece di bigint. Le altre colonne polimorfiche restano intere.
+STRING_MORPH_IDS = {
+    ("documents", "documentable"),
+    ("document_schedules", "documentable"),
+    ("audits", "auditable"),
+    ("document_requests", "requestable"),
+}

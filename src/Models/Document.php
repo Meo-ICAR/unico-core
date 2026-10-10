@@ -189,13 +189,13 @@ class Document extends Model implements HasMedia
 
     public function replacedBy(): BelongsTo
     {
-        return $this->belongsTo(self::class, 'replaced_by_id');
+        return $this->belongsTo(static::class, 'replaced_by_id');
     }
 
     /** Il documento che questo ha sostituito. */
     public function replaces(): HasOne
     {
-        return $this->hasOne(self::class, 'replaced_by_id');
+        return $this->hasOne(static::class, 'replaced_by_id');
     }
 
     /** Tipo documento che dovrebbe rinnovare questo, se previsto dal catalogo. */
@@ -282,7 +282,7 @@ class Document extends Model implements HasMedia
     public function renew(DateTimeInterface|string|null $emittedAt = null): self
     {
         return $this->getConnection()->transaction(function () use ($emittedAt): self {
-            $new = self::create([
+            $new = static::create([
                 'company_id' => $this->company_id,
                 'documentable_type' => $this->documentable_type,
                 'documentable_id' => $this->documentable_id,
@@ -338,7 +338,7 @@ class Document extends Model implements HasMedia
             return $types->map(function (DocumentType $type, int $index) use ($rows, $bundleId, $attachments): self {
                 $row = $rows[$index];
 
-                $copy = self::create([
+                $copy = static::create([
                     'company_id' => $this->company_id,
                     'documentable_type' => $this->documentable_type,
                     'documentable_id' => $this->documentable_id,

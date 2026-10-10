@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from comments import GENERIC, SPECIFIC, TABLES  # noqa: E402
-from spec import AREAS, GLOBAL_FK, MERGED_AWAY, T, WEAK_REFS  # noqa: E402
+from spec import AREAS, GLOBAL_FK, MERGED_AWAY, STRING_MORPH_IDS, T, WEAK_REFS  # noqa: E402
 
 MISSING = []
 
@@ -159,7 +159,9 @@ def build(name, spec):
                 nl = "->nullable()" if morphs[p] else ""
                 lines.append(f"$table->string({php(p + '_type')}){nl}"
                              f"{cm_of(name, p + '_type', cols[p + '_type'].get('comment'))};")
-                lines.append(f"$table->unsignedBigInteger({php(p + '_id')}){nl}"
+                id_col = (f"string({php(p + '_id')}, 36)" if (name, p) in STRING_MORPH_IDS
+                          else f"unsignedBigInteger({php(p + '_id')})")
+                lines.append(f"$table->{id_col}{nl}"
                              f"{cm_of(name, p + '_id', cols[p + '_id'].get('comment'))};")
                 lines.append(f"$table->index([{php(p + '_type')}, {php(p + '_id')}]);")
                 done |= {p + "_type", p + "_id"}

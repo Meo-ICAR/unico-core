@@ -130,6 +130,7 @@ Non vengono caricate da `php artisan migrate`, quindi nessuna app le esegue per 
 ## Decisioni di schema
 
 - **ID interi ovunque.** Tutte le chiavi primarie sono `bigint unsigned auto_increment`. I campi che erano UUID (`char(36)`) e le relazioni polimorfiche sono convertiti in `bigint`.
+  **Eccezione:** `documents.documentable_id`, `document_schedules.documentable_id`, `audits.auditable_id` e `document_requests.requestable_id` sono `varchar(36)`, perché un'app può collegarli a soggetti letti da un database esterno (Proforma: clienti e fornitori con UUID, pratiche con codice testuale). L'elenco è in `STRING_MORPH_IDS` di `tools/schema-merge/spec.py`; le migration già generate sono state corrette a mano su quelle quattro colonne, perché i dump di partenza non erano più riproducibili.
 - **Una tabella per concetto, con tutti i campi.** Per ogni tabella la prima sorgente elencata in `docs/schema-map.md` decide tipi e vincoli. Le colonne che arrivano solo dalle altre app sono aggiunte come nullable.
 - **Tabelle fuse.** `pratiches_statos` in `pratica_stati`; `client_pratiches` in `pratica_clients`; `tipo_prodottos` in `tipoprodotto`.
 - **Documenti.** `pratica_requisiti` in `document_types`; `requisito_tipo_finanziamento` e `task_document_types` in `document_requirements`; `pratica_requisiti_operativi` e `pratica_document_requests` in `document_requests`; nuova `document_analyses`. Dettagli in `docs/documents-design.md`.
