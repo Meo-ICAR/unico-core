@@ -10,7 +10,7 @@ use Unico\Core\Models\Document;
 class DocumentDownloadController
 {
     /**
-     * Scarica il file di un documento: la copia locale se c'è, altrimenti rimanda all'URL remoto.
+     * Scarica il file di un documento: la versione firmata se c'è, altrimenti l'originale; se non c'è copia locale altrimenti rimanda all'URL remoto.
      *
      * La rotta richiede l'utente autenticato e l'abilitazione `download` sul documento
      * (policy dell'app). Se l'app non ha una policy per `Document`, si usa solo
@@ -20,7 +20,7 @@ class DocumentDownloadController
     {
         abort_unless($this->allowed($document), 403);
 
-        $media = $document->getFirstMedia(Document::COLLECTION);
+        $media = $document->currentMedia();
 
         if ($media !== null && is_file($media->getPath())) {
             return response()->download($media->getPath(), $media->file_name);

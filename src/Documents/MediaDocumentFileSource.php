@@ -11,7 +11,7 @@ class MediaDocumentFileSource implements DocumentFileSource
 {
     public function fetch(Document $document): ?DocumentFile
     {
-        $media = $document->getFirstMedia(Document::COLLECTION_SIGNED) ?? $document->getFirstMedia(Document::COLLECTION);
+        $media = $document->currentMedia();
 
         if ($media === null) {
             return null;

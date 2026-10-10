@@ -66,6 +66,7 @@ Il file si legge sempre da Spatie Media Library (`MediaDocumentFileSource`): Dri
 - Provider: `SIGNATURE_DRIVER=fake|yousign` (config `unico-core.signature`). Il provider è un'interfaccia (`Signature\Contracts\SignatureProvider`).
 - Il modulo PDF del tipo documento (`document_types` → `pdf_modules.signature_slots`) dice dove firma ciascuno; il PDF viene prima reso statico con `Pdf\PdfFormFiller::flattenContent`.
 - A firma completata il PDF firmato va nella collection `signed` **dello stesso documento**, che diventa `is_signed`; l'originale resta in `documents`. Non si crea un secondo documento.
+  `Document::currentMedia()` restituisce il firmato se c'è, altrimenti l'originale: lo usano il download (`documents.download`) e la lettura per l'analisi.
 - Eventi per le app (nessun registro attività o KYC nel pacchetto): `SignatureSent`, `SignatureCancelled`, `SignatureCompleted` (unicoloan vi collega l'approvazione del QAV e il suo activity log).
 - Webhook: `POST signature/webhook/{provider}` (middleware `api`, disattivabile con `UNICO_CORE_SIGNATURE_WEBHOOK=false`); accetta solo il provider attivo e mette in coda `ReconcileSignatureRequest`.
 - Comandi: `signature:sync` (riconcilia le richieste senza aggiornamenti e chiude le scadute; da schedulare) e `signature:check` (verifica credenziali e raggiungibilità).

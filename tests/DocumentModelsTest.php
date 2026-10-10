@@ -251,4 +251,27 @@ class DocumentModelsTest extends TestCase
 
         $this->assertSame($url, $this->document($this->type(), ['document_url' => $url])->fresh()->document_url);
     }
+
+    public function test_current_media_prefers_the_signed_version(): void
+    {
+        $document = new class extends Document
+        {
+            public array $files = [];
+
+            public function getFirstMedia(string $collectionName = 'default', $filters = []): ?\Spatie\MediaLibrary\MediaCollections\Models\Media
+            {
+                return $this->files[$collectionName] ?? null;
+            }
+        };
+        $original = new \Spatie\MediaLibrary\MediaCollections\Models\Media(['file_name' => 'originale.pdf']);
+        $signed = new \Spatie\MediaLibrary\MediaCollections\Models\Media(['file_name' => 'firmato.pdf']);
+
+        $this->assertNull($document->currentMedia());
+
+        $document->files = [Document::COLLECTION => $original];
+        $this->assertSame('originale.pdf', $document->currentMedia()->file_name);
+
+        $document->files[Document::COLLECTION_SIGNED] = $signed;
+        $this->assertSame('firmato.pdf', $document->currentMedia()->file_name);
+    }
 }

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Unico\Core\Concerns\UsesCoreConnection;
 use Unico\Core\Enums\DocumentStatus;
 
@@ -175,6 +176,12 @@ class Document extends Model implements HasMedia
     }
 
     /** Il documento che prende il posto di questo (rinnovo o versione firmata). */
+    /** Il file che vale per il documento: la versione firmata se c'è, altrimenti l'originale. */
+    public function currentMedia(): ?Media
+    {
+        return $this->getFirstMedia(self::COLLECTION_SIGNED) ?? $this->getFirstMedia(self::COLLECTION);
+    }
+
     public function signatureRequests(): HasMany
     {
         return $this->hasMany(SignatureRequest::class, 'document_id');
