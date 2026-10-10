@@ -34,7 +34,7 @@ e contratto `DocumentGenerator`; `Mail\SenderIdentifier` (+ `SenderMatcher` per 
 firma elettronica `Signature\*` (Yousign + fake, webhook, `signature:sync`/`signature:check`; il firmato va in `signed` dello stesso documento).
 
 ## Da fare (in ordine)
-1. Collegare le app una alla volta. **unicooam: fatto e su `main`.** **unicoloan** e **unicobpm: fatti sul ramo `core-integration`** (non ancora uniti):
+1. Collegare le app una alla volta. **unicooam, unicoloan e unicobpm: fatti e su `main`.**
    unicoloan 511 test su 516, unicobpm 75 su 77 (i fallimenti rimasti c'erano già prima), con un test di fumo sulle pagine elenco ciascuno.
    unicoloan tiene sul database Proforma `Client`, `ClientMandate`, `Tipoprodotto*`, `PraticaClient`...; gli id che li richiamano sono `varchar(36)` senza FK.
    unicobpm usa il database condiviso (connessione `core`, in sviluppo `unicooam_core`) per le tabelle del pacchetto e un database proprio per i processi;
