@@ -29,6 +29,11 @@ class ComplaintRegistry extends Model
         ];
     }
 
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(Fornitore::class, 'agent_id');
+    }
+
     public function bank(): BelongsTo
     {
         return $this->belongsTo(Cliente::class, 'bank_id');
@@ -37,11 +42,6 @@ class ComplaintRegistry extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'company_id');
-    }
-
-    public function agent(): BelongsTo
-    {
-        return $this->belongsTo(Fornitore::class, 'agent_id');
     }
 
     public function complainant(): MorphTo

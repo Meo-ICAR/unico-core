@@ -22,6 +22,11 @@ class DocumentRequirement extends Model
         ];
     }
 
+    public function documentType(): BelongsTo
+    {
+        return $this->belongsTo(DocumentType::class, 'document_type_id');
+    }
+
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class, 'task_id');
@@ -35,10 +40,5 @@ class DocumentRequirement extends Model
     public function tipoprodottoSub(): BelongsTo
     {
         return $this->belongsTo(TipoProdottoSub::class, 'tipoprodotto_sub_id');
-    }
-
-    public function documentType(): BelongsTo
-    {
-        return $this->belongsTo(DocumentType::class, 'document_type_id');
     }
 }

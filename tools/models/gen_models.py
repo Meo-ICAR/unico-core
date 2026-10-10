@@ -75,7 +75,7 @@ for t, c in q("select table_name, constraint_name from information_schema.check_
     json_cols[t].add(c)
 fks = defaultdict(list)
 for t, c, rt in q("select table_name, column_name, referenced_table_name from information_schema.key_column_usage "
-                  f"where table_schema='{DB}' and referenced_table_name is not null order by table_name, ordinal_position"):
+                  f"where table_schema='{DB}' and referenced_table_name is not null order by table_name, column_name"):
     fks[t].append((c, rt))
 tcomments = dict(q("select table_name, table_comment from information_schema.tables "
                    f"where table_schema='{DB}'"))

@@ -33,7 +33,8 @@ def col(name, base, args="", nullable=True, default=None, comment="", unsigned=F
 # ---------------------------------------------------------------- tenancy
 t("companies", "tenancy", ["loan.companies", "oam.companies", "proforma.companies", "bpm.companies"],
   rename={"proforma.companies": {"piva": "vat_number"}},
-  add=[col("drive_folder_id", "varchar", "255", comment="Cartella Google Drive della company")],
+  add=[col("drive_folder_id", "varchar", "255", comment="Cartella Google Drive della company"),
+       col("parent_id", "bigint", unsigned=True, comment="Capogruppo (holding) di cui l'azienda fa parte; nullo = azienda autonoma o capogruppo")],
   types={"db_password": "text"},
   comment="Tenant: società di mediazione, call center, hotel, software house")
 t("modules", "tenancy", ["loan.modules", "oam.modules"])
@@ -41,6 +42,7 @@ t("company_modules", "tenancy", ["loan.company_modules", "oam.company_modules"])
 t("branches", "tenancy", ["oam.branches", "loan.branches"])
 t("company_roles", "tenancy", ["oam.company_roles", "loan.company_roles"])
 t("users", "tenancy", ["oam.users", "loan.users", "bpm.users", "proforma.users"],
+  add=[col("company_id", "bigint", unsigned=True, comment="Azienda (tenant) principale dell'utente; nullo = utente di piattaforma non legato a un tenant")],
   nodefault={"password"})
 t("socialite_users", "tenancy", ["loan.socialite_users", "oam.socialite_users", "proforma.socialite_users", "bpm.socialite_users"])
 t("resources", "tenancy", ["bpm.resources", "loan.resources", "oam.resources"])

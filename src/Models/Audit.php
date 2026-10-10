@@ -29,11 +29,6 @@ class Audit extends Model
         ];
     }
 
-    public function qualityReview(): BelongsTo
-    {
-        return $this->belongsTo(QualityReview::class, 'quality_review_id');
-    }
-
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'company_id');
@@ -42,6 +37,11 @@ class Audit extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class, 'organization_id');
+    }
+
+    public function qualityReview(): BelongsTo
+    {
+        return $this->belongsTo(QualityReview::class, 'quality_review_id');
     }
 
     public function auditChecklistEvaluations(): HasMany

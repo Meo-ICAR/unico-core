@@ -54,11 +54,6 @@ class Client extends Model
         ];
     }
 
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'user_id');
-    }
-
     public function blacklistedByRecord(): BelongsTo
     {
         return $this->belongsTo(User::class, 'blacklisted_by');
@@ -87,6 +82,11 @@ class Client extends Model
     public function legalRepresentative(): BelongsTo
     {
         return $this->belongsTo(Client::class, 'legal_representative_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function clientMandates(): HasMany

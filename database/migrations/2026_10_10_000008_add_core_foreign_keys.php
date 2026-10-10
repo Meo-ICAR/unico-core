@@ -22,6 +22,7 @@ return new class extends Migration
         Schema::table('companies', function (Blueprint $table) {
             $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('parent_id')->references('id')->on('companies')->nullOnDelete();
         });
 
         Schema::table('company_modules', function (Blueprint $table) {
@@ -35,6 +36,10 @@ return new class extends Migration
 
         Schema::table('company_roles', function (Blueprint $table) {
             $table->foreign('company_id')->references('id')->on('companies')->cascadeOnDelete();
+        });
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreign('company_id')->references('id')->on('companies')->nullOnDelete();
         });
 
         Schema::table('socialite_users', function (Blueprint $table) {
@@ -292,6 +297,7 @@ return new class extends Migration
         Schema::table('companies', function (Blueprint $table) {
             $table->dropForeign(['updated_by']);
             $table->dropForeign(['deleted_by']);
+            $table->dropForeign(['parent_id']);
         });
 
         Schema::table('company_modules', function (Blueprint $table) {
@@ -304,6 +310,10 @@ return new class extends Migration
         });
 
         Schema::table('company_roles', function (Blueprint $table) {
+            $table->dropForeign(['company_id']);
+        });
+
+        Schema::table('users', function (Blueprint $table) {
             $table->dropForeign(['company_id']);
         });
 

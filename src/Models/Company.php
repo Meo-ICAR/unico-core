@@ -3,6 +3,7 @@
 namespace Unico\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Unico\Core\Concerns\UsesCoreConnection;
@@ -24,6 +25,23 @@ class Company extends Model
             'db_password' => 'encrypted',
             'oam_at' => 'date',
         ];
+    }
+
+    /** Capogruppo (holding), se l'azienda fa parte di un gruppo. */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    /** Aziende controllate dalla capogruppo. */
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
+    }
+
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class, 'company_id');
     }
 
     public function documents(): HasMany

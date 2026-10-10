@@ -17,13 +17,13 @@ class PraticaStatoTransizione extends Model
 
     public $timestamps = false;
 
-    public function statoDa(): BelongsTo
-    {
-        return $this->belongsTo(PraticaStato::class, 'stato_da_id');
-    }
-
     public function statoA(): BelongsTo
     {
         return $this->belongsTo(PraticaStato::class, 'stato_a_id');
+    }
+
+    public function statoDa(): BelongsTo
+    {
+        return $this->belongsTo(PraticaStato::class, 'stato_da_id');
     }
 }

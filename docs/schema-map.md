@@ -13,11 +13,11 @@ Sorgenti: `loan.companies`, `oam.companies`, `proforma.companies`, `bpm.companie
 | loan+oam+proforma | name, vat_number |
 | loan+oam | vat_name, oam, oam_at, oam_name, numero_iscrizione_rui, ivass, ivass_at, ivass_name, ivass_section, sponsor, company_type, page_header, page_footer |
 | proforma | crm, crm_last_activation, callcenter, call_last_activation, updated_by, deleted_by, deleted_at, email, email_cc, email_bcc, emailsubject, compenso_descrizione, aibackground, db_host, db_port, db_database, db_username, db_password |
-| nuovo | drive_folder_id |
+| nuovo | drive_folder_id, parent_id |
 
 Conversioni: `id` da char(36) a bigint auto-increment
 
-FK: `updated_by` → `users`, `deleted_by` → `users`
+FK: `updated_by` → `users`, `deleted_by` → `users`, `parent_id` → `companies`
 
 ### `modules`
 Sorgenti: `loan.modules`, `oam.modules`
@@ -67,6 +67,9 @@ Sorgenti: `oam.users`, `loan.users`, `bpm.users`, `proforma.users`
 | bpm+loan+oam+proforma | id, name, email, email_verified_at, password, remember_token, created_at, updated_at |
 | bpm+loan+oam | role, profile_type, profile_id |
 | proforma | cf, microsoft_token, microsoft_refresh_token, azure_id, microsoft_id, deleted_at |
+| nuovo | company_id |
+
+FK: `company_id` → `companies`
 
 ### `socialite_users`
 Sorgenti: `loan.socialite_users`, `oam.socialite_users`, `proforma.socialite_users`, `bpm.socialite_users`

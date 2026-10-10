@@ -54,6 +54,7 @@ return new class extends Migration
             $table->string('db_username')->nullable()->comment('Utente del database dedicato');
             $table->text('db_password')->nullable()->comment('Password del database dedicato (cifrata)');
             $table->string('drive_folder_id')->nullable()->comment('Cartella Google Drive della company');
+            $table->foreignId('parent_id')->nullable()->comment('Capogruppo (holding) di cui l\'azienda fa parte; nullo = azienda autonoma o capogruppo');
             $table->timestamp('created_at')->nullable()->comment('Timestamp di creazione');
             $table->timestamp('updated_at')->nullable()->comment('Timestamp di ultimo aggiornamento');
             $table->timestamp('deleted_at')->nullable()->comment('Timestamp di cancellazione (soft delete)');
@@ -147,6 +148,7 @@ return new class extends Migration
             $table->string('microsoft_refresh_token', 100)->nullable()->comment('Token di rinnovo Microsoft');
             $table->string('azure_id', 191)->nullable()->comment('ID dell\'utente in Azure AD');
             $table->string('microsoft_id', 191)->nullable()->comment('ID dell\'utente nell\'account Microsoft');
+            $table->foreignId('company_id')->nullable()->comment('Azienda (tenant) principale dell\'utente; nullo = utente di piattaforma non legato a un tenant');
             $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
             $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
             $table->timestamp('deleted_at')->nullable()->comment('Data e ora di eliminazione logica (soft delete); nullo = record attivo');

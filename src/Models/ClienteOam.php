@@ -23,13 +23,13 @@ class ClienteOam extends Model
         ];
     }
 
-    public function oamCode(): BelongsTo
-    {
-        return $this->belongsTo(OamCode::class, 'oam_code_id');
-    }
-
     public function clienti(): BelongsTo
     {
         return $this->belongsTo(Cliente::class, 'clienti_id');
+    }
+
+    public function oamCode(): BelongsTo
+    {
+        return $this->belongsTo(OamCode::class, 'oam_code_id');
     }
 }

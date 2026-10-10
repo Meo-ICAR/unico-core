@@ -32,21 +32,6 @@ class Employee extends Model
         ];
     }
 
-    public function deleter(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'deleted_by');
-    }
-
-    public function updater(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'user_id');
-    }
-
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class, 'branch_id');
@@ -65,6 +50,21 @@ class Employee extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function deleter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
+    }
+
+    public function updater(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function blacklistClientiEmployees(): HasMany
