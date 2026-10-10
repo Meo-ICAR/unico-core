@@ -1,0 +1,25 @@
+{
+    "name": "meo-icar/unico-core",
+    "description": "Tabelle, modelli e risorse condivise della suite Unico per mediatori creditizi",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "illuminate/support": "^13.0",
+        "illuminate/database": "^13.0",
+        "illuminate/console": "^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Unico\\Core\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Unico\\Core\\UnicoCoreServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}
