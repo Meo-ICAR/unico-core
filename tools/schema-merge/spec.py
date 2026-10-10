@@ -97,22 +97,84 @@ t("pratica_clients", "pratiche", ["proforma.pratica_clients", "proforma.client_p
   rename={"proforma.client_pratiches": {"pratiche_id": "pratica_id"}},
   comment="Richiedente, coobbligati e garanti di una pratica")
 t("pratica_status_history", "pratiche", ["proforma.pratica_status_history"])
-t("pratica_document_requests", "pratiche", ["proforma.pratica_document_requests"])
-t("pratica_requisiti", "pratiche", ["loan.pratica_requisiti", "oam.pratica_requisiti"])
-t("pratica_requisiti_operativi", "pratiche", ["loan.pratica_requisiti_operativi", "oam.pratica_requisiti_operativi"])
-t("requisito_tipo_finanziamento", "pratiche", ["loan.requisito_tipo_finanziamento", "oam.requisito_tipo_finanziamento"])
 t("oam_pratiches", "pratiche", ["oam.oam_pratiches", "loan.oam_pratiches"])
 t("oam_semestrales", "pratiche", ["oam.oam_semestrales", "loan.oam_semestrales"])
 
 # ---------------------------------------------------------------- documents
-t("document_types", "documents", ["loan.document_types", "oam.document_types"],
-  fk={"renewed_by_id": "document_types"})
+# Catalogo unico dei tipi documento: include i requisiti di pratica di unicoloan (tutti documenti)
+# e i profili di lettura AI di unicoagent.
+_camel = {"is_AiAbstract": "is_ai_abstract", "is_AiCheck": "is_ai_check", "AiPattern": "ai_pattern",
+          "is_endMonth": "is_end_month"}
+t("document_types", "documents",
+  ["loan.document_types", "oam.document_types", "loan.pratica_requisiti"],
+  rename={"loan.document_types": _camel, "oam.document_types": _camel,
+          "loan.pratica_requisiti": {"codice": "code", "descrizione": "description"}},
+  drop=["expire_days_before"],
+  add=[col("company_id", "bigint", unsigned=True, comment="NULL = tipo globale; valorizzato = tipo specifico del tenant"),
+       col("ai_kind", "varchar", "30", comment="Profilo di lettura AI (identita, codice_fiscale, reddito, informativa...)"),
+       col("checks", "json", comment="Controlli automatici da eseguire, per codice (es. tipo_documento, dati_coerenti)")],
+  types={"description": "text"},
+  fk={"renewed_by_id": "document_types"},
+  unique=[("document_types_code_unique", ["code"]), ("document_types_slug_unique", ["slug"])],
+  comment="Catalogo dei tipi documento: applicabilità, scadenze, regole AI, firma, conservazione e template")
 t("documents", "documents", ["loan.documents", "oam.documents"],
-  fk={"renewed_by": "users", "renewed_by_id": "documents", "user_id": "users"})
+  rename={"loan.documents": {"is_endMonth": "is_end_month", "renewed_by_id": "replaced_by_id"},
+          "oam.documents": {"is_endMonth": "is_end_month", "renewed_by_id": "replaced_by_id"}},
+  add=[col("channel", "varchar", "30", comment="Canale di arrivo: upload, email, whatsapp, drive, sharepoint, generated, signature"),
+       col("channel_ref", "varchar", "255", comment="Riferimento nel canale (Message-Id, media id WhatsApp, id busta di firma)")],
+  patch={"document_url": {"args": "2048"}, "status": {"default": "'caricato'",
+         "comment": "Valori di DocumentStatus: na, richiesto, caricato, approvato, respinto, provvisorio, scaduto, illegibile, revocato"}},
+  fk={"renewed_by": "users", "replaced_by_id": "documents", "user_id": "users"},
+  index=[(None, ["status"]), (None, ["expires_at"]), (None, ["file_hash"])])
+t("document_requirements", "documents",
+  ["loan.requisito_tipo_finanziamento", "loan.task_document_types"],
+  rename={"loan.requisito_tipo_finanziamento": {"pratica_requisito_id": "document_type_id",
+                                                "obbligatorio": "is_required", "ordine": "sort_order"}},
+  drop=["slug"],
+  comment="Quali tipi documento servono per un prodotto/sottoprodotto o per un task (NULL = vale per tutti)")
+t("document_requests", "documents",
+  ["proforma.pratica_document_requests", "loan.pratica_requisiti_operativi", "agent.pratica_documents"],
+  rename={"proforma.pratica_document_requests": {"pratica_id": "requestable_id", "requested_by": "requested_by_role"},
+          "loan.pratica_requisiti_operativi": {"pratica_id": "requestable_id", "pratica_requisito_id": "document_type_id",
+                                               "stato": "status", "data_richiesta": "requested_at",
+                                               "data_completamento": "completed_at", "note": "notes"},
+          "agent.pratica_documents": {"loan_request_id": "requestable_id", "finanziamento_document_id": "document_type_id",
+                                      "annotations": "notes"}},
+  drop=["file_path", "code", "requirement"],
+  add=[col("requestable_type", "varchar", "255", nullable=False, comment="Record per cui si chiede il documento (pratica, cliente, dipendente...)"),
+       col("company_id", "bigint", unsigned=True),
+       col("document_id", "bigint", unsigned=True, comment="Documento che evade la richiesta"),
+       col("is_required", "tinyint", "1", nullable=False, default="'1'"),
+       col("created_by", "bigint", unsigned=True)],
+  patch={"name": {"nullable": True}, "requested_at": {"nullable": True},
+         "status": {"default": "'da_richiedere'",
+                    "comment": "da_richiedere, richiesto, caricato, approvato, respinto, non_necessario"}},
+  comment="Richieste di documenti su una pratica o un'anagrafica, con stato e documento che le evade")
+t("document_analyses", "documents", [],
+  add=[col("id", "bigint", unsigned=True, nullable=False),
+       col("document_id", "bigint", unsigned=True, nullable=False),
+       col("kind", "varchar", "30", nullable=False, comment="classification, extraction, verification, abstract"),
+       col("checks", "json", comment="Controlli eseguiti"),
+       col("result", "json", comment="Esito strutturato: campi estratti, anomalie, annotazioni"),
+       col("outcome", "varchar", "20", comment="passed, failed, needs_review"),
+       col("confidence", "tinyint", unsigned=True, comment="0-100"),
+       col("operator_type", "enum", "'human','procedural','ai'", comment="Chi ha prodotto l'esito"),
+       col("operator_label", "varchar", "255", comment="Es. regex, ai.anthropic, verifier.signature"),
+       col("ai_model", "varchar", "60"),
+       col("ai_input_tokens", "int", unsigned=True), col("ai_output_tokens", "int", unsigned=True),
+       col("ai_cost", "decimal", "10,6", comment="Costo in USD"),
+       col("error", "text"),
+       col("created_by", "bigint", unsigned=True),
+       col("created_at", "timestamp"), col("updated_at", "timestamp")],
+  index=[(None, ["document_id", "kind"])],
+  comment="Storico delle analisi automatiche e manuali di un documento, con costi AI")
+t("signature_requests", "documents", ["loan.signature_requests"])
+t("signature_request_signers", "documents", ["loan.signature_request_signers"])
+t("pdf_modules", "documents", ["loan.pdf_modules"])
+t("pdf_module_fields", "documents", ["loan.pdf_module_fields"])
 t("document_reminders", "documents", ["loan.document_reminders", "oam.document_reminders"])
 t("document_schedules", "documents", ["loan.document_schedules", "oam.document_schedules"])
 t("tasks", "documents", ["loan.tasks", "oam.tasks"])
-t("task_document_types", "documents", ["loan.task_document_types", "oam.task_document_types"])
 t("media", "documents", ["oam.media", "loan.media", "bpm.media"])
 t("email_templates", "documents", ["oam.email_templates", "loan.email_templates"])
 _imap = {"incoming_host": "imap_host", "incoming_port": "imap_port", "incoming_username": "imap_username",
@@ -173,6 +235,12 @@ MERGED_AWAY = {
     "proforma.pratiches_statos": "pratica_stati",
     "proforma.client_pratiches": "pratica_clients",
     "loan.tipo_prodottos": "tipoprodotto",
+    "loan.pratica_requisiti": "document_types",
+    "loan.requisito_tipo_finanziamento": "document_requirements",
+    "loan.task_document_types": "document_requirements",
+    "loan.pratica_requisiti_operativi": "document_requests",
+    "proforma.pratica_document_requests": "document_requests",
+    "agent.pratica_documents": "document_requests (solo colonne; unicoagent resta separata)",
     "oam.tipo_prodottos": "tipoprodotto",
 }
 
@@ -196,6 +264,7 @@ GLOBAL_FK = {
     "audit_id": "audits", "remediation_id": "remediations", "quality_review_id": "quality_reviews",
     "organization_id": "organizations", "address_type_id": "address_types",
     "mail_account_id": "mail_accounts",
+    "signature_request_id": "signature_requests", "pdf_module_id": "pdf_modules", "task_id": "tasks",
 }
 
 # Colonne *_id che restano riferimenti deboli (tabelle fuori dal core o significato non univoco)

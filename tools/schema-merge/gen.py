@@ -61,7 +61,7 @@ def merge(name, spec):
                 indexes.append((k["name"], kc))
             elif k["kind"] == "FK" and kc[0] not in src_fks:
                 src_fks[kc[0]] = (k["ref"], k["ondelete"])
-    uniques += spec["unique"]
+    uniques[:0] = spec["unique"]
     indexes += spec["index"]
     for a in spec["add"]:
         c2 = dict(a, origin=["nuovo"], renamed_from=None, auto=False)
@@ -193,7 +193,7 @@ def build(name, spec):
             continue
         if len(kc) == 1 and kc[0] in fk_cols:
             continue
-        if len(kc) == 2 and set(kc) <= morph_cols and kc[0].endswith("_type"):
+        if set(kc) <= morph_cols:
             continue
         if kname and kname.endswith("_foreign"):
             continue

@@ -154,22 +154,6 @@ return new class extends Migration
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
         });
 
-        Schema::table('pratica_document_requests', function (Blueprint $table) {
-            $table->foreign('pratica_id')->references('id')->on('pratiches')->cascadeOnDelete();
-            $table->foreign('requested_by')->references('id')->on('users')->cascadeOnDelete();
-        });
-
-        Schema::table('pratica_requisiti_operativi', function (Blueprint $table) {
-            $table->foreign('pratica_id')->references('id')->on('pratiches')->cascadeOnDelete();
-            $table->foreign('pratica_requisito_id')->references('id')->on('pratica_requisiti')->restrictOnDelete();
-        });
-
-        Schema::table('requisito_tipo_finanziamento', function (Blueprint $table) {
-            $table->foreign('tipoprodotto_id')->references('id')->on('tipoprodotto')->nullOnDelete();
-            $table->foreign('tipoprodotto_sub_id')->references('id')->on('tipoprodotto_sub')->nullOnDelete();
-            $table->foreign('pratica_requisito_id')->references('id')->on('pratica_requisiti')->cascadeOnDelete();
-        });
-
         Schema::table('oam_pratiches', function (Blueprint $table) {
             $table->foreign('company_id')->references('id')->on('companies')->nullOnDelete();
         });
@@ -183,6 +167,7 @@ return new class extends Migration
             $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('company_id')->references('id')->on('companies')->nullOnDelete();
         });
 
         Schema::table('documents', function (Blueprint $table) {
@@ -190,12 +175,48 @@ return new class extends Migration
             $table->foreign('document_type_id')->references('id')->on('document_types')->nullOnDelete();
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
             $table->foreign('renewed_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('renewed_by_id')->references('id')->on('documents')->nullOnDelete();
+            $table->foreign('replaced_by_id')->references('id')->on('documents')->nullOnDelete();
             $table->foreign('uploaded_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('verified_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+        });
+
+        Schema::table('document_requirements', function (Blueprint $table) {
+            $table->foreign('tipoprodotto_id')->references('id')->on('tipoprodotto')->nullOnDelete();
+            $table->foreign('tipoprodotto_sub_id')->references('id')->on('tipoprodotto_sub')->nullOnDelete();
+            $table->foreign('document_type_id')->references('id')->on('document_types')->cascadeOnDelete();
+            $table->foreign('task_id')->references('id')->on('tasks')->cascadeOnDelete();
+        });
+
+        Schema::table('document_requests', function (Blueprint $table) {
+            $table->foreign('document_type_id')->references('id')->on('document_types')->restrictOnDelete();
+            $table->foreign('company_id')->references('id')->on('companies')->nullOnDelete();
+            $table->foreign('document_id')->references('id')->on('documents')->nullOnDelete();
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+        });
+
+        Schema::table('document_analyses', function (Blueprint $table) {
+            $table->foreign('document_id')->references('id')->on('documents')->cascadeOnDelete();
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+        });
+
+        Schema::table('signature_requests', function (Blueprint $table) {
+            $table->foreign('document_id')->references('id')->on('documents')->cascadeOnDelete();
+            $table->foreign('requested_by')->references('id')->on('users')->nullOnDelete();
+        });
+
+        Schema::table('signature_request_signers', function (Blueprint $table) {
+            $table->foreign('signature_request_id')->references('id')->on('signature_requests')->cascadeOnDelete();
+        });
+
+        Schema::table('pdf_modules', function (Blueprint $table) {
+            $table->foreign('document_type_id')->references('id')->on('document_types')->nullOnDelete();
+        });
+
+        Schema::table('pdf_module_fields', function (Blueprint $table) {
+            $table->foreign('pdf_module_id')->references('id')->on('pdf_modules')->cascadeOnDelete();
         });
 
         Schema::table('document_reminders', function (Blueprint $table) {
@@ -208,11 +229,6 @@ return new class extends Migration
 
         Schema::table('tasks', function (Blueprint $table) {
             $table->foreign('parent_id')->references('id')->on('tasks')->cascadeOnDelete();
-        });
-
-        Schema::table('task_document_types', function (Blueprint $table) {
-            $table->foreign('task_id')->references('id')->on('tasks')->cascadeOnDelete();
-            $table->foreign('document_type_id')->references('id')->on('document_types')->cascadeOnDelete();
         });
 
         Schema::table('mail_accounts', function (Blueprint $table) {
@@ -408,22 +424,6 @@ return new class extends Migration
             $table->dropForeign(['user_id']);
         });
 
-        Schema::table('pratica_document_requests', function (Blueprint $table) {
-            $table->dropForeign(['pratica_id']);
-            $table->dropForeign(['requested_by']);
-        });
-
-        Schema::table('pratica_requisiti_operativi', function (Blueprint $table) {
-            $table->dropForeign(['pratica_id']);
-            $table->dropForeign(['pratica_requisito_id']);
-        });
-
-        Schema::table('requisito_tipo_finanziamento', function (Blueprint $table) {
-            $table->dropForeign(['tipoprodotto_id']);
-            $table->dropForeign(['tipoprodotto_sub_id']);
-            $table->dropForeign(['pratica_requisito_id']);
-        });
-
         Schema::table('oam_pratiches', function (Blueprint $table) {
             $table->dropForeign(['company_id']);
         });
@@ -437,6 +437,7 @@ return new class extends Migration
             $table->dropForeign(['created_by']);
             $table->dropForeign(['updated_by']);
             $table->dropForeign(['deleted_by']);
+            $table->dropForeign(['company_id']);
         });
 
         Schema::table('documents', function (Blueprint $table) {
@@ -444,12 +445,48 @@ return new class extends Migration
             $table->dropForeign(['document_type_id']);
             $table->dropForeign(['user_id']);
             $table->dropForeign(['renewed_by']);
-            $table->dropForeign(['renewed_by_id']);
+            $table->dropForeign(['replaced_by_id']);
             $table->dropForeign(['uploaded_by']);
             $table->dropForeign(['verified_by']);
             $table->dropForeign(['created_by']);
             $table->dropForeign(['updated_by']);
             $table->dropForeign(['deleted_by']);
+        });
+
+        Schema::table('document_requirements', function (Blueprint $table) {
+            $table->dropForeign(['tipoprodotto_id']);
+            $table->dropForeign(['tipoprodotto_sub_id']);
+            $table->dropForeign(['document_type_id']);
+            $table->dropForeign(['task_id']);
+        });
+
+        Schema::table('document_requests', function (Blueprint $table) {
+            $table->dropForeign(['document_type_id']);
+            $table->dropForeign(['company_id']);
+            $table->dropForeign(['document_id']);
+            $table->dropForeign(['created_by']);
+        });
+
+        Schema::table('document_analyses', function (Blueprint $table) {
+            $table->dropForeign(['document_id']);
+            $table->dropForeign(['created_by']);
+        });
+
+        Schema::table('signature_requests', function (Blueprint $table) {
+            $table->dropForeign(['document_id']);
+            $table->dropForeign(['requested_by']);
+        });
+
+        Schema::table('signature_request_signers', function (Blueprint $table) {
+            $table->dropForeign(['signature_request_id']);
+        });
+
+        Schema::table('pdf_modules', function (Blueprint $table) {
+            $table->dropForeign(['document_type_id']);
+        });
+
+        Schema::table('pdf_module_fields', function (Blueprint $table) {
+            $table->dropForeign(['pdf_module_id']);
         });
 
         Schema::table('document_reminders', function (Blueprint $table) {
@@ -462,11 +499,6 @@ return new class extends Migration
 
         Schema::table('tasks', function (Blueprint $table) {
             $table->dropForeign(['parent_id']);
-        });
-
-        Schema::table('task_document_types', function (Blueprint $table) {
-            $table->dropForeign(['task_id']);
-            $table->dropForeign(['document_type_id']);
         });
 
         Schema::table('mail_accounts', function (Blueprint $table) {

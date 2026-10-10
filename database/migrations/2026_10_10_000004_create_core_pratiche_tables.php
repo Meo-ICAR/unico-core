@@ -104,58 +104,6 @@ return new class extends Migration
             $table->comment('Storico dei cambi di stato delle pratiche per la pipeline di avanzamento.');
         });
 
-        Schema::create('pratica_document_requests', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('pratica_id')->comment('Collegamento alla pratica');
-            $table->string('name', 150)->comment('Nome/Tipo di documento richiesto (es. Cedolino, Certificato di servizio)');
-            $table->text('description')->nullable()->comment('Istruzioni dettagliate o motivo della richiesta della banca');
-            $table->foreignId('requested_by')->comment('Chi ha originato la richiesta: bank (banca), backoffice (interno), agent (agente)');
-            $table->string('assigned_to_type', 50)->default('agent')->comment('A chi spetta l\'azione: agent (agente), client (cliente)');
-            $table->string('status', 50)->default('pending')->comment('Stato: pending (attesa), uploaded (caricato), approved (accettato), rejected (rifiutato)');
-            $table->boolean('share_with_client')->default(true)->comment('Se 1, la richiesta è visibile e richiedibile direttamente al cliente finale');
-            $table->dateTime('requested_at')->comment('Quando è stato richiesto');
-            $table->date('due_date')->nullable()->comment('Scadenza consigliata per l\'invio prima della decadenza');
-            $table->string('file_path')->nullable()->comment('Percorso del file una volta caricato');
-            $table->text('rejected_reason')->nullable()->comment('Motivo dell\'eventuale rifiuto del documento (se non idoneo)');
-            $table->timestamp('agent_notified_at')->nullable()->comment('Data e ora in cui l\'agente è stato notificato');
-            $table->timestamp('client_notified_at')->nullable()->comment('Data e ora in cui il cliente è stato notificato (es. via email/SMS)');
-            $table->timestamps();
-            $table->comment('Richieste di documentazione integrativa per le pratiche in istruttoria.');
-        });
-
-        Schema::create('pratica_requisiti', function (Blueprint $table) {
-            $table->id()->comment('ID univoco del requisito a catalogo');
-            $table->string('codice')->comment('Codice univoco del requisito (es. polizza_vita, certificato_stipendio)');
-            $table->string('name')->comment('Nome descrittivo del requisito/task parallelo');
-            $table->text('descrizione')->nullable()->comment('Descrizione o istruzioni operative per l\'evasione del requisito');
-            $table->timestamps();
-            $table->unique(['codice'], 'pratica_requisiti_codice_unique');
-            $table->comment('Catalogo dei requisiti/task paralleli associabili a una pratica.');
-        });
-
-        Schema::create('pratica_requisiti_operativi', function (Blueprint $table) {
-            $table->id()->comment('ID univoco dell\'istanza del requisito sulla pratica');
-            $table->foreignId('pratica_id')->comment('FK verso la pratica di riferimento (mysql_proforma.pratiches.id)');
-            $table->foreignId('pratica_requisito_id');
-            $table->string('stato')->default('da_richiedere')->comment('Stato del task: da_richiedere, richiesto, approvato, rifiutato, non_necessario');
-            $table->timestamp('data_richiesta')->nullable()->comment('Data e ora in cui il requisito è stato richiesto al cliente/ente');
-            $table->timestamp('data_completamento')->nullable()->comment('Data e ora di approvazione o evasione del requisito');
-            $table->text('note')->nullable()->comment('Note operative o dettagli sulle problematiche del requisito');
-            $table->timestamps();
-            $table->comment('Istanze operative dei requisiti applicati a una specifica pratica.');
-        });
-
-        Schema::create('requisito_tipo_finanziamento', function (Blueprint $table) {
-            $table->id()->comment('ID univoco della regola di associazione');
-            $table->foreignId('tipoprodotto_id')->nullable()->comment('Prodotto a cui si applica il vincolo (DB Esterno). Se NULL, si applica a tutti i prodotti');
-            $table->foreignId('tipoprodotto_sub_id')->nullable()->comment('Sottoprodotto specifico (es. CQS Pensionati). Se NULL, si applica a tutto il macro-prodotto');
-            $table->foreignId('pratica_requisito_id');
-            $table->boolean('obbligatorio')->default(true)->comment('Flag: true se il requisito è obbligatorio per l\'avanzamento');
-            $table->integer('ordine')->default(0)->comment('Ordinamento di visualizzazione del requisito nella checklist del prodotto');
-            $table->unique(['tipoprodotto_id', 'tipoprodotto_sub_id', 'pratica_requisito_id'], 'req_tf_unique');
-            $table->comment('Regole di associazione tra requisiti a catalogo e tipo/sottotipo di prodotto finanziario.');
-        });
-
         Schema::create('oam_pratiches', function (Blueprint $table) {
             $table->id();
             $table->foreignId('company_id')->nullable()->comment('ID Azienda (Tenant)');
@@ -237,10 +185,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('oam_semestrales');
         Schema::dropIfExists('oam_pratiches');
-        Schema::dropIfExists('requisito_tipo_finanziamento');
-        Schema::dropIfExists('pratica_requisiti_operativi');
-        Schema::dropIfExists('pratica_requisiti');
-        Schema::dropIfExists('pratica_document_requests');
         Schema::dropIfExists('pratica_status_history');
         Schema::dropIfExists('pratica_clients');
         Schema::dropIfExists('pratiches');

@@ -22,7 +22,7 @@ return new class extends Migration
         Schema::create('document_types', function (Blueprint $table) {
             $table->id()->comment('ID intero autoincrementante');
             $table->string('name')->nullable()->comment('Nome documento');
-            $table->string('description')->nullable()->comment('Descrizione aggiuntiva');
+            $table->text('description')->nullable()->comment('Descrizione aggiuntiva');
             $table->string('code')->nullable()->comment('Codice univoco mnemonico');
             $table->string('codegroup')->nullable()->comment('Raggruppa documenti simili');
             $table->string('slug')->nullable()->comment('Slug univoco per URL');
@@ -53,10 +53,10 @@ return new class extends Migration
             $table->boolean('is_template')->default(false)->comment('Forniamo noi il template');
             $table->boolean('is_stored')->default(false)->comment('Richiede conservazione sostitutiva');
             $table->string('regex')->nullable()->comment('Pattern regex per classificazione');
-            $table->boolean('is_endMonth')->default(false)->comment('Approssima data a fine mese');
-            $table->boolean('is_AiAbstract')->default(false)->comment('Ask AI to make abstract');
-            $table->boolean('is_AiCheck')->default(false)->comment('AI conformity required');
-            $table->text('AiPattern')->nullable()->comment('How AI can detect document is of this type');
+            $table->boolean('is_end_month')->default(false)->comment('Approssima data a fine mese');
+            $table->boolean('is_ai_abstract')->default(false)->comment('Ask AI to make abstract');
+            $table->boolean('is_ai_check')->default(false)->comment('AI conformity required');
+            $table->text('ai_pattern')->nullable()->comment('How AI can detect document is of this type');
             $table->unsignedTinyInteger('min_confidence')->default(70)->comment('Soglia minima per suggerire il tipo');
             $table->boolean('allow_auto_verification')->default(false)->comment('Valida da solo se confidence alta');
             $table->json('notify_days_before')->nullable()->comment('Es. [30, 15, 5] giorni prima');
@@ -71,10 +71,14 @@ return new class extends Migration
             $table->string('exclude_field')->nullable()->comment('Campo del modello da escludere se valorizzato');
             $table->string('exclude_state')->nullable()->comment('filled, empty, equals');
             $table->string('exclude_value')->nullable()->comment('Il valore specifico da controllare');
-            $table->integer('expire_days_before')->nullable()->comment('Numero di giorni prima della scadenza per inviare la notifica');
+            $table->foreignId('company_id')->nullable()->comment('NULL = tipo globale; valorizzato = tipo specifico del tenant');
+            $table->string('ai_kind', 30)->nullable()->comment('Profilo di lettura AI (identita, codice_fiscale, reddito, informativa...)');
+            $table->json('checks')->nullable()->comment('Controlli automatici da eseguire, per codice (es. tipo_documento, dati_coerenti)');
             $table->timestamps();
             $table->softDeletes();
-            $table->comment('Anagrafica delle tipologie documentali con regole di validazione, AI e GDPR');
+            $table->unique(['code'], 'document_types_code_unique');
+            $table->unique(['slug'], 'document_types_slug_unique');
+            $table->comment('Catalogo dei tipi documento: applicabilità, scadenze, regole AI, firma, conservazione e template');
         });
 
         Schema::create('documents', function (Blueprint $table) {
@@ -87,8 +91,8 @@ return new class extends Migration
             $table->enum('training_organization', ['interna', 'OAM', 'IVASS', 'PRIVACY'])->nullable()->comment('Formazione per organizzazione');
             $table->string('docnumber')->nullable()->comment('Numero protocollo o identificativo del documento');
             $table->string('spatie_collection', 100)->default('default')->comment('Nome della collection per Spatie Media Library');
-            $table->string('document_url')->nullable()->comment('URL pubblico o percorso del documento sul web/storage');
-            $table->string('status', 50)->default('uploaded')->comment('Stato del file: uploaded, verified, rejected, expired');
+            $table->string('document_url', 2048)->nullable()->comment('URL pubblico o percorso del documento sul web/storage');
+            $table->string('status', 50)->default('caricato')->comment('Valori di DocumentStatus: na, richiesto, caricato, approvato, respinto, provvisorio, scaduto, illegibile, revocato');
             $table->timestamp('last_sent_at')->nullable()->comment('Data e ora ultimo sollecito inviato');
             $table->unsignedInteger('reminders_count')->default(0)->comment('Numero totale di solleciti inviati');
             $table->string('sync_status', 50)->default('local')->comment('Stato sincronizzazione cloud: local, syncing, synced, failed');
@@ -106,7 +110,7 @@ return new class extends Migration
             $table->string('cellposition')->nullable()->comment('Posizione della cella in cui si trova il documento');
             $table->boolean('is_signed')->default(false)->comment('Indica se il documento è stato firmato');
             $table->boolean('is_unique')->default(false)->comment('Se true, è l\'unico documento ammesso in questa collection');
-            $table->boolean('is_endMonth')->default(false)->comment('Approssima la scadenza all\'ultimo giorno del mese');
+            $table->boolean('is_end_month')->default(false)->comment('Approssima la scadenza all\'ultimo giorno del mese');
             $table->string('emitted_by')->nullable()->comment('Ente di rilascio');
             $table->date('emitted_at')->nullable()->comment('Data di emissione del documento');
             $table->date('expires_at')->nullable()->comment('Data di scadenza del documento');
@@ -117,7 +121,7 @@ return new class extends Migration
             $table->text('rejection_note')->nullable()->comment('Motivazione in caso di rifiuto del documento');
             $table->foreignId('user_id')->nullable()->comment('FK Utente o Cliente intestatario');
             $table->foreignId('renewed_by')->nullable()->comment('FK Utente che ha aggiornato il documento');
-            $table->foreignId('renewed_by_id')->nullable()->comment('Documento che sostituisce questo (es. versione firmata)');
+            $table->foreignId('replaced_by_id')->nullable()->comment('Documento che sostituisce questo (es. versione firmata)');
             $table->foreignId('uploaded_by')->nullable()->comment('FK Utente che ha eseguito l\'upload');
             $table->foreignId('verified_by')->nullable()->comment('FK Admin che ha verificato e approvato');
             $table->timestamp('verified_at')->nullable()->comment('Data e ora di verifica');
@@ -125,11 +129,148 @@ return new class extends Migration
             $table->foreignId('updated_by')->nullable()->comment('FK Utente che ha aggiornato il record');
             $table->foreignId('deleted_by')->nullable()->comment('FK Utente che ha eliminato il record');
             $table->string('file_hash', 64)->nullable()->comment('Hash SHA-256 del file per prevenire duplicati esatti');
+            $table->string('channel', 30)->nullable()->comment('Canale di arrivo: upload, email, whatsapp, drive, sharepoint, generated, signature');
+            $table->string('channel_ref')->nullable()->comment('Riferimento nel canale (Message-Id, media id WhatsApp, id busta di firma)');
             $table->timestamps();
             $table->softDeletes();
             $table->index(['expires_at'], 'doc_expires_at_index');
             $table->index(['status'], 'doc_status_index');
+            $table->index(['file_hash']);
             $table->comment('Archivio centralizzato dei documenti, allegati e file con supporto OCR e AI');
+        });
+
+        Schema::create('document_requirements', function (Blueprint $table) {
+            $table->id()->comment('ID univoco della regola di associazione');
+            $table->foreignId('tipoprodotto_id')->nullable()->comment('Prodotto a cui si applica il vincolo (DB Esterno). Se NULL, si applica a tutti i prodotti');
+            $table->foreignId('tipoprodotto_sub_id')->nullable()->comment('Sottoprodotto specifico (es. CQS Pensionati). Se NULL, si applica a tutto il macro-prodotto');
+            $table->foreignId('document_type_id');
+            $table->boolean('is_required')->default(true)->comment('Flag: true se il requisito è obbligatorio per l\'avanzamento');
+            $table->integer('sort_order')->default(0)->comment('Ordinamento di visualizzazione del requisito nella checklist del prodotto');
+            $table->foreignId('task_id')->nullable();
+            $table->timestamps();
+            $table->unique(['tipoprodotto_id', 'tipoprodotto_sub_id', 'document_type_id'], 'req_tf_unique');
+            $table->comment('Quali tipi documento servono per un prodotto/sottoprodotto o per un task (NULL = vale per tutti)');
+        });
+
+        Schema::create('document_requests', function (Blueprint $table) {
+            $table->id()->comment('ID univoco dell\'istanza del requisito sulla pratica');
+            $table->morphs('requestable');
+            $table->string('name', 150)->nullable()->comment('Nome/Tipo di documento richiesto (es. Cedolino, Certificato di servizio)');
+            $table->text('description')->nullable()->comment('Istruzioni dettagliate o motivo della richiesta della banca');
+            $table->string('requested_by_role', 50)->default('bank')->comment('Chi ha originato la richiesta: bank (banca), backoffice (interno), agent (agente)');
+            $table->string('assigned_to_type', 50)->default('agent')->comment('A chi spetta l\'azione: agent (agente), client (cliente)');
+            $table->string('status', 50)->default('da_richiedere')->comment('da_richiedere, richiesto, caricato, approvato, respinto, non_necessario');
+            $table->boolean('share_with_client')->default(true)->comment('Se 1, la richiesta è visibile e richiedibile direttamente al cliente finale');
+            $table->dateTime('requested_at')->nullable()->comment('Quando è stato richiesto');
+            $table->date('due_date')->nullable()->comment('Scadenza consigliata per l\'invio prima della decadenza');
+            $table->text('rejected_reason')->nullable()->comment('Motivo dell\'eventuale rifiuto del documento (se non idoneo)');
+            $table->timestamp('agent_notified_at')->nullable()->comment('Data e ora in cui l\'agente è stato notificato');
+            $table->timestamp('client_notified_at')->nullable()->comment('Data e ora in cui il cliente è stato notificato (es. via email/SMS)');
+            $table->foreignId('document_type_id')->nullable();
+            $table->timestamp('completed_at')->nullable()->comment('Data e ora di approvazione o evasione del requisito');
+            $table->text('notes')->nullable()->comment('Note operative o dettagli sulle problematiche del requisito');
+            $table->unsignedSmallInteger('sort_order')->nullable()->default(0);
+            $table->timestamp('received_at')->nullable();
+            $table->timestamp('reviewed_at')->nullable();
+            $table->foreignId('company_id')->nullable();
+            $table->foreignId('document_id')->nullable()->comment('Documento che evade la richiesta');
+            $table->boolean('is_required')->default(true);
+            $table->foreignId('created_by')->nullable();
+            $table->timestamps();
+            $table->comment('Richieste di documenti su una pratica o un\'anagrafica, con stato e documento che le evade');
+        });
+
+        Schema::create('document_analyses', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('document_id');
+            $table->string('kind', 30)->comment('classification, extraction, verification, abstract');
+            $table->json('checks')->nullable()->comment('Controlli eseguiti');
+            $table->json('result')->nullable()->comment('Esito strutturato: campi estratti, anomalie, annotazioni');
+            $table->string('outcome', 20)->nullable()->comment('passed, failed, needs_review');
+            $table->unsignedTinyInteger('confidence')->nullable()->comment('0-100');
+            $table->enum('operator_type', ['human', 'procedural', 'ai'])->nullable()->comment('Chi ha prodotto l\'esito');
+            $table->string('operator_label')->nullable()->comment('Es. regex, ai.anthropic, verifier.signature');
+            $table->string('ai_model', 60)->nullable();
+            $table->unsignedInteger('ai_input_tokens')->nullable();
+            $table->unsignedInteger('ai_output_tokens')->nullable();
+            $table->decimal('ai_cost', 10, 6)->nullable()->comment('Costo in USD');
+            $table->text('error')->nullable();
+            $table->foreignId('created_by')->nullable();
+            $table->timestamps();
+            $table->index(['document_id', 'kind']);
+            $table->comment('Storico delle analisi automatiche e manuali di un documento, con costi AI');
+        });
+
+        Schema::create('signature_requests', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('document_id')->comment('documents.id');
+            $table->string('provider', 30);
+            $table->string('provider_ref')->nullable();
+            $table->string('status', 20)->default('pending');
+            $table->dateTime('sent_at')->nullable();
+            $table->dateTime('signed_at')->nullable();
+            $table->dateTime('expires_at')->nullable();
+            $table->dateTime('last_synced_at')->nullable();
+            $table->dateTime('last_event_at')->nullable();
+            $table->string('failure_reason')->nullable();
+            $table->foreignId('requested_by')->nullable();
+            $table->string('token', 64)->nullable()->comment('riservato alla firma a distanza via link (fase 2)');
+            $table->timestamps();
+            $table->unique(['token'], 'signature_requests_token_unique');
+            $table->index(['provider_ref'], 'signature_requests_provider_ref_index');
+            $table->index(['status'], 'signature_requests_status_index');
+            $table->comment('Richieste di firma di un Document presso un provider (busta di firma).');
+        });
+
+        Schema::create('signature_request_signers', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('signature_request_id');
+            $table->unsignedTinyInteger('position');
+            $table->string('slot', 30);
+            $table->string('role', 20);
+            $table->string('name');
+            $table->string('first_name');
+            $table->string('last_name');
+            $table->string('tax_code', 32)->nullable();
+            $table->string('email')->nullable();
+            $table->string('phone', 32)->nullable();
+            $table->string('signer_type', 20)->nullable()->comment('client | agent | user | manual');
+            $table->string('signer_ref', 64)->nullable();
+            $table->string('status', 20)->default('waiting');
+            $table->dateTime('signed_at')->nullable();
+            $table->string('provider_signer_ref')->nullable();
+            $table->timestamps();
+            $table->unique(['signature_request_id', 'slot'], 'signature_request_signers_signature_request_id_slot_unique');
+            $table->comment('Firmatari di una richiesta di firma.');
+        });
+
+        Schema::create('pdf_modules', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->comment('Nome mostrato all\'operatore');
+            $table->string('file_path')->comment('Percorso relativo al disco public');
+            $table->foreignId('document_type_id')->nullable();
+            $table->string('version')->nullable()->comment('Versione del modulo (es. 03_2026)');
+            $table->json('tipi_prodotto')->nullable()->comment('Nomi tipo_prodotto pertinenti (come in pratiches.tipo_prodotto); null = tutti');
+            $table->string('client_scope', 30)->default('entrambi')->comment('persona_fisica | persona_giuridica | entrambi');
+            $table->boolean('is_active')->default(true);
+            $table->json('signature_slots')->nullable();
+            $table->timestamps();
+            $table->unique(['file_path'], 'pdf_modules_file_path_unique');
+            $table->comment('Moduli PDF compilabili (AcroForm) presenti in storage/app/public/module.');
+        });
+
+        Schema::create('pdf_module_fields', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('pdf_module_id');
+            $table->string('pdf_field_name');
+            $table->string('pdf_field_type', 20)->default('text')->comment('text | checkbox');
+            $table->string('source_key')->nullable()->comment('Valore di ModuleSourceKey; null = campo non compilato');
+            $table->string('formatter', 30)->nullable()->comment('Valore di ModuleFormatter');
+            $table->string('checkbox_on_value', 50)->nullable()->comment('Valore dello stato "spuntato" (es. si, Yes)');
+            $table->string('checkbox_when')->nullable()->comment('Chiave ModuleSourceKey, con ! iniziale per negare');
+            $table->timestamps();
+            $table->unique(['pdf_module_id', 'pdf_field_name'], 'pdf_module_fields_pdf_module_id_pdf_field_name_unique');
+            $table->comment('Mappatura campo AcroForm -> chiave dati (ModuleSourceKey) per ogni modulo PDF.');
         });
 
         Schema::create('document_reminders', function (Blueprint $table) {
@@ -182,15 +323,6 @@ return new class extends Migration
             $table->timestamps();
             $table->unique(['name'], 'tasks_name_unique');
             $table->index(['app_identifier'], 'tasks_app_identifier_index');
-        });
-
-        Schema::create('task_document_types', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('task_id');
-            $table->foreignId('document_type_id');
-            $table->string('slug')->nullable()->comment('Slug univoco per URL');
-            $table->boolean('is_required')->default(true)->comment('Se il documento è obbligatorio per questo task');
-            $table->timestamps();
         });
 
         Schema::create('media', function (Blueprint $table) {
@@ -302,10 +434,16 @@ return new class extends Migration
         Schema::dropIfExists('mail_accounts');
         Schema::dropIfExists('email_templates');
         Schema::dropIfExists('media');
-        Schema::dropIfExists('task_document_types');
         Schema::dropIfExists('tasks');
         Schema::dropIfExists('document_schedules');
         Schema::dropIfExists('document_reminders');
+        Schema::dropIfExists('pdf_module_fields');
+        Schema::dropIfExists('pdf_modules');
+        Schema::dropIfExists('signature_request_signers');
+        Schema::dropIfExists('signature_requests');
+        Schema::dropIfExists('document_analyses');
+        Schema::dropIfExists('document_requests');
+        Schema::dropIfExists('document_requirements');
         Schema::dropIfExists('documents');
         Schema::dropIfExists('document_types');
     }

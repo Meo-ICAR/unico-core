@@ -394,42 +394,6 @@ Conversioni: `pratica_id` da varchar(255) a bigint, FK → `pratiches`
 
 FK: `pratica_id` → `pratiches`, `user_id` → `users`
 
-### `pratica_document_requests`
-Sorgenti: `proforma.pratica_document_requests`
-
-| Provenienza | Colonne |
-|---|---|
-| proforma | id, pratica_id, name, description, requested_by, assigned_to_type, status, share_with_client, requested_at, due_date, file_path, rejected_reason, agent_notified_at, client_notified_at, created_at, updated_at |
-
-Conversioni: `pratica_id` da varchar(255) a bigint, FK → `pratiches`; `requested_by` da varchar(50) a bigint, FK → `users`
-
-FK: `pratica_id` → `pratiches`, `requested_by` → `users`
-
-### `pratica_requisiti`
-Sorgenti: `loan.pratica_requisiti`, `oam.pratica_requisiti`
-
-| Provenienza | Colonne |
-|---|---|
-| loan+oam | id, codice, name, descrizione, created_at, updated_at |
-
-### `pratica_requisiti_operativi`
-Sorgenti: `loan.pratica_requisiti_operativi`, `oam.pratica_requisiti_operativi`
-
-| Provenienza | Colonne |
-|---|---|
-| loan+oam | id, pratica_id, pratica_requisito_id, stato, data_richiesta, data_completamento, note, created_at, updated_at |
-
-FK: `pratica_id` → `pratiches`, `pratica_requisito_id` → `pratica_requisiti`
-
-### `requisito_tipo_finanziamento`
-Sorgenti: `loan.requisito_tipo_finanziamento`, `oam.requisito_tipo_finanziamento`
-
-| Provenienza | Colonne |
-|---|---|
-| loan+oam | id, tipoprodotto_id, tipoprodotto_sub_id, pratica_requisito_id, obbligatorio, ordine |
-
-FK: `tipoprodotto_id` → `tipoprodotto`, `tipoprodotto_sub_id` → `tipoprodotto_sub`, `pratica_requisito_id` → `pratica_requisiti`
-
 ### `oam_pratiches`
 Sorgenti: `oam.oam_pratiches`, `loan.oam_pratiches`
 
@@ -456,25 +420,107 @@ FK: `company_id` → `companies`
 ## Documenti, media, comunicazioni
 
 ### `document_types`
-Sorgenti: `loan.document_types`, `oam.document_types`
+Sorgenti: `loan.document_types`, `oam.document_types`, `loan.pratica_requisiti`
 
 | Provenienza | Colonne |
 |---|---|
-| loan+oam | id, name, description, code, codegroup, slug, regex_pattern, priority, phase, is_person, is_company, is_employee, is_agent, is_principal, is_client, is_practice, trigger_field, is_signed, is_monitored, renewed_by_id, document_url, training_hours, training_organization, duration, duration_unit, nature, doctype, cellposition, emitted_by, is_sensible, is_template, is_stored, regex, is_endMonth, is_AiAbstract, is_AiCheck, AiPattern, min_confidence, allow_auto_verification, notify_days_before, retention_years, created_by, updated_by, deleted_by, created_at, updated_at, deleted_at, is_versioned, document_typable, trigger_state, trigger_value, exclude_field, exclude_state, exclude_value, expire_days_before |
+| loan+oam | id, name, description, code, codegroup, slug, regex_pattern, priority, phase, is_person, is_company, is_employee, is_agent, is_principal, is_client, is_practice, trigger_field, is_signed, is_monitored, renewed_by_id, document_url, training_hours, training_organization, duration, duration_unit, nature, doctype, cellposition, emitted_by, is_sensible, is_template, is_stored, regex, is_end_month (era `is_endMonth`), is_ai_abstract (era `is_AiAbstract`), is_ai_check (era `is_AiCheck`), ai_pattern (era `AiPattern`), min_confidence, allow_auto_verification, notify_days_before, retention_years, created_by, updated_by, deleted_by, created_at, updated_at, deleted_at, is_versioned, document_typable, trigger_state, trigger_value, exclude_field, exclude_state, exclude_value |
+| nuovo | company_id, ai_kind, checks |
 
-FK: `renewed_by_id` → `document_types`, `created_by` → `users`, `updated_by` → `users`, `deleted_by` → `users`
+Colonne eliminate: `expire_days_before`
+
+FK: `renewed_by_id` → `document_types`, `created_by` → `users`, `updated_by` → `users`, `deleted_by` → `users`, `company_id` → `companies`
 
 ### `documents`
 Sorgenti: `loan.documents`, `oam.documents`
 
 | Provenienza | Colonne |
 |---|---|
-| loan+oam | id, company_id, documentable_type, documentable_id, document_type_id, name, training_hours, training_organization, docnumber, spatie_collection, document_url, status, last_sent_at, reminders_count, sync_status, source_app, app_id, app_drive_id, app_etag, extracted_text, metadata, ai_abstract, ai_confidence_score, is_monitored, is_template, doctype, cellposition, is_signed, is_unique, is_endMonth, emitted_by, emitted_at, expires_at, delivered_at, signed_at, description, internal_notes, rejection_note, user_id, renewed_by, uploaded_by, verified_by, verified_at, created_by, updated_by, deleted_by, file_hash, created_at, updated_at, deleted_at |
-| loan | renewed_by_id |
+| loan+oam | id, company_id, documentable_type, documentable_id, document_type_id, name, training_hours, training_organization, docnumber, spatie_collection, document_url, status, last_sent_at, reminders_count, sync_status, source_app, app_id, app_drive_id, app_etag, extracted_text, metadata, ai_abstract, ai_confidence_score, is_monitored, is_template, doctype, cellposition, is_signed, is_unique, is_end_month (era `is_endMonth`), emitted_by, emitted_at, expires_at, delivered_at, signed_at, description, internal_notes, rejection_note, user_id, renewed_by, uploaded_by, verified_by, verified_at, created_by, updated_by, deleted_by, file_hash, created_at, updated_at, deleted_at |
+| loan | replaced_by_id (era `renewed_by_id`) |
+| nuovo | channel, channel_ref |
 
-Conversioni: `id` da char(36) a bigint auto-increment; `company_id` da char(36) a bigint, FK → `companies`; `documentable_id` da char a bigint (morph); `renewed_by` da char(36) a bigint, FK → `users`; `renewed_by_id` da char(36) a bigint, FK → `documents`
+Conversioni: `id` da char(36) a bigint auto-increment; `company_id` da char(36) a bigint, FK → `companies`; `documentable_id` da char a bigint (morph); `renewed_by` da char(36) a bigint, FK → `users`; `replaced_by_id` da char(36) a bigint, FK → `documents`
 
-FK: `company_id` → `companies`, `document_type_id` → `document_types`, `user_id` → `users`, `renewed_by` → `users`, `renewed_by_id` → `documents`, `uploaded_by` → `users`, `verified_by` → `users`, `created_by` → `users`, `updated_by` → `users`, `deleted_by` → `users`
+FK: `company_id` → `companies`, `document_type_id` → `document_types`, `user_id` → `users`, `renewed_by` → `users`, `replaced_by_id` → `documents`, `uploaded_by` → `users`, `verified_by` → `users`, `created_by` → `users`, `updated_by` → `users`, `deleted_by` → `users`
+
+### `document_requirements`
+Sorgenti: `loan.requisito_tipo_finanziamento`, `loan.task_document_types`
+
+| Provenienza | Colonne |
+|---|---|
+| loan | id, tipoprodotto_id, tipoprodotto_sub_id, document_type_id (era `pratica_requisito_id`), is_required (era `obbligatorio`), sort_order (era `ordine`), task_id, created_at, updated_at |
+
+Colonne eliminate: `slug`
+
+FK: `tipoprodotto_id` → `tipoprodotto`, `tipoprodotto_sub_id` → `tipoprodotto_sub`, `document_type_id` → `document_types`, `task_id` → `tasks`
+
+### `document_requests`
+Sorgenti: `proforma.pratica_document_requests`, `loan.pratica_requisiti_operativi`, `agent.pratica_documents`
+
+| Provenienza | Colonne |
+|---|---|
+| agent+loan+proforma | id, requestable_id (era `pratica_id`), status, created_at, updated_at |
+| agent+proforma | name |
+| proforma | description, requested_by_role (era `requested_by`), assigned_to_type, share_with_client, due_date, rejected_reason, agent_notified_at, client_notified_at |
+| loan+proforma | requested_at |
+| agent+loan | document_type_id (era `pratica_requisito_id`), notes (era `note`) |
+| loan | completed_at (era `data_completamento`) |
+| agent | sort_order, received_at, reviewed_at |
+| nuovo | requestable_type, company_id, document_id, is_required, created_by |
+
+Colonne eliminate: `code`, `file_path`, `requirement`
+
+Conversioni: `requestable_id` da varchar a bigint (morph)
+
+FK: `document_type_id` → `document_types`, `company_id` → `companies`, `document_id` → `documents`, `created_by` → `users`
+
+### `document_analyses`
+Sorgenti: 
+
+| Provenienza | Colonne |
+|---|---|
+| nuovo | id, document_id, kind, checks, result, outcome, confidence, operator_type, operator_label, ai_model, ai_input_tokens, ai_output_tokens, ai_cost, error, created_by, created_at, updated_at |
+
+FK: `document_id` → `documents`, `created_by` → `users`
+
+### `signature_requests`
+Sorgenti: `loan.signature_requests`
+
+| Provenienza | Colonne |
+|---|---|
+| loan | id, document_id, provider, provider_ref, status, sent_at, signed_at, expires_at, last_synced_at, last_event_at, failure_reason, requested_by, token, created_at, updated_at |
+
+Conversioni: `document_id` da char(36) a bigint, FK → `documents`
+
+FK: `document_id` → `documents`, `requested_by` → `users`
+
+### `signature_request_signers`
+Sorgenti: `loan.signature_request_signers`
+
+| Provenienza | Colonne |
+|---|---|
+| loan | id, signature_request_id, position, slot, role, name, first_name, last_name, tax_code, email, phone, signer_type, signer_ref, status, signed_at, provider_signer_ref, created_at, updated_at |
+
+FK: `signature_request_id` → `signature_requests`
+
+### `pdf_modules`
+Sorgenti: `loan.pdf_modules`
+
+| Provenienza | Colonne |
+|---|---|
+| loan | id, name, file_path, document_type_id, version, tipi_prodotto, client_scope, is_active, signature_slots, created_at, updated_at |
+
+FK: `document_type_id` → `document_types`
+
+### `pdf_module_fields`
+Sorgenti: `loan.pdf_module_fields`
+
+| Provenienza | Colonne |
+|---|---|
+| loan | id, pdf_module_id, pdf_field_name, pdf_field_type, source_key, formatter, checkbox_on_value, checkbox_when, created_at, updated_at |
+
+FK: `pdf_module_id` → `pdf_modules`
 
 ### `document_reminders`
 Sorgenti: `loan.document_reminders`, `oam.document_reminders`
@@ -507,15 +553,6 @@ Sorgenti: `loan.tasks`, `oam.tasks`
 | loan | trigger_subfield, trigger_subvalue |
 
 FK: `parent_id` → `tasks`
-
-### `task_document_types`
-Sorgenti: `loan.task_document_types`, `oam.task_document_types`
-
-| Provenienza | Colonne |
-|---|---|
-| loan+oam | id, task_id, document_type_id, slug, is_required, created_at, updated_at |
-
-FK: `task_id` → `tasks`, `document_type_id` → `document_types`
 
 ### `media`
 Sorgenti: `oam.media`, `loan.media`, `bpm.media`
@@ -680,4 +717,10 @@ FK: `company_id` → `companies`, `user_id` → `users`
 - `proforma.pratiches_statos` → `pratica_stati`
 - `proforma.client_pratiches` → `pratica_clients`
 - `loan.tipo_prodottos` → `tipoprodotto`
+- `loan.pratica_requisiti` → `document_types`
+- `loan.requisito_tipo_finanziamento` → `document_requirements`
+- `loan.task_document_types` → `document_requirements`
+- `loan.pratica_requisiti_operativi` → `document_requests`
+- `proforma.pratica_document_requests` → `document_requests`
+- `agent.pratica_documents` → `document_requests (solo colonne; unicoagent resta separata)`
 - `oam.tipo_prodottos` → `tipoprodotto`

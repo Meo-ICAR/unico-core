@@ -7,7 +7,8 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 
 ## Contenuto
 
-- `database/migrations/`: 64 tabelle core in 7 aree e 113 chiavi esterne, aggiunte in una migration finale
+- `database/migrations/`: 66 tabelle core in 7 aree e 120 chiavi esterne, aggiunte in una migration finale
+- `docs/documents-design.md`: schema di documenti e tipi documento e, funzione per funzione, quale implementazione portare da ciascuna app
 - `docs/porting-email-drive.md`: piano per portare nel pacchetto la lettura email e la gestione di Google Drive da unicogdpr
 - `docs/schema-map.md`: per ogni tabella, da quali app arriva ogni colonna e quali conversioni sono state fatte
 - `tools/schema-merge/`: script che rigenerano le migration dai dump e dalle regole in `spec.py`
@@ -58,6 +59,7 @@ Non vengono caricate da `php artisan migrate`, quindi nessuna app le esegue per 
 - **ID interi ovunque.** Tutte le chiavi primarie sono `bigint unsigned auto_increment`. I campi che erano UUID (`char(36)`) e le relazioni polimorfiche sono convertiti in `bigint`.
 - **Una tabella per concetto, con tutti i campi.** Per ogni tabella la prima sorgente elencata in `docs/schema-map.md` decide tipi e vincoli. Le colonne che arrivano solo dalle altre app sono aggiunte come nullable.
 - **Tabelle fuse.** `pratiches_statos` in `pratica_stati`; `client_pratiches` in `pratica_clients`; `tipo_prodottos` in `tipoprodotto`.
+- **Documenti.** `pratica_requisiti` in `document_types`; `requisito_tipo_finanziamento` e `task_document_types` in `document_requirements`; `pratica_requisiti_operativi` e `pratica_document_requests` in `document_requests`; nuova `document_analyses`. Dettagli in `docs/documents-design.md`.
 - **Campi sinonimi uniti.** `companies.piva` in `vat_number`; `fornitoris.company_branch_id` in `branch_id`; in `mail_accounts` le colonne `incoming_*` in `imap_*`.
 - **Email.** `mail_accounts` unisce lo schema di unicooam con l'autenticazione OAuth2 di unicogdpr. `incoming_emails` arriva da unicogdpr, con un morph `related` al posto dei collegamenti a DSAR e reclami.
 - **Permessi.** Si usa il modello di unicobpm: `employee_type_permissions.resource_id` con FK su `resources`. La colonna testuale `resource` di unicoloan e unicooam è eliminata.
