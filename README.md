@@ -13,6 +13,18 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 - `docs/schema-map.md`: per ogni tabella, da quali app arriva ogni colonna e quali conversioni sono state fatte
 - `tools/schema-merge/`: script che rigenerano le migration dai dump e dalle regole in `spec.py`
 
+## Modelli
+
+- `Unico\Core\Models\Document`, `DocumentType`, `DocumentReminder`, `Company`: usano la connessione `core` (trait `UsesCoreConnection`).
+- `Unico\Core\Enums\DocumentStatus`: unico elenco ammesso per `documents.status`, con cast sul modello.
+- File dei documenti: media collection `documents` (e `signed` per la versione firmata) sul disco privato `documents`, registrato dal pacchetto se l'app non lo definisce. Il download passa da `documents.download` (rotta con `auth`, policy `download`/`view` dell'app o filtro per `company_id`).
+- Le scadenze si calcolano dal tipo documento solo se mancano o se cambia la data di emissione: una scadenza inserita a mano non viene mai sovrascritta.
+- `Document::renew()` crea il nuovo documento e valorizza `replaced_by_id` sul vecchio.
+
+## Test
+
+`composer install && vendor/bin/phpunit`. I test usano un database MySQL/MariaDB vuoto (variabili `CORE_TEST_DB_HOST`, `CORE_TEST_DB_PORT`, `CORE_TEST_DB_DATABASE`, `CORE_TEST_DB_USERNAME`, `CORE_TEST_DB_PASSWORD`; default `unico_core_test`, utente `unico`) e ne ricreano le tabelle a ogni avvio: non puntarli a un database con dati.
+
 ## Installazione in un'app
 
 In `composer.json` dell'app:
@@ -69,7 +81,7 @@ Non vengono caricate da `php artisan migrate`, quindi nessuna app le esegue per 
 
 ## Da fare nelle app
 
-1. Modelli Eloquent condivisi in questo pacchetto, con `protected $connection` letta da `config('unico-core.connection')`.
+1. Altri modelli Eloquent condivisi (restano `Client`, `Employee`, `Pratica`, ...), sul modello di `Document`.
 2. `Relation::enforceMorphMap()` con alias stabili (`company`, `client`, `fornitore`, `employee`, ...): oggi ogni app salva nomi di classe diversi nei campi `*_type`.
 3. Togliere le tabelle core dalle migration delle singole app e puntare i modelli locali al pacchetto.
 4. Riscrivere le 34 viste di proforma: usano `pratiches_statos`, `stato_pratica` e gli ID UUID.
