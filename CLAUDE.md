@@ -19,24 +19,25 @@ Leggere prima `README.md` e `docs/` (schema-map, documents-design, porting-email
 - Niente dati personali nei log (solo id e nome della classe dell'eccezione).
 
 ## Test
-`composer install`, un database MySQL vuoto, poi `vendor/bin/phpunit`. Variabili: `CORE_TEST_DB_HOST/PORT/DATABASE/USERNAME/PASSWORD`
+`composer install`, un database MySQL vuoto, poi `vendor/bin/phpunit` (serve `pdftk` per i test dei moduli PDF; si salta se manca). Le variabili possono stare nel `.env` (lette da `tests/bootstrap.php`; mai committare il `.env`): `CORE_TEST_DB_HOST/PORT/DATABASE/USERNAME/PASSWORD`
 (default `127.0.0.1:3306`, `unico_core_test`, `unico`/`unico`). I test sono scritti senza un'app Laravel completa (`tests/Support/CoreDatabase.php`);
 rete e servizi esterni sono sostituiti da finti (`FakeImap`, `FakeDrive`, `FakeGraph`, `FakeReader`, `FakeMailManager`, `FakeFiles`).
-**I test sono stati eseguiti finora solo con un runner locale e librerie simulate (Spatie, Webklex, Socialite, Google, Filament): la prima esecuzione
-con le librerie vere può rivelare piccoli errori di integrazione. Sono da correggere, non da aggirare.**
+Non lanciare due `phpunit` insieme sullo stesso database: ognuno ricrea le tabelle. Gli errori di integrazione vanno corretti, non aggirati.
 
 ## Fatto
 Schema (66 tabelle) e modelli; Document/DocumentType; email (IMAP, OAuth, classificazione, rimbalzi); Google Drive; SharePoint;
-pipeline di analisi documenti (`Documents\DocumentPipeline`); scadenziario e solleciti (`Documents\Reminders`).
+pipeline di analisi documenti (`Documents\DocumentPipeline`); scadenziario e solleciti (`Documents\Reminders`);
+prima esecuzione dei test con le librerie vere (171 test verdi); `Documents\DocumentPathGenerator` (percorsi leggibili, config `documents.readable_paths`)
+e contratto `DocumentGenerator`; `Mail\SenderIdentifier` (+ `SenderMatcher` per le app); moduli PDF `Pdf\PdfFormFiller` (pdftk).
 
 ## Da fare (in ordine)
-1. Prima esecuzione di `vendor/bin/phpunit` con le librerie vere e correzioni.
-2. `SenderIdentifier` (riconoscere il mittente di una email), firma elettronica (Yousign: `SignatureRequestService` e provider), moduli PDF (AcroForm),
-   `DocumentGenerator`, `DocumentPathGenerator` generico (da unicogdpr).
-3. Collegare le app una alla volta, partendo da unicooam: sostituire i modelli locali con quelli del pacchetto, convertire i valori `*_type` agli alias,
+1. Firma elettronica (Yousign): `SignatureRequestService`, `SignatureProviderManager`, `YousignSignatureProvider`, `FakeSignatureProvider`, DTO, webhook,
+   riconciliazione e scadenze, da unicoloan (`../unicoloan/app/Services/Signature`). Prima definire enum `SignatureRequestStatus`, `SignerStatus`, `SignerRole`;
+   la parte KYC di `completeRequest` resta nell'app (evento o hook), il registro attività (`activity()`) va dietro un contratto.
+2. Collegare le app una alla volta, partendo da unicooam: sostituire i modelli locali con quelli del pacchetto, convertire i valori `*_type` agli alias,
    riscrivere le 34 viste di proforma, allineare proforma a Laravel 13 e Filament 5.
-4. Correzioni nelle app: documenti su disco pubblico, `db_password` in chiaro, enum di stato.
-5. unicoagent resta separata e parla via API (`documents.channel = 'whatsapp'`).
+3. Correzioni nelle app: documenti su disco pubblico, `db_password` in chiaro, enum di stato.
+4. unicoagent resta separata e parla via API (`documents.channel = 'whatsapp'`).
 
 ## Commit
 I messaggi finiscono con le righe di attribuzione richieste dall'ambiente in uso.
