@@ -241,12 +241,12 @@ return new class extends Migration
             $table->string('email_address')->comment('Indirizzo email completo');
             $table->string('email_reply_to')->nullable()->comment('Indirizzo email di reply-to');
             $table->boolean('is_pec')->default(false)->comment('Indica se l account è una PEC (1) o una mail standard (0)');
-            $table->enum('incoming_protocol', ['pop3', 'imap'])->default('pop3')->comment('Protocollo di lettura: pop3 o imap');
-            $table->string('incoming_host')->comment('Host del server di posta in arrivo (es. pop3.pec.it)');
-            $table->integer('incoming_port')->comment('Porta del server di posta in arrivo (es. 995)');
-            $table->string('incoming_username')->comment('Username per la posta in arrivo');
-            $table->text('incoming_password')->comment('Password criptata per la posta in arrivo');
-            $table->enum('incoming_encryption', ['none', 'ssl', 'tls'])->default('ssl')->comment('Tipo di crittografia per la posta in arrivo');
+            $table->enum('protocol', ['pop3', 'imap'])->default('imap')->comment('Protocollo di lettura: pop3 o imap');
+            $table->string('imap_host')->comment('Host del server di posta in arrivo (es. pop3.pec.it)');
+            $table->integer('imap_port')->comment('Porta del server di posta in arrivo (es. 995)');
+            $table->string('imap_username')->comment('Username per la posta in arrivo');
+            $table->text('imap_password')->nullable()->comment('Password criptata per la posta in arrivo');
+            $table->enum('imap_encryption', ['none', 'ssl', 'tls'])->default('ssl')->comment('Tipo di crittografia per la posta in arrivo');
             $table->string('smtp_host')->comment('Host del server di posta in uscita (es. smtps.pec.it)');
             $table->integer('smtp_port')->comment('Porta del server di posta in uscita (es. 465)');
             $table->string('smtp_username')->comment('Username per la posta in uscita');
@@ -254,15 +254,51 @@ return new class extends Migration
             $table->enum('smtp_encryption', ['none', 'ssl', 'tls'])->default('ssl')->comment('Tipo di crittografia per la posta in uscita');
             $table->boolean('is_active')->default(true)->comment('Indica se l account è attualmente attivo');
             $table->nullableMorphs('mailable');
+            $table->foreignId('company_id')->nullable()->comment('Tenant proprietario della casella');
+            $table->enum('auth_type', ['password', 'oauth2'])->default('password')->comment('Metodo di autenticazione');
+            $table->string('provider')->nullable()->comment('Provider OAuth (google, microsoft)');
+            $table->text('access_token')->nullable()->comment('Access token OAuth2, cifrato');
+            $table->text('refresh_token')->nullable()->comment('Refresh token OAuth2, cifrato');
+            $table->timestamp('token_expires_at')->nullable()->comment('Scadenza dell\'access token');
+            $table->timestamp('last_synced_at')->nullable()->comment('Ultima scansione IMAP completata');
             $table->timestamps();
             $table->softDeletes();
             $table->unique(['email_address'], 'mail_accounts_email_address_unique');
-            $table->comment('Configurazioni dei server POP3/IMAP e SMTP per le caselle email e PEC');
+            $table->comment('Caselle email e PEC: IMAP in ingresso e SMTP in uscita, con Basic Auth o OAuth 2.0');
+        });
+
+        Schema::create('incoming_emails', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('company_id')->comment('Tenant proprietario della casella');
+            $table->foreignId('mail_account_id')->nullable();
+            $table->string('message_id')->comment('Message-Id RFC 5322, senza parentesi angolari');
+            $table->string('in_reply_to')->nullable();
+            $table->text('references')->nullable()->comment('Catena References dell\'header, separata da spazi');
+            $table->string('thread_id')->nullable()->comment('Conversazione: prima reference o message_id');
+            $table->string('from_email');
+            $table->string('from_name')->nullable();
+            $table->json('to')->nullable();
+            $table->json('cc')->nullable();
+            $table->string('subject')->nullable();
+            $table->longText('body_text')->nullable();
+            $table->longText('body_html')->nullable();
+            $table->timestamp('received_at')->comment('Data del messaggio dal server');
+            $table->boolean('is_read')->default(false);
+            $table->string('classification', 50)->nullable()->comment('Esito del classificatore');
+            $table->nullableMorphs('related');
+            $table->string('drive_folder_id')->nullable()->comment('Cartella Drive in cui è archiviata');
+            $table->timestamps();
+            $table->softDeletes();
+            $table->unique(['company_id', 'message_id'], 'incoming_emails_company_message_unique');
+            $table->index(['company_id', 'thread_id']);
+            $table->index(['company_id', 'is_read']);
+            $table->comment('Archivio delle email lette dalle caselle IMAP');
         });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('incoming_emails');
         Schema::dropIfExists('mail_accounts');
         Schema::dropIfExists('email_templates');
         Schema::dropIfExists('media');

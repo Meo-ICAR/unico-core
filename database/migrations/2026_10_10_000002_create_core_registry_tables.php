@@ -269,13 +269,11 @@ return new class extends Migration
             $table->smallInteger('contributoperiodicita')->nullable()->comment('Frequenza addebito costi (1=Mensile, 3=Trimestrale, etc.)');
             $table->date('contributodalmese')->nullable();
             $table->foreignId('fornitorirole_id')->nullable();
-            $table->json('employee_roles')->nullable()->comment('Ruoli (nomi EmployeeType) associati a questo fornitore, stessa struttura di employees.employee_roles');
             $table->foreignId('branch_id')->nullable();
-            $table->string('sigla', 10)->nullable();
+            $table->json('employee_roles')->nullable()->comment('Ruoli (nomi EmployeeType) associati a questo fornitore, stessa struttura di employees.employee_roles');
             $table->softDeletes();
             $table->timestamps();
             $table->index(['piva'], 'piva');
-            $table->index(['sigla'], 'fornitoris_sigla_index');
             $table->comment('Anagrafica Agenti di commercio / Collaboratori (Fornitori di servizi)');
         });
 

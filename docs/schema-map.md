@@ -5,18 +5,15 @@ Per ogni tabella: sorgenti in ordine di priorità (la prima decide tipi e vincol
 ## Aziende, utenti, permessi, dipendenti
 
 ### `companies`
-Sorgenti: `loan.companies`, `oam.companies`, `agent.companies`, `proforma.companies`, `bpm.companies`
+Sorgenti: `loan.companies`, `oam.companies`, `proforma.companies`, `bpm.companies`
 
 | Provenienza | Colonne |
 |---|---|
-| agent+bpm+loan+oam+proforma | id, created_at, updated_at |
-| agent+loan+oam+proforma | name |
-| loan+oam+proforma | vat_number |
-| loan+oam | vat_name, oam, oam_at, oam_name, numero_iscrizione_rui, ivass, ivass_at, ivass_name, ivass_section, sponsor, page_header, page_footer |
-| agent+loan+oam | company_type |
-| agent | address, customer_care_phone, customer_care_email, istruttoria_email, url_preventivatore, url_istruttoria, dpo_email, retention_perfected, is_trial, trialend_at, trial_activated_at, activated_at, whatsapp_number, logo |
-| agent+proforma | email |
-| proforma | crm, crm_last_activation, callcenter, call_last_activation, updated_by, deleted_by, deleted_at, email_cc, email_bcc, emailsubject, compenso_descrizione, aibackground, db_host, db_port, db_database, db_username, db_password |
+| bpm+loan+oam+proforma | id, created_at, updated_at |
+| loan+oam+proforma | name, vat_number |
+| loan+oam | vat_name, oam, oam_at, oam_name, numero_iscrizione_rui, ivass, ivass_at, ivass_name, ivass_section, sponsor, company_type, page_header, page_footer |
+| proforma | crm, crm_last_activation, callcenter, call_last_activation, updated_by, deleted_by, deleted_at, email, email_cc, email_bcc, emailsubject, compenso_descrizione, aibackground, db_host, db_port, db_database, db_username, db_password |
+| nuovo | drive_folder_id |
 
 Conversioni: `id` da char(36) a bigint auto-increment
 
@@ -63,16 +60,13 @@ Conversioni: `company_id` da char(36) a bigint, FK → `companies`
 FK: `company_id` → `companies`
 
 ### `users`
-Sorgenti: `oam.users`, `loan.users`, `bpm.users`, `proforma.users`, `agent.users`
+Sorgenti: `oam.users`, `loan.users`, `bpm.users`, `proforma.users`
 
 | Provenienza | Colonne |
 |---|---|
-| agent+bpm+loan+oam+proforma | id, name, email, email_verified_at, password, remember_token, created_at, updated_at |
+| bpm+loan+oam+proforma | id, name, email, email_verified_at, password, remember_token, created_at, updated_at |
 | bpm+loan+oam | role, profile_type, profile_id |
 | proforma | cf, microsoft_token, microsoft_refresh_token, azure_id, microsoft_id, deleted_at |
-| agent | whatsapp_number, company_id |
-
-FK: `company_id` → `companies`
 
 ### `socialite_users`
 Sorgenti: `loan.socialite_users`, `oam.socialite_users`, `proforma.socialite_users`, `bpm.socialite_users`
@@ -198,25 +192,24 @@ Sorgenti: `proforma.fornitoriroles`
 Conversioni: `id` da int() a bigint auto-increment
 
 ### `clientis`
-Sorgenti: `agent.clientis`, `proforma.clientis`
+Sorgenti: `proforma.clientis`
 
 | Provenienza | Colonne |
 |---|---|
-| agent+proforma | id, name, nome, piva, stipulated_at, abi, abi_name, dismissed_at, type, oam, oam_name, oam_at, numero_iscrizione_rui, ivass, ivass_at, ivass_name, ivass_section, mandate_number, start_date, end_date, is_exclusive, status, notes, principal_type, submission_type, cf, website, is_reported, privacy_contact_email, dpo_email, coge, codice, email, regione, citta, company_id, customertype_id, is_active, is_dummy, deleted_at, created_at, updated_at |
+| proforma | id, name, nome, piva, stipulated_at, abi, abi_name, dismissed_at, type, oam, oam_name, oam_at, numero_iscrizione_rui, ivass, ivass_at, ivass_name, ivass_section, mandate_number, start_date, end_date, is_exclusive, status, notes, principal_type, submission_type, cf, website, is_reported, privacy_contact_email, dpo_email, coge, codice, email, regione, citta, company_id, customertype_id, is_active, is_dummy, deleted_at, created_at, updated_at |
 
 Conversioni: `id` da char(36) a bigint auto-increment; `company_id` da char(36) a bigint, FK → `companies`
 
 FK: `company_id` → `companies`, `customertype_id` → `client_types`
 
 ### `fornitoris`
-Sorgenti: `agent.fornitoris`, `proforma.fornitoris`
+Sorgenti: `proforma.fornitoris`
 
 | Provenienza | Colonne |
 |---|---|
-| agent+proforma | id, name, nome, stipulated_at, pec, description, email_private, supervisor_type, oam, oam_at, oam_name, numero_iscrizione_rui, ivass, ivass_at, dismissed_at, ivass_name, ivass_section, type, is_active, is_art108, coordinated_type, coordinated_id, user_id, oam_dismissed_at, welcome_bonus, campagna, available_at, budget, codice, coge, natoil, indirizzo, comune, cap, prov, tel, coordinatore, piva, cf, nomecoge, nomefattura, email, anticipo, enasarco, anticipo_residuo, contributo, contributo_description, anticipo_description, issubfornitore, operatore, iscollaboratore, isdipendente, regione, citta, deleted_at, created_at, updated_at, company_id, contributoperiodicita, contributodalmese, fornitorirole_id, employee_roles, branch_id |
-| agent | sigla |
+| proforma | id, name, nome, stipulated_at, pec, description, email_private, supervisor_type, oam, oam_at, oam_name, numero_iscrizione_rui, ivass, ivass_at, dismissed_at, ivass_name, ivass_section, type, is_active, is_art108, coordinated_type, coordinated_id, user_id, oam_dismissed_at, welcome_bonus, campagna, available_at, budget, codice, coge, natoil, indirizzo, comune, cap, prov, tel, coordinatore, piva, cf, nomecoge, nomefattura, email, anticipo, enasarco, anticipo_residuo, contributo, contributo_description, anticipo_description, issubfornitore, operatore, iscollaboratore, isdipendente, regione, citta, deleted_at, created_at, updated_at, company_id, contributoperiodicita, contributodalmese, fornitorirole_id, branch_id, employee_roles |
 
-Colonne eliminate: `company_branch_id`, `tenant_company_id`
+Colonne eliminate: `company_branch_id`
 
 Conversioni: `id` da char(36) a bigint auto-increment; `company_id` da char(36) a bigint, FK → `companies`; `fornitorirole_id` da int() a bigint, FK → `fornitoriroles`
 
@@ -546,9 +539,21 @@ Sorgenti: `oam.mail_accounts`, `loan.mail_accounts`
 
 | Provenienza | Colonne |
 |---|---|
-| loan+oam | id, name, email_address, email_reply_to, is_pec, incoming_protocol, incoming_host, incoming_port, incoming_username, incoming_password, incoming_encryption, smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, is_active, mailable_type, mailable_id, created_at, updated_at, deleted_at |
+| loan+oam | id, name, email_address, email_reply_to, is_pec, protocol (era `incoming_protocol`), imap_host (era `incoming_host`), imap_port (era `incoming_port`), imap_username (era `incoming_username`), imap_password (era `incoming_password`), imap_encryption (era `incoming_encryption`), smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, is_active, mailable_type, mailable_id, created_at, updated_at, deleted_at |
+| nuovo | company_id, auth_type, provider, access_token, refresh_token, token_expires_at, last_synced_at |
 
 Conversioni: `mailable_id` da varchar a bigint (morph)
+
+FK: `company_id` → `companies`
+
+### `incoming_emails`
+Sorgenti: 
+
+| Provenienza | Colonne |
+|---|---|
+| nuovo | id, company_id, mail_account_id, message_id, in_reply_to, references, thread_id, from_email, from_name, to, cc, subject, body_text, body_html, received_at, is_read, classification, related_type, related_id, drive_folder_id, created_at, updated_at, deleted_at |
+
+FK: `company_id` → `companies`, `mail_account_id` → `mail_accounts`
 
 ## Audit, reclami, antiriciclaggio, formazione
 

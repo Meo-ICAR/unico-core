@@ -61,9 +61,13 @@ def merge(name, spec):
                 indexes.append((k["name"], kc))
             elif k["kind"] == "FK" and kc[0] not in src_fks:
                 src_fks[kc[0]] = (k["ref"], k["ondelete"])
+    uniques += spec["unique"]
+    indexes += spec["index"]
     for a in spec["add"]:
         c2 = dict(a, origin=["nuovo"], renamed_from=None, auto=False)
         cols[a["name"]] = c2
+    for n, p in spec["patch"].items():
+        cols[n].update(p)
     for n, ty in spec["types"].items():
         cols[n]["base"], cols[n]["args"] = ty, ""
     return cols, uniques, indexes, src_fks, spec["comment"] or (comments[0] if comments else "")

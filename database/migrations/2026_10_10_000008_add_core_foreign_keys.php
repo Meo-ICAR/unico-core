@@ -37,10 +37,6 @@ return new class extends Migration
             $table->foreign('company_id')->references('id')->on('companies')->cascadeOnDelete();
         });
 
-        Schema::table('users', function (Blueprint $table) {
-            $table->foreign('company_id')->references('id')->on('companies')->nullOnDelete();
-        });
-
         Schema::table('socialite_users', function (Blueprint $table) {
             $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
         });
@@ -219,6 +215,15 @@ return new class extends Migration
             $table->foreign('document_type_id')->references('id')->on('document_types')->cascadeOnDelete();
         });
 
+        Schema::table('mail_accounts', function (Blueprint $table) {
+            $table->foreign('company_id')->references('id')->on('companies')->nullOnDelete();
+        });
+
+        Schema::table('incoming_emails', function (Blueprint $table) {
+            $table->foreign('company_id')->references('id')->on('companies')->cascadeOnDelete();
+            $table->foreign('mail_account_id')->references('id')->on('mail_accounts')->nullOnDelete();
+        });
+
         Schema::table('quality_reviews', function (Blueprint $table) {
             $table->foreign('company_id')->references('id')->on('companies')->cascadeOnDelete();
             $table->foreign('reviewer_user_id')->references('id')->on('users')->nullOnDelete();
@@ -283,10 +288,6 @@ return new class extends Migration
         });
 
         Schema::table('company_roles', function (Blueprint $table) {
-            $table->dropForeign(['company_id']);
-        });
-
-        Schema::table('users', function (Blueprint $table) {
             $table->dropForeign(['company_id']);
         });
 
@@ -466,6 +467,15 @@ return new class extends Migration
         Schema::table('task_document_types', function (Blueprint $table) {
             $table->dropForeign(['task_id']);
             $table->dropForeign(['document_type_id']);
+        });
+
+        Schema::table('mail_accounts', function (Blueprint $table) {
+            $table->dropForeign(['company_id']);
+        });
+
+        Schema::table('incoming_emails', function (Blueprint $table) {
+            $table->dropForeign(['company_id']);
+            $table->dropForeign(['mail_account_id']);
         });
 
         Schema::table('quality_reviews', function (Blueprint $table) {

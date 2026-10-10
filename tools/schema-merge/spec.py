@@ -19,21 +19,28 @@ AREAS = [
 T = {}
 
 
-def t(name, area, src, rename=None, drop=(), add=(), fk=None, types=None, nodefault=(), comment=None):
+def t(name, area, src, rename=None, drop=(), add=(), fk=None, types=None, nodefault=(), comment=None,
+      unique=(), index=(), patch=None):
     T[name] = dict(area=area, src=src, rename=rename or {}, drop=set(drop), add=list(add),
-                   fk=fk or {}, types=types or {}, nodefault=set(nodefault), comment=comment)
+                   fk=fk or {}, types=types or {}, nodefault=set(nodefault), comment=comment,
+                   unique=list(unique), index=list(index), patch=patch or {})
+
+
+def col(name, base, args="", nullable=True, default=None, comment="", unsigned=False):
+    return dict(name=name, base=base, args=args, unsigned=unsigned, nullable=nullable, default=default, comment=comment)
 
 
 # ---------------------------------------------------------------- tenancy
-t("companies", "tenancy", ["loan.companies", "oam.companies", "agent.companies", "proforma.companies", "bpm.companies"],
-  rename={"agent.companies": {"type": "company_type"}, "proforma.companies": {"piva": "vat_number"}},
+t("companies", "tenancy", ["loan.companies", "oam.companies", "proforma.companies", "bpm.companies"],
+  rename={"proforma.companies": {"piva": "vat_number"}},
+  add=[col("drive_folder_id", "varchar", "255", comment="Cartella Google Drive della company")],
   types={"db_password": "text"},
   comment="Tenant: società di mediazione, call center, hotel, software house")
 t("modules", "tenancy", ["loan.modules", "oam.modules"])
 t("company_modules", "tenancy", ["loan.company_modules", "oam.company_modules"])
 t("branches", "tenancy", ["oam.branches", "loan.branches"])
 t("company_roles", "tenancy", ["oam.company_roles", "loan.company_roles"])
-t("users", "tenancy", ["oam.users", "loan.users", "bpm.users", "proforma.users", "agent.users"],
+t("users", "tenancy", ["oam.users", "loan.users", "bpm.users", "proforma.users"],
   nodefault={"password"})
 t("socialite_users", "tenancy", ["loan.socialite_users", "oam.socialite_users", "proforma.socialite_users", "bpm.socialite_users"])
 t("resources", "tenancy", ["bpm.resources", "loan.resources", "oam.resources"])
@@ -52,9 +59,9 @@ t("clients", "registry", ["proforma.clients"],
 t("client_relations", "registry", ["oam.client_relations", "proforma.client_relations"])
 t("client_mandates", "registry", ["oam.client_mandates", "proforma.client_mandates"])
 t("fornitoriroles", "registry", ["proforma.fornitoriroles"])
-t("clientis", "registry", ["agent.clientis", "proforma.clientis"])
-t("fornitoris", "registry", ["agent.fornitoris", "proforma.fornitoris"],
-  drop=["tenant_company_id", "company_branch_id"])
+t("clientis", "registry", ["proforma.clientis"])
+t("fornitoris", "registry", ["proforma.fornitoris"],
+  drop=["company_branch_id"])
 t("oam_codes", "registry", ["oam.oam_codes", "loan.oam_codes"])
 t("clienti_oam", "registry", ["oam.clienti_oam", "loan.clienti_oam"])
 t("blacklist_clienti_fornitori", "registry", ["oam.blacklist_clienti_fornitori", "proforma.blacklist_clienti_fornitori"])
@@ -108,7 +115,42 @@ t("tasks", "documents", ["loan.tasks", "oam.tasks"])
 t("task_document_types", "documents", ["loan.task_document_types", "oam.task_document_types"])
 t("media", "documents", ["oam.media", "loan.media", "bpm.media"])
 t("email_templates", "documents", ["oam.email_templates", "loan.email_templates"])
-t("mail_accounts", "documents", ["oam.mail_accounts", "loan.mail_accounts"])
+_imap = {"incoming_host": "imap_host", "incoming_port": "imap_port", "incoming_username": "imap_username",
+         "incoming_password": "imap_password", "incoming_encryption": "imap_encryption", "incoming_protocol": "protocol"}
+t("mail_accounts", "documents", ["oam.mail_accounts", "loan.mail_accounts"],
+  rename={"oam.mail_accounts": _imap, "loan.mail_accounts": _imap},
+  add=[col("company_id", "bigint", unsigned=True, comment="Tenant proprietario della casella"),
+       col("auth_type", "enum", "'password','oauth2'", nullable=False, default="'password'", comment="Metodo di autenticazione"),
+       col("provider", "varchar", "255", comment="Provider OAuth (google, microsoft)"),
+       col("access_token", "text", comment="Access token OAuth2, cifrato"),
+       col("refresh_token", "text", comment="Refresh token OAuth2, cifrato"),
+       col("token_expires_at", "timestamp", comment="Scadenza dell'access token"),
+       col("last_synced_at", "timestamp", comment="Ultima scansione IMAP completata")],
+  patch={"imap_password": {"nullable": True}, "protocol": {"default": "'imap'"}},
+  comment="Caselle email e PEC: IMAP in ingresso e SMTP in uscita, con Basic Auth o OAuth 2.0")
+t("incoming_emails", "documents", [],
+  add=[col("id", "bigint", unsigned=True, nullable=False),
+       col("company_id", "bigint", unsigned=True, nullable=False, comment="Tenant proprietario della casella"),
+       col("mail_account_id", "bigint", unsigned=True),
+       col("message_id", "varchar", "255", nullable=False, comment="Message-Id RFC 5322, senza parentesi angolari"),
+       col("in_reply_to", "varchar", "255"),
+       col("references", "text", comment="Catena References dell'header, separata da spazi"),
+       col("thread_id", "varchar", "255", comment="Conversazione: prima reference o message_id"),
+       col("from_email", "varchar", "255", nullable=False),
+       col("from_name", "varchar", "255"),
+       col("to", "json"), col("cc", "json"),
+       col("subject", "varchar", "255"),
+       col("body_text", "longtext"), col("body_html", "longtext"),
+       col("received_at", "timestamp", nullable=False, comment="Data del messaggio dal server"),
+       col("is_read", "tinyint", "1", nullable=False, default="'0'"),
+       col("classification", "varchar", "50", comment="Esito del classificatore"),
+       col("related_type", "varchar", "255", comment="Record generato dall'email (reclamo, DSAR, pratica, processo)"),
+       col("related_id", "bigint", unsigned=True),
+       col("drive_folder_id", "varchar", "255", comment="Cartella Drive in cui è archiviata"),
+       col("created_at", "timestamp"), col("updated_at", "timestamp"), col("deleted_at", "timestamp")],
+  unique=[("incoming_emails_company_message_unique", ["company_id", "message_id"])],
+  index=[(None, ["company_id", "thread_id"]), (None, ["company_id", "is_read"])],
+  comment="Archivio delle email lette dalle caselle IMAP")
 
 # ---------------------------------------------------------------- compliance
 t("remediations", "compliance", ["oam.remediations", "loan.remediations"])
@@ -153,6 +195,7 @@ GLOBAL_FK = {
     "oam_code_id": "oam_codes", "fornitorirole_id": "fornitoriroles",
     "audit_id": "audits", "remediation_id": "remediations", "quality_review_id": "quality_reviews",
     "organization_id": "organizations", "address_type_id": "address_types",
+    "mail_account_id": "mail_accounts",
 }
 
 # Colonne *_id che restano riferimenti deboli (tabelle fuori dal core o significato non univoco)
