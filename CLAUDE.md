@@ -6,6 +6,8 @@ Le app restano separate e possono avere viste diverse sulle stesse tabelle. Tutt
 Leggere prima `README.md` e `docs/` (schema-map, documents-design, porting-email-drive): contengono le decisioni già prese.
 
 ## Regole che non vanno rotte
+- Eccezioni agli ID interi (app che leggono da un database esterno come Proforma): colonne polimorfiche in `STRING_MORPH_IDS` e riferimenti in `EXTERNAL_REFS`
+  (`tools/schema-merge/spec.py`) sono `varchar(36)`, senza chiave esterna per i riferimenti. Il generatore non si può rigenerare da zero (mancano i dump): le migration si ritoccano a mano e si aggiorna `spec.py`.
 - Una tabella per concetto, con tutti i campi uniti. Ogni tabella e ogni colonna ha un `comment` (lo verifica `SchemaCommentsTest`).
 - Le migration sono **generate**: non modificarle a mano. Si cambia `tools/schema-merge/spec.py` (regole) o `comments.py` (commenti) e si rigenera
   con `python3 tools/schema-merge/gen.py <cartella>`, poi si copia il risultato in `database/migrations`. Modelli generati: `tools/models/gen_models.py`
@@ -32,9 +34,12 @@ e contratto `DocumentGenerator`; `Mail\SenderIdentifier` (+ `SenderMatcher` per 
 firma elettronica `Signature\*` (Yousign + fake, webhook, `signature:sync`/`signature:check`; il firmato va in `signed` dello stesso documento).
 
 ## Da fare (in ordine)
-1. Collegare le app una alla volta, partendo da unicooam: sostituire i modelli locali con quelli del pacchetto, convertire i valori `*_type` agli alias,
-   riscrivere le 34 viste di proforma, allineare proforma a Laravel 13 e Filament 5.
-2. Correzioni nelle app: documenti su disco pubblico, `db_password` in chiaro, enum di stato.
+1. Collegare le app una alla volta. **unicooam: fatto sul ramo `core-integration`** (non ancora unito a `main`): modelli come sottoclassi, migration del pacchetto
+   caricate dall'app, enum di stato, requisiti su `document_types`/`document_requirements`/`document_requests`, seeder; 149 test su 156 passano (i 6 che falliscono
+   c'erano già prima), più un test di fumo sulle pagine elenco. Restano in unicooam: unire il ramo; sostituire `DocumentReminderService`, `Jobs\UploadDocumentToSharePoint`
+   e il listener con quelli del pacchetto (`Documents\Reminders`, `SharePoint\*`); le 6 rotture preesistenti. Poi unicoloan, unicobpm, unicogdpr e proforma
+   (riscrivere le 34 viste di proforma, allineare proforma a Laravel 13 e Filament 5).
+2. Correzioni nelle app: documenti su disco pubblico, `db_password` in chiaro (enum di stato: fatto in unicooam).
 3. unicoagent resta separata e parla via API (`documents.channel = 'whatsapp'`).
 
 ## Commit
