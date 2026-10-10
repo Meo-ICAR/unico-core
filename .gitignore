@@ -1,3 +1,6 @@
 /vendor
 /tools/schema-merge/schema2.json
 __pycache__/
+
+.env
+.phpunit.result.cache
