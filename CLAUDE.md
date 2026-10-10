@@ -29,16 +29,18 @@ Non lanciare due `phpunit` insieme sullo stesso database: ognuno ricrea le tabel
 ## Fatto
 Schema (67 tabelle) e modelli; Document/DocumentType; email (IMAP, OAuth, classificazione, rimbalzi); Google Drive; SharePoint;
 pipeline di analisi documenti (`Documents\DocumentPipeline`); scadenziario e solleciti (`Documents\Reminders`);
-prima esecuzione dei test con le librerie vere (ora 250 test verdi); `Documents\DocumentPathGenerator` (percorsi leggibili, config `documents.readable_paths`)
+prima esecuzione dei test con le librerie vere (ora 260 test verdi); `Documents\DocumentPathGenerator` (percorsi leggibili, config `documents.readable_paths`)
 e contratto `DocumentGenerator`; `Mail\SenderIdentifier` (+ `SenderMatcher` per le app); moduli PDF `Pdf\PdfFormFiller` (pdftk);
 firma elettronica `Signature\*` (Yousign + fake, webhook, `signature:sync`/`signature:check`; il firmato va in `signed` dello stesso documento).
 
 ## Da fare (in ordine)
-1. Collegare le app una alla volta. **unicooam: fatto e su `main`.** **unicoloan: fatto sul ramo `core-integration`** (non ancora unito): 511 test su 516 passano
-   (i 5 che falliscono c'erano già prima) e un test di fumo sulle pagine elenco. I modelli che in unicoloan vivono nel database Proforma (`Client`, `ClientMandate`,
-   `Tipoprodotto*`, `PraticaClient`...) restano lì; gli id che li richiamano sono `varchar(36)` senza FK. Restano in entrambe le app: sostituire le versioni locali con
+1. Collegare le app una alla volta. **unicooam: fatto e su `main`.** **unicoloan** e **unicobpm: fatti sul ramo `core-integration`** (non ancora uniti):
+   unicoloan 511 test su 516, unicobpm 75 su 77 (i fallimenti rimasti c'erano già prima), con un test di fumo sulle pagine elenco ciascuno.
+   unicoloan tiene sul database Proforma `Client`, `ClientMandate`, `Tipoprodotto*`, `PraticaClient`...; gli id che li richiamano sono `varchar(36)` senza FK.
+   unicobpm usa il database condiviso (connessione `core`, in sviluppo `unicooam_core`) per le tabelle del pacchetto e un database proprio per i processi;
+   non esegue le migration del pacchetto e i suoi seeder non vanno lanciati sul database condiviso. Restano nelle app: sostituire le versioni locali con
    quelle del pacchetto (`DocumentReminderService`, job e listener SharePoint; in unicoloan anche `Services\Signature`, `PdfFormFiller`, `DocumentVerifier`, con
-   il problema del firmato: nel pacchetto resta nel documento, in unicoloan sostituisce il documento). Poi unicobpm, unicogdpr e proforma (riscrivere le 34 viste di
+   il problema del firmato: nel pacchetto resta nel documento, in unicoloan sostituisce il documento). Poi unicogdpr e proforma (riscrivere le 34 viste di
    proforma, allineare proforma a Laravel 13 e Filament 5).
 2. Correzioni nelle app: documenti su disco pubblico, `db_password` in chiaro (enum di stato: fatto in unicooam).
 3. unicoagent resta separata e parla via API (`documents.channel = 'whatsapp'`).
