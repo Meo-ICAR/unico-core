@@ -286,3 +286,18 @@ STRING_MORPH_IDS = {
     ("audits", "auditable"),
     ("document_requests", "requestable"),
 }
+
+
+# Riferimenti a soggetti letti da un database esterno (Proforma: fornitori, clienti con UUID): varchar(36) senza chiave esterna.
+# Servono alle app che non hanno copiato quei record nelle tabelle del pacchetto (es. unicooam). Perdono l'integrità referenziale.
+EXTERNAL_REFS = {
+    ("clienti_oam", "clienti_id"),
+    ("blacklist_clienti_fornitori", "cliente_id"),
+    ("blacklist_clienti_fornitori", "fornitore_id"),
+    ("tipoprodotto_sub_constraints", "clienti_id"),
+    ("provvigioni_rules", "clienti_id"),
+    ("provvigioni_rules", "fornitori_id"),
+    ("complaint_registry", "agent_id"),
+    ("complaint_registry", "bank_id"),
+    ("suspicious_activity_reports", "client_id"),
+}

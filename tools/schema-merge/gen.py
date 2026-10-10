@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from comments import GENERIC, SPECIFIC, TABLES  # noqa: E402
-from spec import AREAS, GLOBAL_FK, MERGED_AWAY, STRING_MORPH_IDS, T, WEAK_REFS  # noqa: E402
+from spec import AREAS, EXTERNAL_REFS, GLOBAL_FK, MERGED_AWAY, STRING_MORPH_IDS, T, WEAK_REFS  # noqa: E402
 
 MISSING = []
 
@@ -181,6 +181,11 @@ def build(name, spec):
             continue
         if n == "deleted_at":
             tail.append(f"$table->timestamp('deleted_at')->nullable(){cm};")
+            done.add(n)
+            continue
+        if (name, n) in EXTERNAL_REFS:
+            lines.append(f"$table->string({php(n)}, 36){'->nullable()' if c['nullable'] else ''}{cm_of(name, n, c.get('comment'))};")
+            notes.append(f"`{n}` da {c['base']}({c['args']}) a varchar(36) senza FK (riferimento a un database esterno)")
             done.add(n)
             continue
         ref = None

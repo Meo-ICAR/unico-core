@@ -172,8 +172,8 @@ return new class extends Migration
             $table->string('subject_type')->nullable()->comment('Alias del modello oggetto del record (morph map)');
             $table->unsignedBigInteger('subject_id')->nullable()->comment('ID del record oggetto');
             $table->index(['subject_type', 'subject_id']);
-            $table->foreignId('agent_id')->nullable()->comment('Collaboratore/Agente della rete coinvolto');
-            $table->foreignId('bank_id')->nullable()->comment('Banca Mandante / Ente Erogante coinvolto');
+            $table->string('agent_id', 36)->nullable()->comment('Collaboratore/Agente della rete coinvolto');
+            $table->string('bank_id', 36)->nullable()->comment('Banca Mandante / Ente Erogante coinvolto');
             $table->text('description')->comment('Testo principale del reclamo');
             $table->decimal('financial_impact', 10, 2)->default(0.00)->comment('Eventuale richiesta danni o rimborso in EUR');
             $table->string('status', 30)->nullable()->default('open')->comment('Enum: open, investigating, accepted, rejected, escalated');
@@ -218,7 +218,7 @@ return new class extends Migration
         Schema::create('suspicious_activity_reports', function (Blueprint $table) {
             $table->id()->comment('ID intero autoincrementante');
             $table->foreignId('company_id')->comment('Logical FK: db_bpm.companies');
-            $table->foreignId('client_id')->nullable()->comment('Cliente a cui si riferisce la segnalazione');
+            $table->string('client_id', 36)->nullable()->comment('Cliente a cui si riferisce la segnalazione');
             $table->string('reportable_type')->comment('Alias del modello oggetto della segnalazione (morph map)');
             $table->unsignedBigInteger('reportable_id')->comment('ID del record oggetto della segnalazione');
             $table->index(['reportable_type', 'reportable_id']);

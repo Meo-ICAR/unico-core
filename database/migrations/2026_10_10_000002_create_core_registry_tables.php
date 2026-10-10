@@ -304,7 +304,7 @@ return new class extends Migration
 
         Schema::create('clienti_oam', function (Blueprint $table) {
             $table->id()->comment('ID intero autoincrementante');
-            $table->foreignId('clienti_id')->nullable()->comment('mandataria');
+            $table->string('clienti_id', 36)->nullable()->comment('mandataria');
             $table->foreignId('oam_code_id')->nullable()->comment('codice OAM');
             $table->date('dal')->nullable()->comment('data inizio convenzione');
             $table->date('al')->nullable()->comment('data fine convenzione');
@@ -316,8 +316,8 @@ return new class extends Migration
 
         Schema::create('blacklist_clienti_fornitori', function (Blueprint $table) {
             $table->id()->comment('ID intero autoincrementante');
-            $table->foreignId('cliente_id')->comment('L\'istituto di credito (DB Esterno)');
-            $table->foreignId('fornitore_id')->comment('L\'agente bloccato');
+            $table->string('cliente_id', 36)->comment('L\'istituto di credito (DB Esterno)');
+            $table->string('fornitore_id', 36)->comment('L\'agente bloccato');
             $table->text('motivo')->nullable()->comment('Motivazione del blocco da parte della banca');
             $table->date('data_inizio')->nullable()->comment('Data di inizio blocco');
             $table->date('data_fine')->nullable()->comment('Eventuale data di fine blocco (se temporaneo)');

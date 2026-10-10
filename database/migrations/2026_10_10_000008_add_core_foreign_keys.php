@@ -99,13 +99,10 @@ return new class extends Migration
         });
 
         Schema::table('clienti_oam', function (Blueprint $table) {
-            $table->foreign('clienti_id')->references('id')->on('clientis')->nullOnDelete();
             $table->foreign('oam_code_id')->references('id')->on('oam_codes')->nullOnDelete();
         });
 
         Schema::table('blacklist_clienti_fornitori', function (Blueprint $table) {
-            $table->foreign('cliente_id')->references('id')->on('clientis')->cascadeOnDelete();
-            $table->foreign('fornitore_id')->references('id')->on('fornitoris')->cascadeOnDelete();
         });
 
         Schema::table('blacklist_clienti_employees', function (Blueprint $table) {
@@ -124,16 +121,13 @@ return new class extends Migration
         Schema::table('tipoprodotto_sub_constraints', function (Blueprint $table) {
             $table->foreign('tipoprodotto_id')->references('id')->on('tipoprodotto')->nullOnDelete();
             $table->foreign('tipoprodotto_sub_id')->references('id')->on('tipoprodotto_sub')->nullOnDelete();
-            $table->foreign('clienti_id')->references('id')->on('clientis')->nullOnDelete();
             $table->foreign('role_id')->references('id')->on('fornitoriroles')->nullOnDelete();
         });
 
         Schema::table('provvigioni_rules', function (Blueprint $table) {
             $table->foreign('tipoprodotto_id')->references('id')->on('tipoprodotto')->nullOnDelete();
             $table->foreign('tipoprodotto_sub_id')->references('id')->on('tipoprodotto_sub')->nullOnDelete();
-            $table->foreign('clienti_id')->references('id')->on('clientis')->nullOnDelete();
             $table->foreign('kind_id')->references('id')->on('fornitoriroles')->nullOnDelete();
-            $table->foreign('fornitori_id')->references('id')->on('fornitoris')->nullOnDelete();
         });
 
         Schema::table('pratica_stati_transizioni', function (Blueprint $table) {
@@ -273,13 +267,10 @@ return new class extends Migration
 
         Schema::table('complaint_registry', function (Blueprint $table) {
             $table->foreign('company_id')->references('id')->on('companies')->cascadeOnDelete();
-            $table->foreign('agent_id')->references('id')->on('fornitoris')->nullOnDelete();
-            $table->foreign('bank_id')->references('id')->on('clientis')->nullOnDelete();
         });
 
         Schema::table('suspicious_activity_reports', function (Blueprint $table) {
             $table->foreign('company_id')->references('id')->on('companies')->cascadeOnDelete();
-            $table->foreign('client_id')->references('id')->on('clients')->nullOnDelete();
         });
 
         Schema::table('training_records', function (Blueprint $table) {
@@ -374,13 +365,10 @@ return new class extends Migration
         });
 
         Schema::table('clienti_oam', function (Blueprint $table) {
-            $table->dropForeign(['clienti_id']);
             $table->dropForeign(['oam_code_id']);
         });
 
         Schema::table('blacklist_clienti_fornitori', function (Blueprint $table) {
-            $table->dropForeign(['cliente_id']);
-            $table->dropForeign(['fornitore_id']);
         });
 
         Schema::table('blacklist_clienti_employees', function (Blueprint $table) {
@@ -399,16 +387,13 @@ return new class extends Migration
         Schema::table('tipoprodotto_sub_constraints', function (Blueprint $table) {
             $table->dropForeign(['tipoprodotto_id']);
             $table->dropForeign(['tipoprodotto_sub_id']);
-            $table->dropForeign(['clienti_id']);
             $table->dropForeign(['role_id']);
         });
 
         Schema::table('provvigioni_rules', function (Blueprint $table) {
             $table->dropForeign(['tipoprodotto_id']);
             $table->dropForeign(['tipoprodotto_sub_id']);
-            $table->dropForeign(['clienti_id']);
             $table->dropForeign(['kind_id']);
-            $table->dropForeign(['fornitori_id']);
         });
 
         Schema::table('pratica_stati_transizioni', function (Blueprint $table) {
@@ -548,13 +533,10 @@ return new class extends Migration
 
         Schema::table('complaint_registry', function (Blueprint $table) {
             $table->dropForeign(['company_id']);
-            $table->dropForeign(['agent_id']);
-            $table->dropForeign(['bank_id']);
         });
 
         Schema::table('suspicious_activity_reports', function (Blueprint $table) {
             $table->dropForeign(['company_id']);
-            $table->dropForeign(['client_id']);
         });
 
         Schema::table('training_records', function (Blueprint $table) {
