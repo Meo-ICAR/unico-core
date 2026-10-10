@@ -101,7 +101,7 @@ return new class extends Migration
             $table->string('province', 100)->nullable()->comment('Provincia della sede (nome esteso)');
             $table->string('region', 100)->nullable()->comment('Regione della sede');
             $table->string('branchable_type')->comment('Alias del modello proprietario della filiale (morph map)');
-            $table->unsignedBigInteger('branchable_id')->comment('ID del proprietario della filiale');
+            $table->string('branchable_id', 36)->comment('ID del proprietario della filiale');
             $table->index(['branchable_type', 'branchable_id']);
             $table->boolean('is_main_office')->default(false)->comment('Indica se è la Sede Legale/Operativa principale (1 = Sì, 0 = No)');
             $table->boolean('is_active')->default(true)->comment('Indica se la filiale è attiva (1 = Sì, 0 = No)');

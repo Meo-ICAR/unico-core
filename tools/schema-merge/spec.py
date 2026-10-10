@@ -285,6 +285,11 @@ STRING_MORPH_IDS = {
     ("document_schedules", "documentable"),
     ("audits", "auditable"),
     ("document_requests", "requestable"),
+    ("branches", "branchable"),
+    ("suspicious_activity_reports", "reportable"),
+    ("training_records", "trainable"),
+    ("complaint_registry", "complainant"),
+    ("complaint_registry", "subject"),
 }
 
 

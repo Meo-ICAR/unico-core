@@ -163,14 +163,14 @@ return new class extends Migration
             $table->string('reception_channel', 50)->nullable()->comment('Enum: pec, raccomandata, email, brevi_manu');
             $table->string('receiving_email')->nullable()->comment('La casella aziendale che ha ricevuto la notifica');
             $table->string('complainant_type')->nullable()->comment('Alias del modello di chi ha presentato il reclamo (morph map)');
-            $table->unsignedBigInteger('complainant_id')->nullable()->comment('ID di chi ha presentato il reclamo');
+            $table->string('complainant_id', 36)->nullable()->comment('ID di chi ha presentato il reclamo');
             $table->index(['complainant_type', 'complainant_id']);
             $table->string('complainant_name')->nullable()->comment('Nome se il reclamante non è censito a DB');
             $table->string('complainant_email')->nullable()->comment('Contatto del reclamante');
             $table->string('macro_category', 30)->nullable()->comment('Enum: financial, privacy, insurance, operational');
             $table->string('category', 50)->nullable()->comment('Enum: delay, behavior, fraud, gdpr_access, gdpr_erasure');
             $table->string('subject_type')->nullable()->comment('Alias del modello oggetto del record (morph map)');
-            $table->unsignedBigInteger('subject_id')->nullable()->comment('ID del record oggetto');
+            $table->string('subject_id', 36)->nullable()->comment('ID del record oggetto');
             $table->index(['subject_type', 'subject_id']);
             $table->string('agent_id', 36)->nullable()->comment('Collaboratore/Agente della rete coinvolto');
             $table->string('bank_id', 36)->nullable()->comment('Banca Mandante / Ente Erogante coinvolto');
@@ -220,7 +220,7 @@ return new class extends Migration
             $table->foreignId('company_id')->comment('Logical FK: db_bpm.companies');
             $table->string('client_id', 36)->nullable()->comment('Cliente a cui si riferisce la segnalazione');
             $table->string('reportable_type')->comment('Alias del modello oggetto della segnalazione (morph map)');
-            $table->unsignedBigInteger('reportable_id')->comment('ID del record oggetto della segnalazione');
+            $table->string('reportable_id', 36)->comment('ID del record oggetto della segnalazione');
             $table->index(['reportable_type', 'reportable_id']);
             $table->timestamp('reported_at')->nullable()->comment('Data e ora della segnalazione');
             $table->json('anomalies_codes')->nullable()->comment('Codici delle anomalie riscontrate (JSON)');
@@ -236,7 +236,7 @@ return new class extends Migration
             $table->id()->comment('ID intero autoincrementante');
             $table->foreignId('company_id')->comment('Azienda (tenant) proprietaria del record');
             $table->string('trainable_type')->comment('Alias del modello di chi ha seguito il corso (morph map)');
-            $table->unsignedBigInteger('trainable_id')->comment('ID di chi ha seguito il corso');
+            $table->string('trainable_id', 36)->comment('ID di chi ha seguito il corso');
             $table->index(['trainable_type', 'trainable_id']);
             $table->enum('regulatory_framework', ['gdpr', 'oam', 'ivass', 'sicurezza_lavoro', 'antiriciclaggio', 'mifid', 'other'])->nullable()->comment('Normativa a cui si riferisce la formazione');
             $table->string('name')->nullable()->comment('Titolo del corso');
