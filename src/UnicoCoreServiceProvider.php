@@ -22,6 +22,8 @@ use Unico\Core\Documents\MediaDocumentFileSource;
 use Unico\Core\Documents\NullDeclaredData;
 use Unico\Core\Documents\NullDocumentReader;
 use Unico\Core\Documents\OpenGate;
+use Unico\Core\Documents\DocumentPathGenerator;
+use Unico\Core\Models\Document;
 use Unico\Core\Drive\ZipExporter;
 use Unico\Core\SharePoint\GraphTransport;
 use Unico\Core\SharePoint\HttpGraphTransport;
@@ -71,6 +73,13 @@ class UnicoCoreServiceProvider extends ServiceProvider
         Relation::morphMap(MorphMap::all(), merge: true);
         if (config('unico-core.enforce_morph_map')) {
             Relation::requireMorphMap();
+        }
+
+        if (config('unico-core.documents.readable_paths')) {
+            config(['media-library.custom_path_generators' => array_merge(
+                config('media-library.custom_path_generators', []),
+                [Document::class => DocumentPathGenerator::class],
+            )]);
         }
 
         if (config('unico-core.documents.analysis.auto') && class_exists(MediaHasBeenAddedEvent::class)) {

@@ -135,6 +135,8 @@ return [
     */
 
     'documents' => [
+        // Percorsi leggibili dei file (azienda / tipo proprietario / istanza) al posto delle cartelle numeriche di Spatie.
+        'readable_paths' => env('UNICO_CORE_READABLE_PATHS', true),
         'analysis' => [
             'auto' => env('UNICO_CORE_ANALYSIS_AUTO', false),
             'queue' => env('UNICO_CORE_ANALYSIS_QUEUE', 'documents'),
