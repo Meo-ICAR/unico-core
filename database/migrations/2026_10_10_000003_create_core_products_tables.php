@@ -53,8 +53,8 @@ return new class extends Migration
 
         Schema::create('tipoprodotto_sub_constraints', function (Blueprint $table) {
             $table->id()->comment('ID intero autoincrementante');
-            $table->foreignId('tipoprodotto_id')->nullable()->comment('ID Prodotto (collegato a tipoprodotto). Se NULL, si applica a tutti i prodotti.');
-            $table->foreignId('tipoprodotto_sub_id')->nullable()->comment('ID Sottoprodotto (collegato a tipoprodotto_sub). Se NULL, si applica a tutti i sottoprodotti del prodotto selezionato.');
+            $table->string('tipoprodotto_id', 36)->nullable()->comment('ID Prodotto (collegato a tipoprodotto). Se NULL, si applica a tutti i prodotti.');
+            $table->string('tipoprodotto_sub_id', 36)->nullable()->comment('ID Sottoprodotto (collegato a tipoprodotto_sub). Se NULL, si applica a tutti i sottoprodotti del prodotto selezionato.');
             $table->string('clienti_id', 36)->nullable()->comment('UUID della Banca/Istituto erogante (collegato alla tabella clienti). Se NULL, si applica a tutte le banche/clienti.');
             $table->foreignId('role_id')->nullable()->comment('ID Ruolo/Livello dell\'agente (es. Senior, Junior). Se NULL, si applica a tutta la rete.');
             $table->integer('min_age')->nullable()->comment('Età minima del richiedente alla firma.');
@@ -79,8 +79,8 @@ return new class extends Migration
 
         Schema::create('provvigioni_rules', function (Blueprint $table) {
             $table->id()->comment('ID intero autoincrementante');
-            $table->foreignId('tipoprodotto_id')->nullable()->comment('Prodotto a cui si applica il vincolo. Se NULL, si applica a tutti i prodotti della banca (DB Esterno).');
-            $table->foreignId('tipoprodotto_sub_id')->nullable()->comment('Sottoprodotto specifico (es. CQS Pensionati). Se NULL, si applica a tutto il macro-prodotto.');
+            $table->string('tipoprodotto_id', 36)->nullable()->comment('Prodotto a cui si applica il vincolo. Se NULL, si applica a tutti i prodotti della banca (DB Esterno).');
+            $table->string('tipoprodotto_sub_id', 36)->nullable()->comment('Sottoprodotto specifico (es. CQS Pensionati). Se NULL, si applica a tutto il macro-prodotto.');
             $table->string('clienti_id', 36)->nullable()->comment('L\'istituto di credito che impone il vincolo (DB Esterno).');
             $table->foreignId('kind_id')->nullable()->comment('ID Ruolo/Livello dell\'agente (es. Senior, Junior). Se NULL, si applica a tutta la rete.');
             $table->string('fornitori_id', 36)->nullable()->comment('Agente');

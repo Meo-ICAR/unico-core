@@ -119,14 +119,10 @@ return new class extends Migration
         });
 
         Schema::table('tipoprodotto_sub_constraints', function (Blueprint $table) {
-            $table->foreign('tipoprodotto_id')->references('id')->on('tipoprodotto')->nullOnDelete();
-            $table->foreign('tipoprodotto_sub_id')->references('id')->on('tipoprodotto_sub')->nullOnDelete();
             $table->foreign('role_id')->references('id')->on('fornitoriroles')->nullOnDelete();
         });
 
         Schema::table('provvigioni_rules', function (Blueprint $table) {
-            $table->foreign('tipoprodotto_id')->references('id')->on('tipoprodotto')->nullOnDelete();
-            $table->foreign('tipoprodotto_sub_id')->references('id')->on('tipoprodotto_sub')->nullOnDelete();
             $table->foreign('kind_id')->references('id')->on('fornitoriroles')->nullOnDelete();
         });
 
@@ -181,8 +177,6 @@ return new class extends Migration
         });
 
         Schema::table('document_requirements', function (Blueprint $table) {
-            $table->foreign('tipoprodotto_id')->references('id')->on('tipoprodotto')->nullOnDelete();
-            $table->foreign('tipoprodotto_sub_id')->references('id')->on('tipoprodotto_sub')->nullOnDelete();
             $table->foreign('document_type_id')->references('id')->on('document_types')->cascadeOnDelete();
             $table->foreign('task_id')->references('id')->on('tasks')->cascadeOnDelete();
         });
@@ -383,14 +377,10 @@ return new class extends Migration
         });
 
         Schema::table('tipoprodotto_sub_constraints', function (Blueprint $table) {
-            $table->dropForeign(['tipoprodotto_id']);
-            $table->dropForeign(['tipoprodotto_sub_id']);
             $table->dropForeign(['role_id']);
         });
 
         Schema::table('provvigioni_rules', function (Blueprint $table) {
-            $table->dropForeign(['tipoprodotto_id']);
-            $table->dropForeign(['tipoprodotto_sub_id']);
             $table->dropForeign(['kind_id']);
         });
 
@@ -445,8 +435,6 @@ return new class extends Migration
         });
 
         Schema::table('document_requirements', function (Blueprint $table) {
-            $table->dropForeign(['tipoprodotto_id']);
-            $table->dropForeign(['tipoprodotto_sub_id']);
             $table->dropForeign(['document_type_id']);
             $table->dropForeign(['task_id']);
         });

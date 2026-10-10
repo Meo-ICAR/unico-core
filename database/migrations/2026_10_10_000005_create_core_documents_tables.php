@@ -145,8 +145,8 @@ return new class extends Migration
 
         Schema::create('document_requirements', function (Blueprint $table) {
             $table->id()->comment('ID univoco della regola di associazione');
-            $table->foreignId('tipoprodotto_id')->nullable()->comment('Prodotto a cui si applica il vincolo (DB Esterno). Se NULL, si applica a tutti i prodotti');
-            $table->foreignId('tipoprodotto_sub_id')->nullable()->comment('Sottoprodotto specifico (es. CQS Pensionati). Se NULL, si applica a tutto il macro-prodotto');
+            $table->string('tipoprodotto_id', 36)->nullable()->comment('Prodotto a cui si applica il vincolo (DB Esterno). Se NULL, si applica a tutti i prodotti');
+            $table->string('tipoprodotto_sub_id', 36)->nullable()->comment('Sottoprodotto specifico (es. CQS Pensionati). Se NULL, si applica a tutto il macro-prodotto');
             $table->foreignId('document_type_id')->comment('Tipo di documento di riferimento');
             $table->boolean('is_required')->default(true)->comment('Flag: true se il requisito è obbligatorio per l\'avanzamento');
             $table->integer('sort_order')->default(0)->comment('Ordinamento di visualizzazione del requisito nella checklist del prodotto');

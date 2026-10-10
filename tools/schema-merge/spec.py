@@ -309,4 +309,11 @@ EXTERNAL_REFS = {
     ("pratica_clients", "pratica_id"),
     ("pratica_status_history", "pratica_id"),
     ("websites", "clienti_id"),
+    # prodotti letti da Proforma (unicoloan): le righe locali che li richiamano non hanno vincolo
+    ("document_requirements", "tipoprodotto_id"),
+    ("document_requirements", "tipoprodotto_sub_id"),
+    ("provvigioni_rules", "tipoprodotto_id"),
+    ("provvigioni_rules", "tipoprodotto_sub_id"),
+    ("tipoprodotto_sub_constraints", "tipoprodotto_id"),
+    ("tipoprodotto_sub_constraints", "tipoprodotto_sub_id"),
 }
