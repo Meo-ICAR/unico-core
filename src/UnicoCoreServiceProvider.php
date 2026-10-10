@@ -2,11 +2,14 @@
 
 namespace Unico\Core;
 
+use Google\Service\Drive;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 use Unico\Core\Console\FetchMailCommand;
 use Unico\Core\Console\MailHealthCommand;
 use Unico\Core\Console\MigrateCoreCommand;
+use Unico\Core\Drive\GoogleDriveFactory;
+use Unico\Core\Drive\ZipExporter;
 use Unico\Core\Mail\Contracts\EmailClassifier;
 use Unico\Core\Mail\Contracts\ImapConnector;
 use Unico\Core\Mail\ImapConnectionFactory;
@@ -20,6 +23,10 @@ class UnicoCoreServiceProvider extends ServiceProvider
 
         $this->app->bindIf(ImapConnector::class, ImapConnectionFactory::class);
         $this->app->bindIf(EmailClassifier::class, RuleBasedClassifier::class);
+
+        // Il client Drive si costruisce solo quando serve: le app senza credenziali Google non falliscono all'avvio.
+        $this->app->bindIf(Drive::class, fn () => GoogleDriveFactory::make());
+        $this->app->bind(ZipExporter::class, fn () => new ZipExporter(GoogleDriveFactory::make(readOnly: true)));
     }
 
     public function boot(): void

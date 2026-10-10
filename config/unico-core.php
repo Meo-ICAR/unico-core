@@ -92,6 +92,36 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Google Drive
+    |--------------------------------------------------------------------------
+    |
+    | `credentials`: file JSON del service account (default storage/app/google-credentials.json).
+    | `impersonate`: email di un utente del dominio Workspace per la delega a livello di dominio;
+    |   senza, i file si possono creare solo su Drive condivisi (il service account non ha quota).
+    | `root_folder_id`: cartella madre delle company senza capogruppo.
+    | `company_initial_folders` / `company_folders`: sottocartelle create con la company e
+    |   quando diventa attiva; accettano percorsi come 'RELAZIONE DPO/2026'.
+    | `audit_buckets`: gruppo di cartelle per alias del soggetto controllato.
+    |
+    */
+
+    'drive' => [
+        'credentials' => env('GOOGLE_DRIVE_CREDENTIALS'),
+        'impersonate' => env('GOOGLE_DRIVE_IMPERSONATE'),
+        'root_folder_id' => env('UNICO_CORE_DRIVE_ROOT'),
+        'company_initial_folders' => ['STARTUP'],
+        'company_folders' => ['NOMINE', 'RECLAMI', 'WEB', 'IT', 'DIPENDENTI', 'TRATTAMENTI', 'FORNITORI', 'MANDATARIE'],
+        'audit_folder' => 'AUDIT',
+        'audit_buckets' => [
+            'fornitore' => 'FORNITORI',
+            'cliente' => 'MANDATARIE',
+            'client' => 'MANDATARIE',
+        ],
+        'email_folder' => 'RECLAMI',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Rotte
     |--------------------------------------------------------------------------
     */

@@ -31,6 +31,14 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 - `BounceParser`, `OutgoingMailer` (invio con le credenziali SMTP della casella).
 - Comandi: `unico-core:mail-fetch {account?} {--sync}` e `unico-core:mail-health`, che emette `MailAccountsUnhealthy`. La pianificazione resta all'app.
 
+## Google Drive
+
+- `GoogleDriveFactory`: unico punto in cui si leggono le credenziali (`GOOGLE_DRIVE_CREDENTIALS`, default `storage/app/google-credentials.json`). Con `GOOGLE_DRIVE_IMPERSONATE` usa la delega a livello di dominio: i file appartengono a un utente reale e l'errore `storageQuotaExceeded` sparisce. Senza delega si possono scrivere solo Drive condivisi.
+- `DriveFolders::ensure($parentId, 'A/B/C')`: trova o crea un percorso. Passa sempre `supportsAllDrives` e `includeItemsFromAllDrives`; in unicogdpr due classi non lo facevano e sui Drive condivisi creavano cartelle duplicate a ogni esecuzione.
+- `DriveUploader`, `CompanyFolderProvisioner` (cartella madre = capogruppo, altrimenti `UNICO_CORE_DRIVE_ROOT`; niente ID scritti nel codice), `AuditFolderProvisioner`, `DocumentDriveSync` (usa `documents.sync_status`, `app_id`, `app_drive_id`), `EmailDriveArchiver` (con ripiego sul disco locale), `ZipExporter` (risolve le scorciatoie ed esporta i file Google in formato Office).
+- Struttura delle cartelle, gruppi degli audit e nome della cartella email sono in `unico-core.drive`.
+- `google/apiclient` pesa centinaia di MB con tutti i servizi: nell'`composer.json` **dell'app** (non del pacchetto) servono `"scripts": {"pre-autoload-dump": "Google\\Task\\Composer::cleanup"}` e `"extra": {"google/apiclient-services": ["Drive"]}`.
+
 ## Test
 
 `composer install && vendor/bin/phpunit`. I test usano un database MySQL/MariaDB vuoto (variabili `CORE_TEST_DB_HOST`, `CORE_TEST_DB_PORT`, `CORE_TEST_DB_DATABASE`, `CORE_TEST_DB_USERNAME`, `CORE_TEST_DB_PASSWORD`; default `unico_core_test`, utente `unico`) e ne ricreano le tabelle a ogni avvio: non puntarli a un database con dati.

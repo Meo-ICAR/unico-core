@@ -14,7 +14,8 @@
         "laravel/socialite": "^5.0",
         "illuminate/mail": "^13.0",
         "illuminate/queue": "^13.0",
-        "illuminate/events": "^13.0"
+        "illuminate/events": "^13.0",
+        "google/apiclient": "^2.18"
     },
     "autoload": {
         "psr-4": {
@@ -26,7 +27,10 @@
             "providers": [
                 "Unico\\Core\\UnicoCoreServiceProvider"
             ]
-        }
+        },
+        "google/apiclient-services": [
+            "Drive"
+        ]
     },
     "minimum-stability": "stable",
     "require-dev": {
@@ -38,6 +42,7 @@
         }
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "pre-autoload-dump": "Google\\Task\\Composer::cleanup"
     }
 }
