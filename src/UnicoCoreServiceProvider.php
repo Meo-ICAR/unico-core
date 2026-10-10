@@ -23,6 +23,10 @@ use Unico\Core\Documents\NullDeclaredData;
 use Unico\Core\Documents\NullDocumentReader;
 use Unico\Core\Documents\OpenGate;
 use Unico\Core\Drive\ZipExporter;
+use Unico\Core\SharePoint\GraphTransport;
+use Unico\Core\SharePoint\HttpGraphTransport;
+use Unico\Core\SharePoint\Listeners\QueueSharePointUpload;
+use Unico\Core\Console\SharePointRetryCommand;
 use Unico\Core\Mail\Contracts\EmailClassifier;
 use Unico\Core\Mail\Contracts\ImapConnector;
 use Unico\Core\Mail\ImapConnectionFactory;
@@ -39,6 +43,8 @@ class UnicoCoreServiceProvider extends ServiceProvider
 
         // Il client Drive si costruisce solo quando serve: le app senza credenziali Google non falliscono all'avvio.
         $this->app->bindIf(Drive::class, fn () => GoogleDriveFactory::make());
+        $this->app->bindIf(GraphTransport::class, HttpGraphTransport::class);
+
         // Analisi documenti: ogni pezzo è sostituibile dall'app con un proprio bind.
         $this->app->singleton(CheckRegistry::class);
         $this->app->bindIf(DocumentFileSource::class, MediaDocumentFileSource::class);
@@ -65,6 +71,10 @@ class UnicoCoreServiceProvider extends ServiceProvider
             Event::listen(MediaHasBeenAddedEvent::class, AnalyzeUploadedDocument::class);
         }
 
+        if (config('unico-core.sharepoint.auto') && class_exists(MediaHasBeenAddedEvent::class)) {
+            Event::listen(MediaHasBeenAddedEvent::class, QueueSharePointUpload::class);
+        }
+
         if (config('unico-core.routes.enabled')) {
             $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
         }
@@ -74,7 +84,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
                 __DIR__.'/../config/unico-core.php' => config_path('unico-core.php'),
             ], 'unico-core-config');
 
-            $this->commands([MigrateCoreCommand::class, FetchMailCommand::class, MailHealthCommand::class]);
+            $this->commands([MigrateCoreCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class]);
         }
     }
 

@@ -39,6 +39,16 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 - Struttura delle cartelle, gruppi degli audit e nome della cartella email sono in `unico-core.drive`.
 - `google/apiclient` pesa centinaia di MB con tutti i servizi: nell'`composer.json` **dell'app** (non del pacchetto) servono `"scripts": {"pre-autoload-dump": "Google\\Task\\Composer::cleanup"}` e `"extra": {"google/apiclient-services": ["Drive"]}`.
 
+## SharePoint
+
+Alternativa a Google Drive (portata da unicooam). I file restano in Spatie Media Library, che è la copia di riferimento; Drive e SharePoint ricevono una copia e aggiornano le stesse colonne di `documents` (`document_url`, `app_id`, `app_drive_id`, `app_etag`, `source_app`, `sync_status`). Un documento sta in un solo cloud alla volta.
+
+- Config `unico-core.sharepoint` (tenant, client, secret, drive, `upload_root`); leggono anche le variabili `SHARE_*` di unicooam.
+- `UNICO_CORE_SHAREPOINT_AUTO=true`: ogni file caricato su un `Document` parte in coda (`UploadDocumentToSharePoint`). Senza credenziali il documento resta `local`.
+- Sopra i 4 MB si usa la upload session a blocchi; i nomi sono ripuliti dai caratteri non ammessi; gli URL oltre 255 caratteri stanno solo in `metadata.web_url`.
+- `php artisan unico-core:sharepoint-retry [--local]` rimette in coda i falliti (e i solo locali).
+- Il trasporto verso Graph è sostituibile (`GraphTransport`).
+
 ## Analisi documenti
 
 `Unico\Core\Documents\DocumentPipeline` analizza un `Document` in tre passi, ognuno con una riga in `document_analyses` (esito, confidenza, modello AI, token, costo):

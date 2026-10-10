@@ -159,6 +159,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | SharePoint
+    |--------------------------------------------------------------------------
+    |
+    | Alternativa a Drive: i file restano in Spatie e vengono copiati nel drive SharePoint con
+    | Microsoft Graph (app registration con permessi applicativi). `auto`: ogni file caricato
+    | su un Document parte in coda. Le variabili SHARE_* sono quelle già usate da unicooam.
+    |
+    */
+
+    'sharepoint' => [
+        'tenant_id' => env('UNICO_CORE_SHAREPOINT_TENANT', env('SHARE_TENANT_ID')),
+        'client_id' => env('UNICO_CORE_SHAREPOINT_CLIENT', env('SHARE_CLIENT_ID')),
+        'client_secret' => env('UNICO_CORE_SHAREPOINT_SECRET', env('SHARE_SECRET_ID')),
+        'drive_id' => env('UNICO_CORE_SHAREPOINT_DRIVE', env('SHARE_DRIVE_ID')),
+        'upload_root' => env('UNICO_CORE_SHAREPOINT_ROOT', env('SHARE_UPLOAD_ROOT', 'Documenti')),
+        'auto' => env('UNICO_CORE_SHAREPOINT_AUTO', false),
+        'queue' => env('UNICO_CORE_SHAREPOINT_QUEUE', 'documents'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Rotte
     |--------------------------------------------------------------------------
     */
