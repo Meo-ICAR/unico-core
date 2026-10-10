@@ -4,6 +4,7 @@ namespace Unico\Core\Documents;
 
 use Unico\Core\Enums\DocumentAnomaly;
 use Unico\Core\Models\Document;
+use Unico\Core\Enums\SignatureRequestStatus;
 use Unico\Core\Models\SignatureRequest;
 
 /**
@@ -66,7 +67,7 @@ class TechnicalVerifier
         }
 
         $signers = $request ? $request->signatureRequestSigners()->get()->map(fn ($s) => [
-            'name' => $s->name, 'role' => $s->role, 'status' => $s->status, 'signed_at' => $s->signed_at?->toIso8601String(),
+            'name' => $s->name, 'role' => $s->role?->value, 'status' => $s->status?->value, 'signed_at' => $s->signed_at?->toIso8601String(),
         ])->all() : [];
 
         if ($signature === self::SIGNATURE_OTP && collect($signers)->contains(fn (array $s) => $s['status'] !== 'signed')) {
@@ -95,11 +96,11 @@ class TechnicalVerifier
             return self::SIGNATURE_NOT_REQUIRED;
         }
 
-        if ($request?->status === 'signed' || ($request === null && $document->is_signed && $document->signed_at !== null)) {
+        if ($request?->status === SignatureRequestStatus::Signed || ($request === null && $document->is_signed && $document->signed_at !== null)) {
             return self::SIGNATURE_OTP;
         }
 
-        if ($request !== null && ! in_array($request->status, self::CLOSED_REQUEST, true)) {
+        if ($request !== null && ! in_array($request->status->value, self::CLOSED_REQUEST, true)) {
             return self::SIGNATURE_OTP_PENDING;
         }
 

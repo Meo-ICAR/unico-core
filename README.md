@@ -61,6 +61,16 @@ L'AI non parte su file mancanti, non apribili o duplicati, né se il `AnalysisGa
 
 Il file si legge sempre da Spatie Media Library (`MediaDocumentFileSource`): Drive e SharePoint sono destinazioni di sincronizzazione, non la sorgente. Punti di aggancio sostituibili con `bind`: `DocumentReader` (Anthropic con `ANTHROPIC_API_KEY`, altrimenti nessuna lettura AI), `DeclaredData` (dati noti con cui confrontare), `AnalysisGate`, `DocumentFileSource`. `unico-core.documents.analysis.auto=true` mette in coda l'analisi a ogni file caricato; oppure `AnalyzeDocument::dispatch($document)`.
 
+## Firma elettronica
+`Signature\SignatureRequestService` invia un documento a Yousign (o al provider `fake` in sviluppo), riconcilia lo stato, annulla e chiude le richieste scadute.
+- Provider: `SIGNATURE_DRIVER=fake|yousign` (config `unico-core.signature`). Il provider è un'interfaccia (`Signature\Contracts\SignatureProvider`).
+- Il modulo PDF del tipo documento (`document_types` → `pdf_modules.signature_slots`) dice dove firma ciascuno; il PDF viene prima reso statico con `Pdf\PdfFormFiller::flattenContent`.
+- A firma completata il PDF firmato va nella collection `signed` **dello stesso documento**, che diventa `is_signed`; l'originale resta in `documents`. Non si crea un secondo documento.
+- Eventi per le app (nessun registro attività o KYC nel pacchetto): `SignatureSent`, `SignatureCancelled`, `SignatureCompleted` (unicoloan vi collega l'approvazione del QAV e il suo activity log).
+- Webhook: `POST signature/webhook/{provider}` (middleware `api`, disattivabile con `UNICO_CORE_SIGNATURE_WEBHOOK=false`); accetta solo il provider attivo e mette in coda `ReconcileSignatureRequest`.
+- Comandi: `signature:sync` (riconcilia le richieste senza aggiornamenti e chiude le scadute; da schedulare) e `signature:check` (verifica credenziali e raggiungibilità).
+- I firmatari proposti (`SignerDefaults`: cliente della pratica, collaboratore) restano nell'app, perché dipendono dalle sue pratiche.
+
 ## Scadenziario e solleciti
 
 `DocumentReminderService` (unione di unicooam e unicoloan) decide cosa sollecitare: documenti monitorati in scadenza entro `window_days`, richiesti e non arrivati, respinti, e caricati con anomalie tecniche (ultima riga `verification` fallita in `document_analyses`). Le versioni sostituite (`replaced_by_id`), superate da una più recente o rinnovate da un altro tipo (`renewed_by_id`) restano fuori.

@@ -2,10 +2,12 @@
 
 namespace Unico\Core\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Enums\SignatureRequestStatus;
 
 /** Richieste di firma di un Document presso un provider (busta di firma). */
 class SignatureRequest extends Model
@@ -21,6 +23,7 @@ class SignatureRequest extends Model
     protected function casts(): array
     {
         return [
+            'status' => SignatureRequestStatus::class,
             'sent_at' => 'datetime',
             'signed_at' => 'datetime',
             'expires_at' => 'datetime',
@@ -41,6 +44,16 @@ class SignatureRequest extends Model
 
     public function signatureRequestSigners(): HasMany
     {
-        return $this->hasMany(SignatureRequestSigner::class, 'signature_request_id');
+        return $this->hasMany(SignatureRequestSigner::class, 'signature_request_id')->orderBy('position');
+    }
+
+    public function scopeOpen(Builder $query): Builder
+    {
+        return $query->whereIn('status', [SignatureRequestStatus::Pending, SignatureRequestStatus::Sent]);
+    }
+
+    public function isOpen(): bool
+    {
+        return $this->status->isOpen();
     }
 }

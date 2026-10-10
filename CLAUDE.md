@@ -27,17 +27,15 @@ Non lanciare due `phpunit` insieme sullo stesso database: ognuno ricrea le tabel
 ## Fatto
 Schema (66 tabelle) e modelli; Document/DocumentType; email (IMAP, OAuth, classificazione, rimbalzi); Google Drive; SharePoint;
 pipeline di analisi documenti (`Documents\DocumentPipeline`); scadenziario e solleciti (`Documents\Reminders`);
-prima esecuzione dei test con le librerie vere (171 test verdi); `Documents\DocumentPathGenerator` (percorsi leggibili, config `documents.readable_paths`)
-e contratto `DocumentGenerator`; `Mail\SenderIdentifier` (+ `SenderMatcher` per le app); moduli PDF `Pdf\PdfFormFiller` (pdftk).
+prima esecuzione dei test con le librerie vere (ora 250 test verdi); `Documents\DocumentPathGenerator` (percorsi leggibili, config `documents.readable_paths`)
+e contratto `DocumentGenerator`; `Mail\SenderIdentifier` (+ `SenderMatcher` per le app); moduli PDF `Pdf\PdfFormFiller` (pdftk);
+firma elettronica `Signature\*` (Yousign + fake, webhook, `signature:sync`/`signature:check`; il firmato va in `signed` dello stesso documento).
 
 ## Da fare (in ordine)
-1. Firma elettronica (Yousign): `SignatureRequestService`, `SignatureProviderManager`, `YousignSignatureProvider`, `FakeSignatureProvider`, DTO, webhook,
-   riconciliazione e scadenze, da unicoloan (`../unicoloan/app/Services/Signature`). Prima definire enum `SignatureRequestStatus`, `SignerStatus`, `SignerRole`;
-   la parte KYC di `completeRequest` resta nell'app (evento o hook), il registro attività (`activity()`) va dietro un contratto.
-2. Collegare le app una alla volta, partendo da unicooam: sostituire i modelli locali con quelli del pacchetto, convertire i valori `*_type` agli alias,
+1. Collegare le app una alla volta, partendo da unicooam: sostituire i modelli locali con quelli del pacchetto, convertire i valori `*_type` agli alias,
    riscrivere le 34 viste di proforma, allineare proforma a Laravel 13 e Filament 5.
-3. Correzioni nelle app: documenti su disco pubblico, `db_password` in chiaro, enum di stato.
-4. unicoagent resta separata e parla via API (`documents.channel = 'whatsapp'`).
+2. Correzioni nelle app: documenti su disco pubblico, `db_password` in chiaro, enum di stato.
+3. unicoagent resta separata e parla via API (`documents.channel = 'whatsapp'`).
 
 ## Commit
 I messaggi finiscono con le righe di attribuzione richieste dall'ambiente in uso.

@@ -175,6 +175,11 @@ class Document extends Model implements HasMedia
     }
 
     /** Il documento che prende il posto di questo (rinnovo o versione firmata). */
+    public function signatureRequests(): HasMany
+    {
+        return $this->hasMany(SignatureRequest::class, 'document_id');
+    }
+
     public function replacedBy(): BelongsTo
     {
         return $this->belongsTo(self::class, 'replaced_by_id');

@@ -7,6 +7,7 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Unico\Core\Concerns\UsesCoreConnection;
 
@@ -82,6 +83,12 @@ class DocumentType extends Model
         }
 
         return $expiration?->startOfDay();
+    }
+
+    /** Modulo PDF compilabile associato al tipo (con gli slot di firma). */
+    public function pdfModule(): HasOne
+    {
+        return $this->hasOne(PdfModule::class, 'document_type_id');
     }
 
     /** Documenti di questo tipo. */

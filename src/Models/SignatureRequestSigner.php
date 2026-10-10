@@ -5,6 +5,8 @@ namespace Unico\Core\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Enums\SignerRole;
+use Unico\Core\Enums\SignerStatus;
 
 /** Firmatari di una richiesta di firma. */
 class SignatureRequestSigner extends Model
@@ -18,6 +20,8 @@ class SignatureRequestSigner extends Model
     protected function casts(): array
     {
         return [
+            'role' => SignerRole::class,
+            'status' => SignerStatus::class,
             'signed_at' => 'datetime',
         ];
     }

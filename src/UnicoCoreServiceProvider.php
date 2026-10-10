@@ -31,6 +31,8 @@ use Unico\Core\SharePoint\Listeners\QueueSharePointUpload;
 use Unico\Core\Console\DocumentsRemindCommand;
 use Unico\Core\Console\DocumentsScheduleSyncCommand;
 use Unico\Core\Console\SharePointRetryCommand;
+use Unico\Core\Console\SignatureCheckCommand;
+use Unico\Core\Console\SignatureSyncCommand;
 use Unico\Core\Documents\Reminders\ConfigRecipientResolver;
 use Unico\Core\Documents\Reminders\Contracts\RecipientResolver;
 use Unico\Core\Mail\Contracts\EmailClassifier;
@@ -38,6 +40,7 @@ use Unico\Core\Mail\Contracts\ImapConnector;
 use Unico\Core\Mail\ImapConnectionFactory;
 use Unico\Core\Mail\RuleBasedClassifier;
 use Unico\Core\Mail\SenderIdentifier;
+use Unico\Core\Signature\SignatureProviderManager;
 
 class UnicoCoreServiceProvider extends ServiceProvider
 {
@@ -47,6 +50,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
 
         $this->app->bindIf(ImapConnector::class, ImapConnectionFactory::class);
         $this->app->bindIf(EmailClassifier::class, RuleBasedClassifier::class);
+        $this->app->singleton(SignatureProviderManager::class);
         $this->app->bind(SenderIdentifier::class, fn ($app) => new SenderIdentifier($app->tagged('unico-core.sender-matchers')));
 
         // Il client Drive si costruisce solo quando serve: le app senza credenziali Google non falliscono all'avvio.
@@ -101,7 +105,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
                 __DIR__.'/../config/unico-core.php' => config_path('unico-core.php'),
             ], 'unico-core-config');
 
-            $this->commands([MigrateCoreCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class]);
+            $this->commands([MigrateCoreCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class]);
         }
     }
 
