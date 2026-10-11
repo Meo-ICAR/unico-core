@@ -11,6 +11,10 @@ use Unico\Core\Documents\Reminders\Contracts\RecipientResolver;
 use Unico\Core\Enums\DocumentStatus;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\DocumentReminder;
+use Unico\Core\Enums\MailType;
+use Unico\Core\Mail\EmailTemplateResolver;
+use Unico\Core\Mail\OutgoingMailer;
+use Unico\Core\Mail\SenderAccountResolver;
 use Unico\Core\Models\EmailTemplate;
 
 /**
@@ -195,16 +199,11 @@ class DocumentReminderService
     }
 
     /** @return array{sent: int, skipped: int, failed: int, groups: int} */
-    public function sendReminders(bool $onlyDueToday = true, ?string $groupKey = null): array
+    public function sendReminders(bool $onlyDueToday = true, ?string $groupKey = null, ?string $app = null): array
     {
         $stats = ['sent' => 0, 'skipped' => 0, 'failed' => 0, 'groups' => 0];
 
-        $template = EmailTemplate::query()
-            ->where('code', $this->setting('template_code', 'DOC_EXPIRING'))
-            ->where('is_active', true)
-            ->first();
-
-        if ($template === null) {
+        if (! EmailTemplate::query()->where('code', $this->setting('template_code', 'DOC_EXPIRING'))->where('is_active', true)->exists()) {
             return $stats;
         }
 
@@ -224,31 +223,83 @@ class DocumentReminderService
             }
 
             $stats['groups']++;
-            $recipient = $this->recipients->resolveForDocument($due->first());
+            $draft = $this->compose($due, $app);
 
-            if (blank($recipient['email'])) {
+            if ($draft->template === null || blank($draft->recipientEmail)) {
                 $stats['skipped'] += $due->count();
 
                 continue;
             }
 
-            try {
-                $rendered = $this->renderGroupEmail($template, $recipient['name'], $due);
-                Mail::to($recipient['email'])->send(new ReminderMail($rendered['subject'], $rendered['body']));
-
-                foreach ($due as $document) {
-                    $this->recordReminder($document, $recipient['email']);
-                    $stats['sent']++;
-                }
-            } catch (Throwable $e) {
-                foreach ($due as $document) {
-                    $this->recordFailedReminder($document, $recipient['email'], $e->getMessage());
-                    $stats['failed']++;
-                }
-            }
+            $result = $this->send($draft);
+            $stats['sent'] += $result['sent'];
+            $stats['failed'] += $result['failed'];
         }
 
         return $stats;
+    }
+
+    /**
+     * Compone il sollecito per i documenti di un soggetto: destinatario, grado (severity), template e casella mittente.
+     *  - grado: il peggiore tra scadenza più vicina e solleciti già inviati (`Escalation`);
+     *  - template: `template_code` della company dei documenti e dell'app, del grado giusto (`EmailTemplateResolver`);
+     *  - mittente: la casella di tipo «sollecito» della company (`SenderAccountResolver`); senza, parte dal mailer di default.
+     *
+     * @param  Collection<int, Document>  $documents  documenti dello stesso soggetto
+     */
+    public function compose(Collection $documents, ?string $app = null): ReminderDraft
+    {
+        $first = $documents->first();
+        $recipient = $this->recipients->resolveForDocument($first);
+        $severity = Escalation::severity(
+            (int) $documents->map(fn (Document $d): int => $this->daysUntilExpiry($d))->min(),
+            (int) $documents->max('reminders_count'),
+        );
+        $template = app(EmailTemplateResolver::class)->resolve((string) $this->setting('template_code', 'DOC_EXPIRING'), $first->company_id, $app, MailType::Sollecito, $severity);
+        $rendered = $template === null ? ['subject' => '', 'body' => ''] : $this->renderGroupEmail($template, $recipient['name'], $documents);
+
+        return new ReminderDraft(
+            $documents,
+            $recipient['name'],
+            $recipient['email'],
+            $severity,
+            $template,
+            app(SenderAccountResolver::class)->resolve($first->company_id, MailType::Sollecito),
+            $rendered['subject'],
+            $rendered['body'],
+        );
+    }
+
+    /**
+     * Invia il sollecito composto (con oggetto e corpo eventualmente cambiati dall'utente) e registra l'esito per ogni documento.
+     *
+     * @return array{sent: int, failed: int}
+     */
+    public function send(ReminderDraft $draft, ?string $subject = null, ?string $body = null): array
+    {
+        $email = (string) $draft->recipientEmail;
+        $mailable = new ReminderMail($subject ?? $draft->subject, $body ?? $draft->body);
+        $result = ['sent' => 0, 'failed' => 0];
+
+        try {
+            if ($draft->sender !== null) {
+                app(OutgoingMailer::class)->send($draft->sender, $email, $mailable);
+            } else {
+                Mail::to($email)->send($mailable);
+            }
+
+            foreach ($draft->documents as $document) {
+                $this->recordReminder($document, $email);
+                $result['sent']++;
+            }
+        } catch (Throwable $e) {
+            foreach ($draft->documents as $document) {
+                $this->recordFailedReminder($document, $email, $e->getMessage());
+                $result['failed']++;
+            }
+        }
+
+        return $result;
     }
 
     public function shouldRemind(Document $document, bool $onlyDueToday = true): bool

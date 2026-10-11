@@ -178,14 +178,19 @@ t("document_reminders", "documents", ["loan.document_reminders", "oam.document_r
 t("document_schedules", "documents", ["loan.document_schedules", "oam.document_schedules"])
 t("tasks", "documents", ["loan.tasks", "oam.tasks"])
 t("media", "documents", ["oam.media", "loan.media", "bpm.media"])
-# severity (da unicobpm) e unicità (code, severity) al posto di (code): applicati a mano alla migration generata.
+# severity (da unicobpm), company_id e type: applicati a mano alla migration generata. L'unicità passa da (code) a (code, severity)
+# e poi a un indice (code, severity, company_id, app_identifier): con company_id/app_identifier nulli MySQL non garantisce l'unicità,
+# la controlla il modello (EmailTemplate::saving).
 t("email_templates", "documents", ["oam.email_templates", "loan.email_templates"],
-  add=[col("severity", "varchar", "20", comment="Grado di severity del controllo a cui risponde il template (ok, regular, warning, alert); nullo = non legato a un controllo")])
+  add=[col("severity", "varchar", "20", comment="Grado di severity del controllo a cui risponde il template (ok, regular, warning, alert); nullo = non legato a un controllo"),
+       col("company_id", "bigint", unsigned=True, comment="Company a cui è riservato il template; nullo = valido per tutte le company"),
+       col("type", "varchar", "30", comment="Tipo di email (valore di MailType: sollecito, processo, generale); nullo = qualsiasi. La casella mittente si sceglie per company e tipo")])
 _imap = {"incoming_host": "imap_host", "incoming_port": "imap_port", "incoming_username": "imap_username",
          "incoming_password": "imap_password", "incoming_encryption": "imap_encryption", "incoming_protocol": "protocol"}
 t("mail_accounts", "documents", ["oam.mail_accounts", "loan.mail_accounts"],
   rename={"oam.mail_accounts": _imap, "loan.mail_accounts": _imap},
   add=[col("company_id", "bigint", unsigned=True, comment="Tenant proprietario della casella"),
+       col("type", "varchar", "30", nullable=False, default="'generale'", comment="Uso della casella (valore di MailType: sollecito, processo, generale): da qui si sceglie il mittente per company e tipo"),
        col("auth_type", "enum", "'password','oauth2'", nullable=False, default="'password'", comment="Metodo di autenticazione"),
        col("provider", "varchar", "255", comment="Provider OAuth (google, microsoft)"),
        col("access_token", "text", comment="Access token OAuth2, cifrato"),

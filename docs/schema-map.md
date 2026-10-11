@@ -573,7 +573,10 @@ Sorgenti: `oam.email_templates`, `loan.email_templates`
 |---|---|
 | loan+oam | id, code, name, subject, body, placeholders, is_active, app_identifier, created_at, updated_at |
 | oam | emailable, email_field, trigger_field, trigger_state, trigger_value |
-| bpm | severity (aggiunta da unicobpm; l'unicità passa da `code` a `code` + `severity`, così lo stesso codice può avere un template per ogni grado) |
+| bpm | severity (aggiunta da unicobpm; lo stesso codice può avere un template per ogni grado) |
+| nuovo | company_id (nullo = valido per tutte le company), type (sollecito, processo, generale). Nessuna unicità a livello di database: con company e app nulle la controlla `EmailTemplate`; il template si sceglie per la regola più specifica (`Mail\EmailTemplateResolver`) |
+
+FK: `company_id` → `companies`
 
 ### `mail_accounts`
 Sorgenti: `oam.mail_accounts`, `loan.mail_accounts`
@@ -581,7 +584,7 @@ Sorgenti: `oam.mail_accounts`, `loan.mail_accounts`
 | Provenienza | Colonne |
 |---|---|
 | loan+oam | id, name, email_address, email_reply_to, is_pec, protocol (era `incoming_protocol`), imap_host (era `incoming_host`), imap_port (era `incoming_port`), imap_username (era `incoming_username`), imap_password (era `incoming_password`), imap_encryption (era `incoming_encryption`), smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, is_active, mailable_type, mailable_id, created_at, updated_at, deleted_at |
-| nuovo | company_id, auth_type, provider, access_token, refresh_token, token_expires_at, last_synced_at |
+| nuovo | company_id, type (sollecito, processo, generale: la casella mittente si sceglie per company e tipo, `Mail\SenderAccountResolver`), auth_type, provider, access_token, refresh_token, token_expires_at, last_synced_at |
 
 Conversioni: `mailable_id` da varchar a bigint (morph)
 

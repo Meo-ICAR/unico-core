@@ -179,6 +179,12 @@ return [
             'missing_reminder_days' => 7,
             'default_notify_days_before' => [30, 15, 7, 1, 0],
             'template_code' => 'DOC_EXPIRING',
+            // Grado del sollecito (template per severity): il peggiore tra scadenza e solleciti già inviati. Giorni mancanti: sotto
+            // `alert` → alert (scaduto), fino a `warning` → warning, fino a `regular` → regular. Solleciti già inviati: da n in su.
+            'escalation' => [
+                'days' => ['alert' => 0, 'warning' => 7, 'regular' => 30],
+                'sent' => ['regular' => 1, 'warning' => 2, 'alert' => 3],
+            ],
             'fallback_email' => env('UNICO_CORE_REMINDER_FALLBACK_EMAIL'),
             // Per alias del soggetto: campi provati in ordine ('a+b' unisce due campi). Le app aggiungono i propri alias.
             'recipients' => [

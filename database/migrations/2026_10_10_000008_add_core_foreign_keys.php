@@ -226,6 +226,11 @@ return new class extends Migration
             $table->foreign('company_id')->references('id')->on('companies')->nullOnDelete();
         });
 
+        // Un template riservato a una company non diventa globale se la company sparisce: sparisce con lei.
+        Schema::table('email_templates', function (Blueprint $table) {
+            $table->foreign('company_id')->references('id')->on('companies')->cascadeOnDelete();
+        });
+
         Schema::table('incoming_emails', function (Blueprint $table) {
             $table->foreign('company_id')->references('id')->on('companies')->cascadeOnDelete();
             $table->foreign('mail_account_id')->references('id')->on('mail_accounts')->nullOnDelete();
@@ -481,6 +486,10 @@ return new class extends Migration
         });
 
         Schema::table('mail_accounts', function (Blueprint $table) {
+            $table->dropForeign(['company_id']);
+        });
+
+        Schema::table('email_templates', function (Blueprint $table) {
             $table->dropForeign(['company_id']);
         });
 

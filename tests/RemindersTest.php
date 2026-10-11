@@ -34,7 +34,7 @@ class RemindersTest extends TestCase
 
     protected function setUp(): void
     {
-        CoreDatabase::truncate('document_schedules', 'document_reminders', 'document_analyses', 'documents', 'document_types', 'email_templates', 'employees');
+        CoreDatabase::truncate('document_schedules', 'document_reminders', 'document_analyses', 'documents', 'document_types', 'email_templates', 'mail_accounts', 'employees', 'companies');
         Carbon::setTestNow('2026-10-10 09:00:00');
         \Illuminate\Database\Eloquent\Relations\Relation::morphMap(\Unico\Core\MorphMap::all(), merge: true);
 
@@ -380,5 +380,83 @@ class RemindersTest extends TestCase
 
         $this->assertSame(['name' => 'Destinatario non disponibile', 'email' => 'ufficio@example.com'], (new ConfigRecipientResolver)->resolveForDocument($doc));
         $this->assertSame('-', (new ConfigRecipientResolver)->entityName($doc));
+    }
+
+    // --- Template per grado, casella per company e tipo, anteprima ---
+
+    public function test_the_template_follows_the_escalation_by_expiry_and_reminders_already_sent(): void
+    {
+        $this->template(['name' => 'base']);
+        $this->template(['name' => 'warning', 'severity' => 'warning', 'subject' => 'URGENTE: {documento_nome}']);
+        $owner = $this->employee();
+        $first = $this->doc($owner, null, ['expires_at' => Carbon::now()->addDays(30)->toDateString()]);
+        $again = $this->doc($this->employee('Luisa Verdi', 'luisa@example.com'), null, ['expires_at' => Carbon::now()->addDays(30)->toDateString(), 'reminders_count' => 2]);
+
+        $firstDraft = $this->service->compose(collect([$first]));
+        $againDraft = $this->service->compose(collect([$again]));
+
+        $this->assertSame('regular', $firstDraft->severity);
+        $this->assertSame('base', $firstDraft->template->name);
+        $this->assertSame('warning', $againDraft->severity);
+        $this->assertSame('warning', $againDraft->template->name);
+        $this->assertStringStartsWith('URGENTE: ', $againDraft->subject);
+    }
+
+    public function test_the_company_template_and_the_company_sender_are_used(): void
+    {
+        $company = \Unico\Core\Models\Company::create(['name' => 'Acme']);
+        $this->template(['name' => 'comune']);
+        $this->template(['name' => 'acme', 'company_id' => $company->id, 'subject' => 'Acme: {documento_nome}']);
+        \Unico\Core\Models\MailAccount::create([
+            'name' => 'Solleciti', 'email_address' => 'solleciti@acme.test', 'imap_host' => 'imap.acme.test', 'imap_port' => 993, 'imap_username' => 'x',
+            'smtp_host' => 'smtp.acme.test', 'smtp_password' => 'segreto', 'company_id' => $company->id, 'type' => 'sollecito',
+        ]);
+        $outgoing = new class extends \Unico\Core\Mail\OutgoingMailer
+        {
+            public array $sent = [];
+
+            public function send(\Unico\Core\Models\MailAccount $account, string $to, \Illuminate\Mail\Mailable $mailable, ?string $fromName = null): void
+            {
+                $this->sent[] = ['from' => $account->email_address, 'to' => $to, 'subject' => $mailable->subjectLine];
+            }
+        };
+        Container::getInstance()->instance(\Unico\Core\Mail\OutgoingMailer::class, $outgoing);
+        $this->doc($this->employee(), null, ['company_id' => $company->id, 'name' => 'Patente']);
+
+        $stats = $this->service->sendReminders();
+
+        $this->assertSame(1, $stats['sent']);
+        $this->assertSame([['from' => 'solleciti@acme.test', 'to' => 'mario@example.com', 'subject' => 'Acme: Patente']], $outgoing->sent);
+        $this->assertSame([], $this->mail->sent);
+    }
+
+    public function test_the_draft_can_be_changed_before_sending(): void
+    {
+        $this->template();
+        $doc = $this->doc($this->employee(), null, ['name' => 'Patente']);
+
+        $draft = $this->service->compose(collect([$doc]));
+        $this->assertSame('mario@example.com', $draft->recipientEmail);
+        $this->assertNull($draft->sender);
+
+        $result = $this->service->send($draft, 'Oggetto cambiato', '<p>Testo cambiato</p>');
+
+        $this->assertSame(['sent' => 1, 'failed' => 0], $result);
+        $this->assertSame('Oggetto cambiato', $this->mail->sent[0]['subject']);
+        $this->assertSame('<p>Testo cambiato</p>', $this->mail->sent[0]['body']);
+        $this->assertSame(1, $doc->fresh()->reminders_count);
+    }
+
+    public function test_a_group_without_a_matching_template_is_skipped(): void
+    {
+        $company = \Unico\Core\Models\Company::create(['name' => 'Beta']);
+        $other = \Unico\Core\Models\Company::create(['name' => 'Acme']);
+        $this->template(['company_id' => $other->id]);
+        $this->doc($this->employee(), null, ['company_id' => $company->id]);
+
+        $stats = $this->service->sendReminders();
+
+        $this->assertSame(['sent' => 0, 'skipped' => 1, 'failed' => 0, 'groups' => 1], $stats);
+        $this->assertSame([], $this->mail->sent);
     }
 }

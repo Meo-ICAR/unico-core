@@ -386,9 +386,11 @@ return new class extends Migration
             $table->json('placeholders')->nullable()->comment('Elenco delle variabili utilizzabili (es. {agente_nome})');
             $table->boolean('is_active')->default(true)->comment('Stato del template');
             $table->string('app_identifier', 50)->nullable()->comment('Identificativo dell\'app Unico a cui è riservato il record; nullo = visibile a tutte');
+            $table->foreignId('company_id')->nullable()->comment('Company a cui è riservato il template; nullo = valido per tutte le company');
+            $table->string('type', 30)->nullable()->comment('Tipo di email (valore di MailType: sollecito, processo, generale); nullo = qualsiasi. La casella mittente si sceglie per company e tipo');
             $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
             $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
-            $table->unique(['code', 'severity'], 'email_templates_code_severity_unique');
+            $table->index(['code', 'severity', 'company_id', 'app_identifier'], 'email_templates_scope_index');
             $table->index(['app_identifier'], 'email_templates_app_identifier_index');
             $table->comment('Registro dei template email configurabili');
         });
@@ -415,6 +417,7 @@ return new class extends Migration
             $table->unsignedBigInteger('mailable_id')->nullable()->comment('ID del proprietario della casella (utente, dipendente, company)');
             $table->index(['mailable_type', 'mailable_id']);
             $table->foreignId('company_id')->nullable()->comment('Tenant proprietario della casella');
+            $table->string('type', 30)->default('generale')->comment('Uso della casella (valore di MailType: sollecito, processo, generale): da qui si sceglie il mittente per company e tipo');
             $table->enum('auth_type', ['password', 'oauth2'])->default('password')->comment('Metodo di autenticazione');
             $table->string('provider')->nullable()->comment('Provider OAuth (google, microsoft)');
             $table->text('access_token')->nullable()->comment('Access token OAuth2, cifrato');
@@ -425,6 +428,7 @@ return new class extends Migration
             $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
             $table->timestamp('deleted_at')->nullable()->comment('Data e ora di eliminazione logica (soft delete); nullo = record attivo');
             $table->unique(['email_address'], 'mail_accounts_email_address_unique');
+            $table->index(['company_id', 'type'], 'mail_accounts_company_type_index');
             $table->comment('Caselle email e PEC: IMAP in ingresso e SMTP in uscita, con Basic Auth o OAuth 2.0');
         });
 

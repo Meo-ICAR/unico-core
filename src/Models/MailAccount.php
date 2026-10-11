@@ -22,6 +22,7 @@ class MailAccount extends Model
     protected $attributes = [
         'auth_type' => 'password',
         'protocol' => 'imap',
+        'type' => 'generale',
         'is_active' => true,
     ];
 

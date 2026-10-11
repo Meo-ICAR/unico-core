@@ -23,6 +23,9 @@ Leggere prima `README.md` e `docs/` (schema-map, documents-design, porting-email
 ## Accesso (piano e ruoli)
 `Access\AccessChecker` (+ `PlanType` con TRIAL): piano della company per l'app corrente da `company_modules` (modulo = nome dell'app in maiuscolo senza spazi; risorse in `resources.app_name` = nome dell'app), poi ruoli EmployeeType del profilo (`employee_roles`). Le app chiamano `checkPiano()` che usa il pacchetto. Config `unico-core.access` (`PLAN_TYPE` forza il piano, prova scaduta → BASE, `bypass_roles`, `deny_roles`). Ruoli configurati in unicobpm, organigramma in unicooam.
 
+## Email e solleciti
+`email_templates`: `company_id` nullo = tutte le company, `app_identifier` nullo = tutte le app, `type` (`MailType`: sollecito, processo, generale), `severity` (ok, regular, warning, alert). `Mail\EmailTemplateResolver` sceglie il più specifico (company, poi app, poi grado; senza il grado richiesto vale quello inferiore più vicino). `mail_accounts.type` + `company_id` decidono il mittente (`Mail\SenderAccountResolver`); le risposte tornano alla stessa casella e le legge `MailFetcher`. `DocumentReminderService::compose()` prepara il sollecito (`ReminderDraft`: destinatario, grado, template, casella, oggetto e corpo) per mostrarlo e farlo cambiare; `send()` lo invia. Il grado è il peggiore tra scadenza e solleciti già inviati (`Documents\Reminders\Escalation`, soglie in `unico-core.documents.reminders.escalation`).
+
 ## Test
 `composer install`, un database MySQL vuoto, poi `vendor/bin/phpunit` (serve `pdftk` per i test dei moduli PDF; si salta se manca). Le variabili possono stare nel `.env` (lette da `tests/bootstrap.php`; mai committare il `.env`): `CORE_TEST_DB_HOST/PORT/DATABASE/USERNAME/PASSWORD`
 (default `127.0.0.1:3306`, `unico_core_test`, `unico`/`unico`). I test sono scritti senza un'app Laravel completa (`tests/Support/CoreDatabase.php`);
