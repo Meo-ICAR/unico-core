@@ -15,8 +15,9 @@ sudo supervisorctl reread && sudo supervisorctl update
 sudo cp deploy/cron.d-unico-scheduler /etc/cron.d/unico-scheduler
 sudo chown root:root /etc/cron.d/unico-scheduler && sudo chmod 644 /etc/cron.d/unico-scheduler
 ```
-I processi girano come `www-data`: le cartelle `storage/` e `bootstrap/cache` di ogni app devono essere scrivibili da quell'utente
-(oggi lo sono: permessi di gruppo e `777`). Il worker non vede il codice nuovo finché non si riavvia: dopo ogni deploy
+I processi girano come `ubuntu`, che possiede le cartelle delle app e ha creato finora i dump e i log del backup notturno (le cartelle create
+da un utente con permessi `755` non sono scrivibili da un altro: per questo worker, scheduler e backup devono girare tutti con lo stesso utente).
+Se i file passano a un altro utente basta cambiare `user=` nei file supervisor e la colonna utente nel cron. Il worker non vede il codice nuovo finché non si riavvia: dopo ogni deploy
 `php artisan queue:restart` (o `sudo supervisorctl restart 'unico-*'`).
 
 ## Verifica

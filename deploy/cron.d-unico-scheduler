@@ -2,9 +2,9 @@
 # Installare come /etc/cron.d/unico-scheduler (root:root, 644).
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
-* * * * * www-data cd /var/www/html/unicobpm && php artisan schedule:run >> /dev/null 2>&1
-* * * * * www-data cd /var/www/html/unicoloan && php artisan schedule:run >> /dev/null 2>&1
-* * * * * www-data cd /var/www/html/unicooam && php artisan schedule:run >> /dev/null 2>&1
-* * * * * www-data cd /var/www/html/proforma && php artisan schedule:run >> /dev/null 2>&1
-* * * * * www-data cd /var/www/html/twillio && php artisan schedule:run >> /dev/null 2>&1
-* * * * * www-data cd /var/www/html/backups3 && php artisan schedule:run >> /dev/null 2>&1
+* * * * * ubuntu cd /var/www/html/unicobpm && php artisan schedule:run >> /dev/null 2>&1
+* * * * * ubuntu cd /var/www/html/unicoloan && php artisan schedule:run >> /dev/null 2>&1
+* * * * * ubuntu cd /var/www/html/unicooam && php artisan schedule:run >> /dev/null 2>&1
+* * * * * ubuntu cd /var/www/html/proforma && php artisan schedule:run >> /dev/null 2>&1
+* * * * * ubuntu cd /var/www/html/twillio && php artisan schedule:run >> /dev/null 2>&1
+* * * * * ubuntu cd /var/www/html/backups3 && php artisan schedule:run >> /dev/null 2>&1
