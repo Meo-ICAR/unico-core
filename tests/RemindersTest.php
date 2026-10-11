@@ -523,4 +523,16 @@ class RemindersTest extends TestCase
         $this->assertSame('unicoloan', $this->service->compose(collect([$doc]))->template->name);
         $this->assertSame('comune', $this->service->compose(collect([$doc]), 'unicobpm')->template->name);
     }
+
+    public function test_documents_uploaded_with_anomalies_in_the_metadata_are_reminded_too(): void
+    {
+        $owner = $this->employee();
+        $withAnomalies = $this->doc($owner, null, ['status' => 'caricato', 'expires_at' => null, 'metadata' => ['verifica' => ['anomalie' => ['duplicato']]]]);
+        $clean = $this->doc($owner, null, ['status' => 'caricato', 'expires_at' => null, 'metadata' => ['verifica' => ['anomalie' => []]]]);
+
+        $ids = $this->ids();
+
+        $this->assertContains($withAnomalies->id, $ids);
+        $this->assertNotContains($clean->id, $ids);
+    }
 }

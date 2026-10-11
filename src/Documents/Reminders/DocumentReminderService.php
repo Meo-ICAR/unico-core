@@ -35,7 +35,7 @@ class DocumentReminderService
         $resendAfter = (int) $this->setting('resend_after_days', 5);
         $until = now()->addDays($windowDays)->toDateString();
 
-        $query = Document::query()
+        $query = $this->documentClass()::query()
             ->with(['documentType', 'documentable'])
             ->where(function (Builder $query) use ($until, $resendAfter) {
                 $query->where(function (Builder $expiring) use ($until, $resendAfter) {
@@ -48,13 +48,15 @@ class DocumentReminderService
                     ->orWhere('status', DocumentStatus::PENDING->value)
                     ->orWhere('status', DocumentStatus::REJECTED->value)
                     ->orWhere(function (Builder $anomalies) {
-                        $anomalies->where('status', DocumentStatus::UPLOADED->value)->whereExists(function ($analysis) {
+                        // Anomalie dall'ultima verifica del pipeline (document_analyses) oppure, per le app che non lo usano ancora,
+                        // dai metadati del documento (`metadata.verifica.anomalie`).
+                        $anomalies->where('status', DocumentStatus::UPLOADED->value)->where(fn (Builder $any) => $any->whereJsonLength('metadata->verifica->anomalie', '>', 0)->orWhereExists(function ($analysis) {
                             $analysis->selectRaw('1')->from('document_analyses as a')
                                 ->whereColumn('a.document_id', 'documents.id')
                                 ->where('a.kind', 'verification')
                                 ->where('a.outcome', 'failed')
                                 ->whereRaw('a.id = (select max(x.id) from document_analyses as x where x.document_id = a.document_id and x.kind = ?)', ['verification']);
-                        });
+                        }));
                     });
             });
 
@@ -117,7 +119,7 @@ class DocumentReminderService
      */
     public function expiryStatus(int $windowDays = 30): ExpiryStatus
     {
-        $documents = Document::query()
+        $documents = $this->documentClass()::query()
             ->with('documentType')
             ->where('is_monitored', true)
             ->whereNotNull('expires_at')
@@ -464,6 +466,12 @@ class DocumentReminderService
             ['document_id' => $document->id, 'days_before' => max(0, $this->daysUntilExpiry($document))],
             ['recipient_email' => $email, 'status' => 'failed', 'error_message' => mb_substr($message, 0, 500), 'sent_at' => now()],
         );
+    }
+
+    /** La classe del documento dell'app (alias `document` della morph map), così i risultati sono i suoi modelli e non quelli del pacchetto. */
+    private function documentClass(): string
+    {
+        return \Illuminate\Database\Eloquent\Relations\Relation::getMorphedModel('document') ?? Document::class;
     }
 
     private function setting(string $key, mixed $default): mixed
