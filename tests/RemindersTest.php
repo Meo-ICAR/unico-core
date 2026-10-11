@@ -459,4 +459,45 @@ class RemindersTest extends TestCase
         $this->assertSame(['sent' => 0, 'skipped' => 1, 'failed' => 0, 'groups' => 1], $stats);
         $this->assertSame([], $this->mail->sent);
     }
+
+    public function test_demo_sends_to_the_test_address_without_counting_the_reminder(): void
+    {
+        $this->template();
+        $doc = $this->doc($this->employee(), null, ['name' => 'Patente']);
+        $draft = $this->service->compose(collect([$doc]));
+
+        $result = $this->service->send($draft, options: ['demo_to' => 'prova@example.com', 'cc' => 'copia@example.com']);
+
+        $this->assertSame(['sent' => 1, 'failed' => 0], $result);
+        $this->assertSame('prova@example.com', $this->mail->sent[0]['to']);
+        $this->assertNull($this->mail->sent[0]['cc']);
+        $this->assertStringStartsWith('[DEMO] ', $this->mail->sent[0]['subject']);
+        $this->assertStringContainsString('mario@example.com', $this->mail->sent[0]['body']);
+        $this->assertSame(0, (int) $doc->fresh()->reminders_count);
+        $this->assertSame(0, DocumentReminder::where('document_id', $doc->id)->count());
+    }
+
+    public function test_a_real_send_can_copy_an_address_and_carries_the_thread_id_and_reply_to(): void
+    {
+        $this->template();
+        $doc = $this->doc($this->employee(), null);
+
+        $this->service->send($this->service->compose(collect([$doc])), options: ['cc' => 'copia@example.com', 'reply_to' => ['risposte@example.com', 'Ufficio']]);
+
+        $sent = $this->mail->sent[0];
+        $this->assertSame('copia@example.com', $sent['cc']);
+        $this->assertEquals([['address' => 'risposte@example.com', 'name' => 'Ufficio']], $sent['mailable']->replyTo);
+        $this->assertCount(1, $sent['mailable']->callbacks);
+        $this->assertSame(1, $doc->fresh()->reminders_count);
+    }
+
+    public function test_the_thread_id_links_a_reply_back_to_the_document(): void
+    {
+        config(['unico-core.documents.reminders.thread_domain' => 'unico.test']);
+
+        $this->assertSame('<doc-42@unico.test>', \Unico\Core\Mail\ThreadId::forDocument(42));
+        $this->assertSame('42', \Unico\Core\Mail\ThreadId::documentFrom('<altro@x.it> <doc-42@unico.test>'));
+        $this->assertNull(\Unico\Core\Mail\ThreadId::documentFrom('<altro@x.it>'));
+        $this->assertNull(\Unico\Core\Mail\ThreadId::documentFrom(null));
+    }
 }

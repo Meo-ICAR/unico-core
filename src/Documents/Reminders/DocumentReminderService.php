@@ -15,6 +15,7 @@ use Unico\Core\Enums\MailType;
 use Unico\Core\Mail\EmailTemplateResolver;
 use Unico\Core\Mail\OutgoingMailer;
 use Unico\Core\Mail\SenderAccountResolver;
+use Unico\Core\Mail\ThreadId;
 use Unico\Core\Models\EmailTemplate;
 
 /**
@@ -272,34 +273,73 @@ class DocumentReminderService
 
     /**
      * Invia il sollecito composto (con oggetto e corpo eventualmente cambiati dall'utente) e registra l'esito per ogni documento.
+     * Opzioni:
+     *  - `demo_to`: indirizzo a cui deviare l'invio (prova): oggetto con [DEMO], avviso in testa al corpo, nessun conteggio dei solleciti;
+     *  - `cc`: indirizzo in copia (ignorato in demo);
+     *  - `attachments`: file da allegare (`Media` o percorsi);
+     *  - `reply_to`: [indirizzo, nome] per le risposte (di default quello della casella o di `mail.reply_to`).
+     * La risposta si ricollega al documento: l'email porta `In-Reply-To`/`References` `<doc-{id}@dominio>` (vedi `Mail\ThreadId`).
      *
+     * @param  array{demo_to?: ?string, cc?: ?string, attachments?: list<mixed>, reply_to?: array{0: string, 1?: ?string}}  $options
      * @return array{sent: int, failed: int}
      */
-    public function send(ReminderDraft $draft, ?string $subject = null, ?string $body = null): array
+    public function send(ReminderDraft $draft, ?string $subject = null, ?string $body = null, array $options = []): array
     {
-        $email = (string) $draft->recipientEmail;
-        $mailable = new ReminderMail($subject ?? $draft->subject, $body ?? $draft->body);
+        $demoTo = $options['demo_to'] ?? null;
+        $email = (string) ($demoTo ?: $draft->recipientEmail);
+        $subject ??= $draft->subject;
+        $body ??= $draft->body;
+
+        if ($demoTo) {
+            $subject = '[DEMO] '.$subject;
+            $body = '<p><strong>Modalità demo attiva:</strong> l\'email di sollecito sarebbe stata inviata a <em>'.e((string) $draft->recipientEmail).'</em>, ma viene inviata a <em>'.e($demoTo).'</em> invece.</p><hr>'.$body;
+        }
+
+        $mailable = new ReminderMail($subject, $body, (array) ($options['attachments'] ?? []));
+        $this->prepareThreadAndReplyTo($mailable, $draft, $options);
         $result = ['sent' => 0, 'failed' => 0];
 
         try {
             if ($draft->sender !== null) {
                 app(OutgoingMailer::class)->send($draft->sender, $email, $mailable);
             } else {
-                Mail::to($email)->send($mailable);
+                $pending = Mail::to($email);
+                $cc = $demoTo ? null : ($options['cc'] ?? null);
+                ($cc !== null && $cc !== '' ? $pending->cc($cc) : $pending)->send($mailable);
             }
 
             foreach ($draft->documents as $document) {
-                $this->recordReminder($document, $email);
+                $demoTo ? null : $this->recordReminder($document, $email);
                 $result['sent']++;
             }
         } catch (Throwable $e) {
             foreach ($draft->documents as $document) {
-                $this->recordFailedReminder($document, $email, $e->getMessage());
+                $demoTo ? null : $this->recordFailedReminder($document, $email, $e->getMessage());
                 $result['failed']++;
             }
         }
 
         return $result;
+    }
+
+    /** @param array<string, mixed> $options */
+    private function prepareThreadAndReplyTo(ReminderMail $mailable, ReminderDraft $draft, array $options): void
+    {
+        $thread = ThreadId::forDocument($draft->documents->first()->id);
+        $mailable->withSymfonyMessage(function ($message) use ($thread): void {
+            $message->getHeaders()->addTextHeader('In-Reply-To', $thread);
+            $message->getHeaders()->addTextHeader('References', $thread);
+        });
+
+        $replyTo = $options['reply_to'] ?? null;
+
+        if ($replyTo === null && filled(config('mail.reply_to.address'))) {
+            $replyTo = [config('mail.reply_to.address'), config('mail.reply_to.name')];
+        }
+
+        if ($replyTo !== null && filled($replyTo[0])) {
+            $mailable->replyTo($replyTo[0], $replyTo[1] ?? null);
+        }
     }
 
     public function shouldRemind(Document $document, bool $onlyDueToday = true): bool

@@ -179,6 +179,8 @@ return [
             'missing_reminder_days' => 7,
             'default_notify_days_before' => [30, 15, 7, 1, 0],
             'template_code' => 'DOC_EXPIRING',
+            // Dominio degli identificativi di conversazione dei solleciti (<doc-ID@dominio>); vuoto = host di APP_URL.
+            'thread_domain' => env('UNICO_CORE_REMINDER_THREAD_DOMAIN'),
             // Grado del sollecito (template per severity): il peggiore tra scadenza e solleciti già inviati. Giorni mancanti: sotto
             // `alert` → alert (scaduto), fino a `warning` → warning, fino a `regular` → regular. Solleciti già inviati: da n in su.
             'escalation' => [
