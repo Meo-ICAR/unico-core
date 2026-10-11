@@ -293,4 +293,12 @@ class DocumentModelsTest extends TestCase
         $this->assertSame([$failed->id], Document::query()->whereLatestVerification(['failed'])->pluck('id')->all());
         $this->assertEqualsCanonicalizing([$recovered->id], Document::query()->whereLatestVerification(['passed'])->pluck('id')->all());
     }
+
+    public function test_the_activity_model_uses_the_core_connection(): void
+    {
+        config(['unico-core.connection' => 'core']);
+
+        $this->assertSame('core', (new \Unico\Core\Models\Activity)->getConnectionName());
+        $this->assertSame('activity_log', (new \Unico\Core\Models\Activity)->getTable());
+    }
 }
