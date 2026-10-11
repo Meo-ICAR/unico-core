@@ -6,7 +6,7 @@ solleciti, risposte email, download delle caselle, escalation, backup notturno. 
 ## File
 - `supervisor/unico-<app>-queue.conf`: un worker per app (stesso stile di `whitelist-queue`). unicoloan e unicooam ascoltano anche la coda `documents`
   (analisi dei documenti); la coda del bridge e delle altre attività è `default`.
-- `cron.d-unico-scheduler`: `schedule:run` ogni minuto per ogni app (unicobpm, unicoloan, unicooam, proforma, unicoagent, backups3: quest’ultima non ha code, solo il backup notturno).
+- `cron.d-unico-scheduler`: `schedule:run` ogni 10 minuti per ogni app (gli orari pianificati devono cadere su minuti multipli di 10: oggi lo sono tutti, e se ne aggiungi uno nuovo ricordalo; con `everyFiveMinutes` o `everyMinute` il comando parte comunque ogni 10 minuti) (unicobpm, unicoloan, unicooam, proforma, unicoagent, backups3: quest’ultima non ha code, solo il backup notturno).
 
 ## Installazione
 ```bash

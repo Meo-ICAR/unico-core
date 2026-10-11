@@ -1,10 +1,12 @@
 # Scheduler Laravel delle app Unico: ogni app ha i propri comandi pianificati (escalation, solleciti, download caselle, backup...).
+# Lo scheduler parte ogni 10 minuti: i comandi pianificati devono cadere su minuti multipli di 10 (:00, :10, ... :50), gli altri non scatterebbero
+# (un `everyFiveMinutes` gira ogni 10 minuti, un `everyMinute` pure). Orari attuali: tutti sul minuto 00 o 30, proforma coge:sync-primenote alle 20:20.
 # Installare come /etc/cron.d/unico-scheduler (root:root, 644).
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
-* * * * * ubuntu cd /var/www/html/unicobpm && php artisan schedule:run >> /dev/null 2>&1
-* * * * * ubuntu cd /var/www/html/unicoloan && php artisan schedule:run >> /dev/null 2>&1
-* * * * * ubuntu cd /var/www/html/unicooam && php artisan schedule:run >> /dev/null 2>&1
-* * * * * ubuntu cd /var/www/html/proforma && php artisan schedule:run >> /dev/null 2>&1
-* * * * * ubuntu cd /var/www/html/twillio && php artisan schedule:run >> /dev/null 2>&1
-* * * * * ubuntu cd /var/www/html/backups3 && php artisan schedule:run >> /dev/null 2>&1
+*/10 * * * * ubuntu cd /var/www/html/unicobpm && php artisan schedule:run >> /dev/null 2>&1
+*/10 * * * * ubuntu cd /var/www/html/unicoloan && php artisan schedule:run >> /dev/null 2>&1
+*/10 * * * * ubuntu cd /var/www/html/unicooam && php artisan schedule:run >> /dev/null 2>&1
+*/10 * * * * ubuntu cd /var/www/html/proforma && php artisan schedule:run >> /dev/null 2>&1
+*/10 * * * * ubuntu cd /var/www/html/twillio && php artisan schedule:run >> /dev/null 2>&1
+*/10 * * * * ubuntu cd /var/www/html/backups3 && php artisan schedule:run >> /dev/null 2>&1
