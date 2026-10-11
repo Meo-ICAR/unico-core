@@ -9,14 +9,14 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
- * Autentica le chiamate del bridge con la chiave condivisa nell'intestazione X-Api-Key (`unico-core.bridge.api_key`, BPM_BRIDGE_API_KEY).
+ * Autentica le chiamate del bridge con la chiave condivisa nell'intestazione X-Api-Key (`unico-core.bridge.api_key`, BPM_BRIDGE_API_KEY; in mancanza `services.bpm.api_key`, come le app che l'avevano già).
  * Senza chiave configurata il bridge è spento (503): mai aperto per dimenticanza.
  */
 class VerifyBridgeKey
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $expected = (string) config('unico-core.bridge.api_key');
+        $expected = (string) (config('unico-core.bridge.api_key') ?: config('services.bpm.api_key'));
 
         if ($expected === '') {
             Log::error('Bridge disabilitato: unico-core.bridge.api_key (BPM_BRIDGE_API_KEY) non configurata.');

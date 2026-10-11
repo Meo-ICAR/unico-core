@@ -244,7 +244,11 @@ class BridgeTest extends TestCase
             }
         }
 
-        config(['unico-core.bridge.api_key' => null]);
+        config(['unico-core.bridge.api_key' => null, 'services.bpm.api_key' => 'chiave-app']);
+        $legacy = Request::create('/api/commands', 'GET', server: ['HTTP_X_API_KEY' => 'chiave-app']);
+        $this->assertSame(200, $middleware->handle($legacy, $next)->getStatusCode());
+
+        config(['services.bpm.api_key' => null]);
         $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
         $middleware->handle($ok, $next);
     }
