@@ -32,6 +32,12 @@ class SignatureRequest extends Model
         ];
     }
 
+    /** Si salva sempre l'alias stabile, anche se il record è caricato da una classe del pacchetto invece che da quella dell'app. */
+    public function getMorphClass(): string
+    {
+        return 'signature_request';
+    }
+
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class, 'document_id');

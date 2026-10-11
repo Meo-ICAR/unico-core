@@ -298,4 +298,11 @@ class SignatureRequestServiceTest extends TestCase
 
         $this->assertSame('failed', Document::find($request->document_id)->sync_status);
     }
+
+    public function test_i_modelli_si_salvano_sempre_con_lalias_stabile(): void
+    {
+        $this->assertSame('document', (new Document)->getMorphClass());
+        $this->assertSame('signature_request', (new SignatureRequest)->getMorphClass());
+        $this->assertSame('document', (new class extends Document {})->getMorphClass());
+    }
 }

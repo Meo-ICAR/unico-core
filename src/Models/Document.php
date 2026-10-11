@@ -182,6 +182,12 @@ class Document extends Model implements HasMedia
         return $this->getFirstMedia(self::COLLECTION_SIGNED) ?? $this->getFirstMedia(self::COLLECTION);
     }
 
+    /** Si salva sempre l'alias stabile, anche se il record è caricato da una classe del pacchetto invece che da quella dell'app. */
+    public function getMorphClass(): string
+    {
+        return 'document';
+    }
+
     public function signatureRequests(): HasMany
     {
         return $this->hasMany(SignatureRequest::class, 'document_id');
