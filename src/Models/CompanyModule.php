@@ -18,6 +18,7 @@ class CompanyModule extends Model
     protected function casts(): array
     {
         return [
+            'plan_type' => \Unico\Core\Access\PlanType::class,
             'trial_ends_at' => 'date',
             'one_time_cost' => 'decimal:2',
             'monthly_cost' => 'decimal:2',

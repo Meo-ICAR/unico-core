@@ -237,4 +237,23 @@ return [
         'middleware' => ['web', 'auth'],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Accesso: piano della company e ruoli
+    |--------------------------------------------------------------------------
+    | `plan`: forza il piano per tutte le company (BASE, MEDIUM, FULL, TRIAL; PLAN_TYPE), per sviluppo e test; vuoto = si legge
+    |   `company_modules` della company dell'utente per l'app corrente. `default_plan`: se la company non ha il modulo.
+    | `trial_expired_plan`: piano che vale dopo la fine del periodo di prova (`company_modules.trial_ends_at`).
+    | `bypass_roles`: ruoli di `users.role` che vedono sempre tutto. `deny_roles`: ruoli che non passano mai da queste funzioni
+    |   (es. `agent` in unicoloan, che usa solo il suo portale).
+    |
+    */
+    'access' => [
+        'plan' => env('PLAN_TYPE'),
+        'default_plan' => 'FULL',
+        'trial_expired_plan' => 'BASE',
+        'bypass_roles' => ['admin', 'super_admin'],
+        'deny_roles' => [],
+    ],
+
 ];

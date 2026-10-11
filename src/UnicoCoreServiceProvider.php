@@ -61,6 +61,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
 
         // Analisi documenti: ogni pezzo è sostituibile dall'app con un proprio bind.
         $this->app->singleton(CheckRegistry::class);
+        $this->app->singleton(\Unico\Core\Access\AccessChecker::class);
         $this->app->bindIf(DocumentFileSource::class, MediaDocumentFileSource::class);
         $this->app->bindIf(DeclaredData::class, NullDeclaredData::class);
         $this->app->bindIf(AnalysisGate::class, OpenGate::class);

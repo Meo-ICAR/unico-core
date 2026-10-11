@@ -20,6 +20,9 @@ Leggere prima `README.md` e `docs/` (schema-map, documents-design, porting-email
 - Multi-tenant: `company_id` su `users` e sulle tabelle principali; un'app diventa multicompany filtrando per company o per holding.
 - Niente dati personali nei log (solo id e nome della classe dell'eccezione).
 
+## Accesso (piano e ruoli)
+`Access\AccessChecker` (+ `PlanType` con TRIAL): piano della company per l'app corrente da `company_modules` (modulo = nome dell'app in maiuscolo senza spazi; risorse in `resources.app_name` = nome dell'app), poi ruoli EmployeeType del profilo (`employee_roles`). Le app chiamano `checkPiano()` che usa il pacchetto. Config `unico-core.access` (`PLAN_TYPE` forza il piano, prova scaduta → BASE, `bypass_roles`, `deny_roles`). Ruoli configurati in unicobpm, organigramma in unicooam.
+
 ## Test
 `composer install`, un database MySQL vuoto, poi `vendor/bin/phpunit` (serve `pdftk` per i test dei moduli PDF; si salta se manca). Le variabili possono stare nel `.env` (lette da `tests/bootstrap.php`; mai committare il `.env`): `CORE_TEST_DB_HOST/PORT/DATABASE/USERNAME/PASSWORD`
 (default `127.0.0.1:3306`, `unico_core_test`, `unico`/`unico`). I test sono scritti senza un'app Laravel completa (`tests/Support/CoreDatabase.php`);
