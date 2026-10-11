@@ -512,4 +512,15 @@ class RemindersTest extends TestCase
         $this->assertSame('Nessun elenco', $this->service->renderText('Nessun elenco', 'Mario', $docs));
         $this->assertStringEndsWith('</ul>', $this->service->renderText('Con elenco in coda', 'Mario', $docs, appendList: true));
     }
+
+    public function test_the_app_template_is_chosen_with_the_configured_app_identifier(): void
+    {
+        $this->template(['name' => 'comune']);
+        $this->template(['name' => 'unicoloan', 'app_identifier' => 'unicoloan']);
+        $doc = $this->doc($this->employee(), null);
+        config(['unico-core.app_identifier' => 'unicoloan']);
+
+        $this->assertSame('unicoloan', $this->service->compose(collect([$doc]))->template->name);
+        $this->assertSame('comune', $this->service->compose(collect([$doc]), 'unicobpm')->template->name);
+    }
 }

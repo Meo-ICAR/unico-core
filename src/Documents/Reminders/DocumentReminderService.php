@@ -250,6 +250,7 @@ class DocumentReminderService
      */
     public function compose(Collection $documents, ?string $app = null): ReminderDraft
     {
+        $app ??= config('unico-core.app_identifier');
         $first = $documents->first();
         $recipient = $this->recipients->resolveForDocument($first);
         $severity = Escalation::severity(
