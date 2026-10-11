@@ -12,7 +12,8 @@ use Unico\Core\Models\Resource;
 /**
  * Cosa può fare un utente in un'app, in tre passi:
  *  1. i ruoli di sistema `bypass_roles` (admin, super_admin) vedono sempre tutto; i `deny_roles` (es. gli agenti di unicoloan, che usano
- *     solo il loro portale) mai;
+ *     solo il loro portale) mai; i `readonly_roles` (l'ispettore) vedono tutto ciò che il piano della company copre, ma non possono
+ *     scrivere: per loro il passo 3 non si applica e `$write = true` risponde sempre no;
  *  2. il piano della company per l'app corrente (`company_modules`: modulo = nome dell'app in maiuscolo e senza spazi, risorse =
  *     `resources.app_name` = nome dell'app) deve coprire il `min_plan` della risorsa;
  *  3. i ruoli EmployeeType del profilo dell'utente (`employee_roles` di employee, fornitore o client consulente) devono avere un permesso
@@ -43,12 +44,21 @@ class AccessChecker
         return strtoupper(str_replace(' ', '', $this->appName()));
     }
 
-    public function check(string $feature, ?string $callerClass = null, ?object $user = null): bool
+    /** `$write`: la funzione modifica i dati (creare, modificare, eliminare, azioni): i ruoli di sola lettura non la ottengono mai. */
+    public function check(string $feature, ?string $callerClass = null, ?object $user = null, bool $write = false): bool
     {
         $user ??= $this->currentUser();
-        $key = $feature.'|'.($user?->getKey() ?? 'guest').'|'.$this->plan($user)->value;
+        $key = $feature.'|'.($user?->getKey() ?? 'guest').'|'.$this->plan($user)->value.'|'.(int) $write;
 
-        return $this->checks[$key] ??= $this->resolve($feature, $user);
+        return $this->checks[$key] ??= $this->resolve($feature, $user, $write);
+    }
+
+    /** L'utente ha un ruolo di sola lettura (l'ispettore): vede, non modifica. */
+    public function isReadOnly(?object $user = null): bool
+    {
+        $role = $this->roleOf($user ?? $this->currentUser());
+
+        return $role !== null && in_array($role, (array) config('unico-core.access.readonly_roles', ['inspector']), true);
     }
 
     /** Piano effettivo dell'utente (della sua company) per l'app corrente. */
@@ -106,7 +116,7 @@ class AccessChecker
         $this->checks = $this->plans = $this->roles = [];
     }
 
-    private function resolve(string $feature, ?object $user): bool
+    private function resolve(string $feature, ?object $user, bool $write): bool
     {
         $role = $this->roleOf($user);
 
@@ -118,6 +128,10 @@ class AccessChecker
             return false;
         }
 
+        if ($role !== null && $write && in_array($role, (array) config('unico-core.access.readonly_roles', ['inspector']), true)) {
+            return false;
+        }
+
         $resource = Resource::query()->forCurrentApp()->where('key', $feature)->first();
 
         if ($resource === null) {
@@ -126,6 +140,11 @@ class AccessChecker
 
         if (! $this->plan($user)->covers($resource->min_plan)) {
             return false;
+        }
+
+        // L'ispettore vede tutto quello che il piano copre, senza passare dai ruoli EmployeeType.
+        if ($this->isReadOnly($user)) {
+            return true;
         }
 
         $typeIds = $this->employeeTypeIds($user);

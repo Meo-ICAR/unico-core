@@ -245,7 +245,8 @@ return [
     |   `company_modules` della company dell'utente per l'app corrente. `default_plan`: se la company non ha il modulo.
     | `trial_expired_plan`: piano che vale dopo la fine del periodo di prova (`company_modules.trial_ends_at`).
     | `bypass_roles`: ruoli di `users.role` che vedono sempre tutto. `deny_roles`: ruoli che non passano mai da queste funzioni
-    |   (es. `agent` in unicoloan, che usa solo il suo portale).
+    |   (es. `agent` in unicoloan, che usa solo il suo portale). `readonly_roles`: ruoli che vedono tutto ciò che il piano della
+    |   company copre ma non modificano nulla (l'ispettore); `readonly_actions`: nomi delle azioni Filament che restano per loro.
     |
     */
     'access' => [
@@ -254,6 +255,8 @@ return [
         'trial_expired_plan' => 'BASE',
         'bypass_roles' => ['admin', 'super_admin'],
         'deny_roles' => [],
+        'readonly_roles' => ['inspector'],
+        'readonly_actions' => ['view', 'download', 'preview', 'print', 'open'],
     ],
 
 ];

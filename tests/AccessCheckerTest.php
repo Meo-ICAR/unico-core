@@ -192,4 +192,46 @@ class AccessCheckerTest extends TestCase
         $this->assertFalse(PlanType::Medium->covers('FULL'));
         $this->assertTrue(PlanType::Trial->covers('full'));
     }
+
+    public function test_lispettore_vede_tutto_nel_piano_ma_non_modifica(): void
+    {
+        $company = $this->plan('MEDIUM');
+        $this->resource('pratiche');
+        $this->resource('premium', 'FULL');
+        $audits = $this->resource('audits');
+        $contabile = EmployeeType::create(['name' => 'Contabile']);
+        EmployeeTypePermission::create(['employee_type_id' => $contabile->id, 'resource_id' => $audits->id]);
+        // Con i ruoli EmployeeType un utente normale vedrebbe solo le risorse con permesso: l'ispettore le vede tutte.
+        $inspector = $this->user($company, 'inspector', ['Contabile'], 1);
+        $normal = $this->user($company, 'user', ['Contabile'], 2);
+
+        $this->assertTrue($this->access->isReadOnly($inspector));
+        $this->assertFalse($this->access->isReadOnly($normal));
+        $this->assertTrue($this->access->check('pratiche', null, $inspector));
+        $this->assertFalse($this->access->check('pratiche', null, $normal));
+        // Resta dentro il piano della company.
+        $this->assertFalse($this->access->check('premium', null, $inspector));
+        // In scrittura mai, nemmeno dove vedrebbe.
+        $this->assertFalse($this->access->check('pratiche', null, $inspector, write: true));
+        $this->assertFalse($this->access->check('audits', null, $inspector, write: true));
+        $this->assertTrue($this->access->check('audits', null, $normal, write: true));
+    }
+
+    public function test_i_ruoli_di_sola_lettura_si_configurano(): void
+    {
+        $company = $this->plan('FULL');
+        $this->resource('pratiche');
+        config(['unico-core.access.readonly_roles' => ['revisore']]);
+
+        $this->assertTrue($this->access->isReadOnly($this->user($company, 'revisore')));
+        $this->assertFalse($this->access->isReadOnly($this->user($company, 'inspector', id: 2)));
+        $this->assertFalse($this->access->check('pratiche', null, $this->user($company, 'revisore'), write: true));
+    }
+
+    public function test_le_azioni_libere_spariscono_per_chi_e_in_sola_lettura(): void
+    {
+        $this->assertTrue(\Unico\Core\Access\ReadOnlyActions::allows('sendForSignature', false));
+        $this->assertFalse(\Unico\Core\Access\ReadOnlyActions::allows('sendForSignature', true));
+        $this->assertTrue(\Unico\Core\Access\ReadOnlyActions::allows('download', true));
+    }
 }

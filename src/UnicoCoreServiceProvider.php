@@ -75,6 +75,8 @@ class UnicoCoreServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        \Unico\Core\Access\ReadOnlyActions::register();
+
         $this->registerDocumentsDisk();
 
         Relation::morphMap(MorphMap::all(), merge: true);
