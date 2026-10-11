@@ -26,6 +26,9 @@ Leggere prima `README.md` e `docs/` (schema-map, documents-design, porting-email
 ## Email e solleciti
 `email_templates`: `company_id` nullo = tutte le company, `app_identifier` nullo = tutte le app, `type` (`MailType`: sollecito, processo, generale), `severity` (ok, regular, warning, alert). `Mail\EmailTemplateResolver` sceglie il più specifico (company, poi app, poi grado; senza il grado richiesto vale quello inferiore più vicino). `mail_accounts.type` + `company_id` decidono il mittente (`Mail\SenderAccountResolver`); le risposte tornano alla stessa casella e le legge `MailFetcher`. `DocumentReminderService::compose()` prepara il sollecito (`ReminderDraft`: destinatario, grado, template, casella, oggetto e corpo) per mostrarlo e farlo cambiare; `send()` lo invia. Il grado è il peggiore tra scadenza e solleciti già inviati (`Documents\Reminders\Escalation`, soglie in `unico-core.documents.reminders.escalation`).
 
+## Bridge per sistemi esterni
+`Bridge\CommandDispatcher` + rotte `/api/commands` (comandi in coda con `command_runs` e esito leggibile), `X-Correlation-Id`, chiave `X-Api-Key`: vedi `docs/bridge-api.md`. Attivo con `UNICO_CORE_BRIDGE`.
+
 ## Test
 `composer install`, un database MySQL vuoto, poi `vendor/bin/phpunit` (serve `pdftk` per i test dei moduli PDF; si salta se manca). Le variabili possono stare nel `.env` (lette da `tests/bootstrap.php`; mai committare il `.env`): `CORE_TEST_DB_HOST/PORT/DATABASE/USERNAME/PASSWORD`
 (default `127.0.0.1:3306`, `unico_core_test`, `unico`/`unico`). I test sono scritti senza un'app Laravel completa (`tests/Support/CoreDatabase.php`);

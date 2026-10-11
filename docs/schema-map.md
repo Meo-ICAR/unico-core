@@ -697,6 +697,9 @@ Conversioni: `company_id` da char(36) a bigint, FK → `companies`; `trainable_i
 
 FK: `company_id` → `companies`
 
+### `command_runs`
+Nuova (nessuna sorgente). Migration scritta a mano: `2026_10_11_000010_create_core_bridge_tables.php`. Lanci di comandi richiesti dal bridge API (`docs/bridge-api.md`): comando, opzioni, stato, esito, correlation id.
+
 ### `websites`
 Sorgenti: `loan.websites`, `oam.websites` (stessa struttura). Migration scritta a mano: `2026_10_10_000009_create_core_websites_table.php`.
 

@@ -103,6 +103,10 @@ class UnicoCoreServiceProvider extends ServiceProvider
             $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
         }
 
+        if (config('unico-core.bridge.enabled')) {
+            $this->loadRoutesFrom(__DIR__.'/../routes/bridge.php');
+        }
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../config/unico-core.php' => config_path('unico-core.php'),

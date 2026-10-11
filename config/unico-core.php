@@ -272,4 +272,23 @@ return [
         'readonly_actions' => ['view', 'download', 'preview', 'print', 'open'],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Bridge per sistemi esterni (unicobpm, app di terzi)
+    |--------------------------------------------------------------------------
+    | `enabled`: registra le rotte /api/commands (elenco, lancio in coda, esito del lancio) e /api/bridge/health.
+    | `api_key`: chiave condivisa (X-Api-Key); senza, il bridge risponde 503. `middleware`: di default correlazione + chiave.
+    | `commands`: nome => ['description' => ..., 'options' => [...]]: solo questi comandi, con queste opzioni (si somma a
+    |   `schedulable_commands` se l'app lo ha). `queue`: coda dei lanci. `keep_runs_days`: per quanto restano i lanci.
+    |
+    */
+    'bridge' => [
+        'enabled' => env('UNICO_CORE_BRIDGE', false),
+        'api_key' => env('BPM_BRIDGE_API_KEY'),
+        'middleware' => [\Unico\Core\Bridge\Http\Middleware\CorrelationId::class, 'api', \Unico\Core\Bridge\Http\Middleware\VerifyBridgeKey::class],
+        'commands' => [],
+        'queue' => env('UNICO_CORE_BRIDGE_QUEUE'),
+        'keep_runs_days' => 30,
+    ],
+
 ];
