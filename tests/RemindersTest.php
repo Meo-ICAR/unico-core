@@ -500,4 +500,16 @@ class RemindersTest extends TestCase
         $this->assertNull(\Unico\Core\Mail\ThreadId::documentFrom('<altro@x.it>'));
         $this->assertNull(\Unico\Core\Mail\ThreadId::documentFrom(null));
     }
+
+    public function test_render_text_fills_the_placeholders_of_a_text_changed_by_the_user(): void
+    {
+        $docs = collect([$this->doc($this->employee(), null, ['name' => 'Patente']), $this->doc($this->employee('Luisa', 'l@example.com'), null, ['name' => 'Polizza'])]);
+
+        $text = $this->service->renderText('Ciao {agente_nome}: {n_documenti} documenti {elenco_documenti}', 'Mario', $docs);
+
+        $this->assertStringStartsWith('Ciao Mario: 2 documenti <ul>', $text);
+        $this->assertStringContainsString('Patente', $text);
+        $this->assertSame('Nessun elenco', $this->service->renderText('Nessun elenco', 'Mario', $docs));
+        $this->assertStringEndsWith('</ul>', $this->service->renderText('Con elenco in coda', 'Mario', $docs, appendList: true));
+    }
 }

@@ -382,13 +382,31 @@ class DocumentReminderService
     }
 
     /**
-     * Segnaposto del template: {agente_nome}, {documento_nome}, {data_scadenza}, {elenco_documenti}.
+     * Segnaposto del template: {agente_nome}, {documento_nome}, {data_scadenza}, {n_documenti}, {elenco_documenti}.
      * Senza {elenco_documenti} l'elenco è accodato al corpo.
      *
      * @param  Collection<int, Document>  $documents
      * @return array{subject: string, body: string}
      */
     public function renderGroupEmail(EmailTemplate $template, string $recipientName, Collection $documents): array
+    {
+        $subject = $this->renderText($template->subject, $recipientName, $documents);
+        $body = $this->renderText($template->body, $recipientName, $documents, appendList: true);
+
+        if ($documents->count() > 1) {
+            $subject = 'Sollecito scadenze documenti ('.$documents->count().')';
+        }
+
+        return ['subject' => $subject, 'body' => $body];
+    }
+
+    /**
+     * Sostituisce i segnaposto in un testo qualsiasi (anche quello cambiato dall'utente nell'anteprima).
+     * `{elenco_documenti}` diventa l'elenco HTML; con `$appendList` e senza il segnaposto l'elenco si accoda al testo.
+     *
+     * @param  Collection<int, Document>  $documents
+     */
+    public function renderText(string $text, string $recipientName, Collection $documents, bool $appendList = false): string
     {
         $list = '<ul>'.$documents->map(function (Document $d): string {
             $when = $d->expires_at === null ? 'da fornire' : ($this->daysUntilExpiry($d) < 0 ? 'SCADUTO' : $d->expires_at->format('d/m/Y'));
@@ -399,24 +417,18 @@ class DocumentReminderService
         $first = $documents->first();
         $single = $documents->count() === 1;
 
-        $replacements = [
+        $text = strtr($text, [
             '{agente_nome}' => e($recipientName),
             '{documento_nome}' => $single ? e((string) $first->name) : $documents->count().' documenti',
             '{data_scadenza}' => $single ? ($first->expires_at?->format('d/m/Y') ?? '—') : 'vedi elenco',
-        ];
+            '{n_documenti}' => (string) $documents->count(),
+        ]);
 
-        $subject = strtr($template->subject, $replacements);
-        $body = strtr($template->body, $replacements);
-
-        $body = Str::contains($body, '{elenco_documenti}')
-            ? str_replace('{elenco_documenti}', $list, $body)
-            : $body.$list;
-
-        if (! $single) {
-            $subject = 'Sollecito scadenze documenti ('.$documents->count().')';
+        if (Str::contains($text, '{elenco_documenti}')) {
+            return str_replace('{elenco_documenti}', $list, $text);
         }
 
-        return ['subject' => $subject, 'body' => $body];
+        return $appendList ? $text.$list : $text;
     }
 
     private function alreadySent(Document $document, int $daysBefore): bool
