@@ -50,13 +50,7 @@ class DocumentReminderService
                     ->orWhere(function (Builder $anomalies) {
                         // Anomalie dall'ultima verifica del pipeline (document_analyses) oppure, per le app che non lo usano ancora,
                         // dai metadati del documento (`metadata.verifica.anomalie`).
-                        $anomalies->where('status', DocumentStatus::UPLOADED->value)->where(fn (Builder $any) => $any->whereJsonLength('metadata->verifica->anomalie', '>', 0)->orWhereExists(function ($analysis) {
-                            $analysis->selectRaw('1')->from('document_analyses as a')
-                                ->whereColumn('a.document_id', 'documents.id')
-                                ->where('a.kind', 'verification')
-                                ->where('a.outcome', 'failed')
-                                ->whereRaw('a.id = (select max(x.id) from document_analyses as x where x.document_id = a.document_id and x.kind = ?)', ['verification']);
-                        }));
+                        $anomalies->where('status', DocumentStatus::UPLOADED->value)->where(fn (Builder $any) => $any->whereJsonLength('metadata->verifica->anomalie', '>', 0)->orWhere(fn (Builder $verified) => $verified->whereLatestVerification(['failed'])));
                     });
             });
 

@@ -18,7 +18,7 @@ class DocumentModelsTest extends TestCase
 
     protected function setUp(): void
     {
-        CoreDatabase::truncate('documents', 'document_types');
+        CoreDatabase::truncate('document_analyses', 'documents', 'document_types');
         CoreDatabase::$auth->userId = null;
     }
 
@@ -273,5 +273,24 @@ class DocumentModelsTest extends TestCase
 
         $document->files[Document::COLLECTION_SIGNED] = $signed;
         $this->assertSame('firmato.pdf', $document->currentMedia()->file_name);
+    }
+
+    public function test_the_latest_verification_and_its_scope(): void
+    {
+        $type = \Unico\Core\Models\DocumentType::create(['name' => 'Tipo', 'code' => 'T'.uniqid()]);
+        $make = fn () => Document::create(['documentable_type' => 'company', 'documentable_id' => 1, 'document_type_id' => $type->id, 'name' => 'D'.uniqid()]);
+        $failed = $make();
+        $recovered = $make();
+        $none = $make();
+        foreach ([[$failed, 'failed'], [$recovered, 'failed'], [$recovered, 'passed']] as [$doc, $outcome]) {
+            \Unico\Core\Models\DocumentAnalysis::create(['document_id' => $doc->id, 'kind' => 'verification', 'outcome' => $outcome]);
+        }
+        \Unico\Core\Models\DocumentAnalysis::create(['document_id' => $none->id, 'kind' => 'extraction', 'outcome' => 'failed']);
+
+        $this->assertSame('failed', $failed->latestVerification()->outcome);
+        $this->assertSame('passed', $recovered->latestVerification()->outcome);
+        $this->assertNull($none->latestVerification());
+        $this->assertSame([$failed->id], Document::query()->whereLatestVerification(['failed'])->pluck('id')->all());
+        $this->assertEqualsCanonicalizing([$recovered->id], Document::query()->whereLatestVerification(['passed'])->pluck('id')->all());
     }
 }

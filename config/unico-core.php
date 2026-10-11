@@ -126,7 +126,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Pipeline verifica tecnica -> classificazione -> lettura AI con controlli a plug-in.
-    | `analysis.auto`: al caricamento di un file (Spatie) l'analisi parte in coda.
+    | `analysis.auto`: al caricamento di un file (Spatie) l'analisi parte in coda (`analysis.sync`: subito).
     | `ai`: senza `api_key` la lettura AI è spenta (restano verifica tecnica e regex).
     |   I prezzi sono in dollari per milione di token, per calcolare `document_analyses.ai_cost`.
     | `checks`: codice => classe. Le app aggiungono i propri con CheckRegistry::extend().
@@ -165,6 +165,8 @@ return [
         'readable_paths' => env('UNICO_CORE_READABLE_PATHS', true),
         'analysis' => [
             'auto' => env('UNICO_CORE_ANALYSIS_AUTO', false),
+            // true: l'analisi gira subito, nella richiesta di caricamento (di norma solo verifica tecnica), invece che in coda.
+            'sync' => env('UNICO_CORE_ANALYSIS_SYNC', false),
             'queue' => env('UNICO_CORE_ANALYSIS_QUEUE', 'documents'),
         ],
         'ai' => [

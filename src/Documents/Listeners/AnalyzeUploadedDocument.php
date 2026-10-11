@@ -14,7 +14,9 @@ class AnalyzeUploadedDocument
         $document = $event->media->model;
 
         if ($document instanceof Document && in_array($event->media->collection_name, [Document::COLLECTION, Document::COLLECTION_SIGNED], true)) {
-            AnalyzeDocument::dispatch($document->fresh())->afterCommit();
+            config('unico-core.documents.analysis.sync')
+                ? AnalyzeDocument::dispatchSync($document->fresh())
+                : AnalyzeDocument::dispatch($document->fresh())->afterCommit();
         }
     }
 }

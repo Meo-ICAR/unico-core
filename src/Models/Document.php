@@ -188,6 +188,33 @@ class Document extends Model implements HasMedia
         return 'document';
     }
 
+    public function analyses(): HasMany
+    {
+        return $this->hasMany(DocumentAnalysis::class, 'document_id');
+    }
+
+    /** L'ultima verifica tecnica del documento (`document_analyses.kind = verification`), se c'è. */
+    public function latestVerification(): ?DocumentAnalysis
+    {
+        return $this->analyses()->where('kind', 'verification')->latest('id')->first();
+    }
+
+    /**
+     * Documenti la cui ultima verifica tecnica ha l'esito indicato (failed, needs_review, passed).
+     *
+     * @param  list<string>  $outcomes
+     */
+    public function scopeWhereLatestVerification(Builder $query, array $outcomes): Builder
+    {
+        return $query->whereExists(function ($analysis) use ($outcomes): void {
+            $analysis->selectRaw('1')->from('document_analyses as a')
+                ->whereColumn('a.document_id', 'documents.id')
+                ->where('a.kind', 'verification')
+                ->whereIn('a.outcome', $outcomes)
+                ->whereRaw('a.id = (select max(x.id) from document_analyses as x where x.document_id = a.document_id and x.kind = ?)', ['verification']);
+        });
+    }
+
     public function signatureRequests(): HasMany
     {
         return $this->hasMany(SignatureRequest::class, 'document_id');
