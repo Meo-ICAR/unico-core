@@ -60,6 +60,12 @@ class MailAccount extends Model
         return $this->hasMany(IncomingEmail::class, 'mail_account_id');
     }
 
+    /** Solo le caselle di quel tipo (`MailType`: sollecito, processo, generale). */
+    public function scopeOfType(Builder $query, string $type): Builder
+    {
+        return $query->where('type', $type);
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

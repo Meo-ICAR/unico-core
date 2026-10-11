@@ -178,4 +178,12 @@ class MailResolversTest extends TestCase
         $this->assertSame('regular', Escalation::severity(20, 2));
         $this->assertSame('alert', Escalation::severity(20, 6));
     }
+
+    public function test_accounts_can_be_filtered_by_type(): void
+    {
+        $this->account($this->acme, 'processo', 'processi@acme.test');
+        $this->account($this->acme, 'sollecito', 'solleciti@acme.test');
+
+        $this->assertSame(['processi@acme.test'], MailAccount::query()->ofType('processo')->pluck('email_address')->all());
+    }
 }

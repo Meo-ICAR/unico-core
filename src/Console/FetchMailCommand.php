@@ -8,7 +8,7 @@ use Unico\Core\Models\MailAccount;
 
 class FetchMailCommand extends Command
 {
-    protected $signature = 'unico-core:mail-fetch {account? : ID di una casella; senza, tutte quelle attive} {--sync : Esegue subito invece di mettere in coda}';
+    protected $signature = 'unico-core:mail-fetch {account? : ID di una casella; senza, tutte quelle attive} {--type= : Solo le caselle di questo tipo (sollecito, processo, generale)} {--sync : Esegue subito invece di mettere in coda}';
 
     protected $description = 'Scarica le email delle caselle attive';
 
@@ -17,6 +17,7 @@ class FetchMailCommand extends Command
         $accounts = MailAccount::query()
             ->active()
             ->when($this->argument('account'), fn ($q, $id) => $q->whereKey($id))
+            ->when($this->option('type'), fn ($q, $type) => $q->ofType($type))
             ->get();
 
         if ($accounts->isEmpty()) {
