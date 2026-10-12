@@ -257,18 +257,27 @@ return [
     | `plan`: forza il piano per tutte le company (BASE, MEDIUM, FULL, TRIAL; PLAN_TYPE), per sviluppo e test; vuoto = si legge
     |   `company_modules` della company dell'utente per l'app corrente. `default_plan`: se la company non ha il modulo.
     | `trial_expired_plan`: piano che vale dopo la fine del periodo di prova (`company_modules.trial_ends_at`).
-    | `bypass_roles`: ruoli di `users.role` che vedono sempre tutto. `deny_roles`: ruoli che non passano mai da queste funzioni
-    |   (es. `agent` in unicoloan, che usa solo il suo portale). `readonly_roles`: ruoli che vedono tutto ciò che il piano della
-    |   company copre ma non modificano nulla (l'ispettore); `readonly_actions`: nomi delle azioni Filament che restano per loro.
+    | `superadmin_roles` / `bypass_roles`: ruoli di `users.role` che hanno accesso totale a tutto (superadmin).
+    | `admin_roles`: ruoli admin con accesso a tutti i model con company della propria azienda.
+    | `readonly_roles`: ruoli che vedono tutto ciò che il piano della company copre ma non modificano nulla (l'ispettore).
+    | `reference_roles`: mapping tra ruolo e model collegato tramite user_id (employee, client, fornitore).
+    | `readonly_actions`: nomi delle azioni Filament che restano per i ruoli di sola lettura.
     |
     */
     'access' => [
         'plan' => env('PLAN_TYPE'),
         'default_plan' => 'FULL',
         'trial_expired_plan' => 'BASE',
-        'bypass_roles' => ['admin', 'super_admin'],
-        'deny_roles' => [],
+        'superadmin_roles' => ['superadmin', 'super_admin'],
+        'admin_roles' => ['admin'],
         'readonly_roles' => ['inspector'],
+        'reference_roles' => [
+            'employee' => \Unico\Core\Models\Employee::class,
+            'client' => \Unico\Core\Models\Client::class,
+            'fornitore' => \Unico\Core\Models\Fornitore::class,
+        ],
+        'bypass_roles' => ['superadmin', 'super_admin'],
+        'deny_roles' => [],
         'readonly_actions' => ['view', 'download', 'preview', 'print', 'open'],
     ],
 

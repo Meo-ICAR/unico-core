@@ -45,4 +45,30 @@ class User extends Authenticatable
     {
         return $this->hasMany(SocialiteUser::class, 'user_id');
     }
+
+    public function employee(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Employee::class, 'user_id');
+    }
+
+    public function client(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Client::class, 'user_id');
+    }
+
+    public function fornitore(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Fornitore::class, 'user_id');
+    }
+
+    /** Modello di riferimento associato in base al ruolo (employee, client, fornitore). */
+    public function referenceModel(): ?\Illuminate\Database\Eloquent\Model
+    {
+        return match ($this->role) {
+            'employee' => $this->employee,
+            'client' => $this->client,
+            'fornitore' => $this->fornitore,
+            default => null,
+        };
+    }
 }

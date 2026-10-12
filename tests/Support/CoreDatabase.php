@@ -37,6 +37,13 @@ class CoreDatabase
         $app->instance('config', $config);
         self::$auth = new FakeAuth;
         $app->instance('auth', self::$auth);
+        $app->instance('hash', new class
+        {
+            public function isHashed(string $value): bool { return true; }
+            public function make(string $value): string { return password_hash($value, PASSWORD_BCRYPT); }
+            public function check(string $value, string $hashedValue): bool { return password_verify($value, $hashedValue); }
+            public function verifyConfiguration(string $value): bool { return true; }
+        });
         $app->instance('log', new class
         {
             public function __call(string $name, array $arguments): void {}
