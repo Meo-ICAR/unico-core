@@ -58,7 +58,7 @@ class DriveTest extends TestCase
 
     private function company(array $attributes = []): Company
     {
-        return Company::create($attributes + ['name' => 'Azienda '.uniqid()]);
+        return Company::create($attributes + ['name' => 'Azienda '.uniqid(), 'documents_storage' => 'google_drive']);
     }
 
     // --- DriveFolders ---
@@ -313,6 +313,15 @@ class DriveTest extends TestCase
         } catch (RuntimeException $e) {
             $this->assertStringContainsString('drive_folder_id', $e->getMessage());
         }
+    }
+
+    public function test_sync_skips_when_company_storage_is_not_google_drive(): void
+    {
+        $company = $this->company(['documents_storage' => 'local']);
+
+        $result = $this->syncWith([])->syncCompanyDocuments($company);
+
+        $this->assertSame(['synced' => 0, 'failed' => 0, 'skipped' => 0, 'errors' => []], $result);
     }
 
     // --- Archiviazione email ---

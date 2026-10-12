@@ -23,6 +23,10 @@ class DocumentSharePointSync
             return false;
         }
 
+        if ($document->company && ! $document->company->usesSharePointStorage()) {
+            return false;
+        }
+
         if ($document->sync_status === SyncStatus::SYNCED->value && filled($document->app_id) && $document->source_app === 'sharepoint') {
             return false;
         }

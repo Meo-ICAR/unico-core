@@ -48,4 +48,20 @@ class Company extends Model
     {
         return $this->hasMany(Document::class);
     }
+
+    /** Archivio file documenti: `local`, `google_drive` o `sharepoint`. */
+    public function documentsStorage(): string
+    {
+        return filled($this->documents_storage) ? (string) $this->documents_storage : 'local';
+    }
+
+    public function usesGoogleDriveStorage(): bool
+    {
+        return $this->documentsStorage() === 'google_drive';
+    }
+
+    public function usesSharePointStorage(): bool
+    {
+        return $this->documentsStorage() === 'sharepoint';
+    }
 }

@@ -21,6 +21,10 @@ class QueueSharePointUpload
             return;
         }
 
+        if ($document->company && ! $document->company->usesSharePointStorage()) {
+            return;
+        }
+
         $document->forceFill(['sync_status' => SyncStatus::LOCAL->value, 'app_id' => null])->saveQuietly();
 
         UploadDocumentToSharePoint::dispatch($document)->afterCommit();

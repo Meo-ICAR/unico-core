@@ -21,6 +21,10 @@ class DocumentDriveSync
     {
         $result = ['synced' => 0, 'failed' => 0, 'skipped' => 0, 'errors' => []];
 
+        if (! $company->usesGoogleDriveStorage()) {
+            return $result;
+        }
+
         if (blank($company->drive_folder_id)) {
             throw new RuntimeException("La company \"{$company->name}\" non ha una cartella Google Drive collegata (drive_folder_id).");
         }

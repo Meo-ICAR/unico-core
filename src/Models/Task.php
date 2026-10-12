@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Unico\Core\Concerns\UsesCoreConnection;
 
-/** Attività dei processi, collegabili a qualsiasi modello e ai documenti richiesti. */
+/** Plico documentale: definizione dei documenti richiesti (tabella `tasks`). Le attività di processo BPM stanno su `process_task`. */
 class Task extends Model
 {
     use UsesCoreConnection;

@@ -54,6 +54,7 @@ return new class extends Migration
             $table->string('db_username')->nullable()->comment('Utente del database dedicato');
             $table->text('db_password')->nullable()->comment('Password del database dedicato (cifrata)');
             $table->string('drive_folder_id')->nullable()->comment('Cartella Google Drive della company');
+            $table->string('documents_storage', 30)->default('local')->comment('Archivio file documenti: local, google_drive, sharepoint');
             $table->foreignId('parent_id')->nullable()->comment('Capogruppo (holding) di cui l\'azienda fa parte; nullo = azienda autonoma o capogruppo');
             $table->timestamp('created_at')->nullable()->comment('Timestamp di creazione');
             $table->timestamp('updated_at')->nullable()->comment('Timestamp di ultimo aggiornamento');
