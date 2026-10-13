@@ -5,12 +5,12 @@ namespace Unico\Core\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 
 /** Registro dei rilievi (anomalie/non conformità) emersi durante gli audit. */
 class AuditFinding extends Model
 {
-    use SoftDeletes, UsesCoreConnection;
+    use SoftDeletes, UsesOwningAppConnection;
 
     protected $table = 'audit_findings';
 

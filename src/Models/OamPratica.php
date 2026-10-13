@@ -5,12 +5,12 @@ namespace Unico\Core\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 
 /** Dati aggregati per il report OAM: Profilo Economico/Operativo Base. */
 class OamPratica extends Model
 {
-    use SoftDeletes, UsesCoreConnection;
+    use SoftDeletes, UsesOwningAppConnection;
 
     protected $table = 'oam_pratiches';
 

@@ -6,12 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 
 /** Registro della formazione di dipendenti e collaboratori, con esito e attestato. */
 class TrainingRecord extends Model
 {
-    use SoftDeletes, UsesCoreConnection;
+    use SoftDeletes, UsesOwningAppConnection;
 
     protected $table = 'training_records';
 

@@ -70,7 +70,6 @@ return new class extends Migration
             $table->foreign('company_id')->references('id')->on('companies')->cascadeOnDelete();
             $table->foreign('employer_id')->references('id')->on('clients')->nullOnDelete();
             $table->foreign('client_type_id')->references('id')->on('client_types')->nullOnDelete();
-            $table->foreign('leadsource_id')->references('id')->on('lead_sources')->nullOnDelete();
             $table->foreign('blacklisted_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
             $table->foreign('legal_representative_id')->references('id')->on('clients')->nullOnDelete();
@@ -333,7 +332,6 @@ return new class extends Migration
             $table->dropForeign(['company_id']);
             $table->dropForeign(['employer_id']);
             $table->dropForeign(['client_type_id']);
-            $table->dropForeign(['leadsource_id']);
             $table->dropForeign(['blacklisted_by']);
             $table->dropForeign(['user_id']);
             $table->dropForeign(['legal_representative_id']);

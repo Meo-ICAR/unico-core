@@ -4,12 +4,12 @@ namespace Unico\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 
 /** Dati aggregati per il report OAM: Profilo Economico/Operativo Base. */
 class OamSemestrale extends Model
 {
-    use UsesCoreConnection;
+    use UsesOwningAppConnection;
 
     protected $table = 'oam_semestrales';
 

@@ -4,12 +4,12 @@ namespace Unico\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 
 /** Legami tra anagrafiche clienti (familiari, soci, collegati). */
 class ClientRelation extends Model
 {
-    use UsesCoreConnection;
+    use UsesOwningAppConnection;
 
     protected $table = 'client_relations';
 

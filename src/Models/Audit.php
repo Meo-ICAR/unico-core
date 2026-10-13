@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 
 /** Registro dei controlli (audit) eseguiti sui collaboratori/impiegati, richiesti da enti interni o esterni. */
 class Audit extends Model
 {
-    use SoftDeletes, UsesCoreConnection;
+    use SoftDeletes, UsesOwningAppConnection;
 
     protected $table = 'audits';
 

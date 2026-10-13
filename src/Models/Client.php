@@ -46,6 +46,7 @@ class Client extends Model
             'is_dummy' => 'boolean',
             'employee_roles' => 'array',
             'birth_date' => 'date',
+            'hiring_date' => 'date',
             'company_started_at' => 'date',
             'share_capital' => 'decimal:2',
             'turnover' => 'decimal:2',
@@ -72,6 +73,11 @@ class Client extends Model
     public function employer(): BelongsTo
     {
         return $this->belongsTo(Client::class, 'employer_id');
+    }
+
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Client::class, 'employer_id');
     }
 
     public function leadsource(): BelongsTo

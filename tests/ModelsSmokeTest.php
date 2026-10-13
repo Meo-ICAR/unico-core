@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ReflectionMethod;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 use Unico\Core\MorphMap;
 use Unico\Core\Tests\Support\CoreDatabase;
 
@@ -33,6 +34,12 @@ class ModelsSmokeTest extends TestCase
         return $classes;
     }
 
+    /** Tabelle spostate nel database dell'unica app che le usa: non fanno parte dello schema core. */
+    private function isOwnedByOneApp(string $class): bool
+    {
+        return in_array(UsesOwningAppConnection::class, class_uses_recursive($class), true);
+    }
+
     public function test_every_core_table_has_a_model(): void
     {
         $tables = array_map(
@@ -47,8 +54,12 @@ class ModelsSmokeTest extends TestCase
     public function test_every_model_reads_from_the_core_connection(): void
     {
         foreach ($this->models() as $class) {
+            if ($this->isOwnedByOneApp($class)) {
+                continue;
+            }
             $this->assertSame('core', (new $class)->getConnectionName(), $class);
-            $this->assertSame(0, $class::query()->count(), $class);
+            $class::query()->limit(1)->get();
+            $this->addToAssertionCount(1);
         }
     }
 
@@ -56,9 +67,16 @@ class ModelsSmokeTest extends TestCase
     {
         $checked = 0;
         foreach ($this->models() as $class) {
+            if ($this->isOwnedByOneApp($class)) {
+                continue;
+            }
             foreach ((new ReflectionClass($class))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
                 $type = $method->getReturnType()?->getName();
                 if ($method->class !== $class || ! $type || ! is_subclass_of($type, Relation::class) || $type === MorphTo::class) {
+                    continue;
+                }
+                $related = (new $class)->{$method->name}()->getRelated();
+                if ($this->isOwnedByOneApp($related::class)) {
                     continue;
                 }
                 $class::query()->has($method->name)->count();

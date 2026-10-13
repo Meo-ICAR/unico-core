@@ -3,12 +3,12 @@
 namespace Unico\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 
 /** Verifiche dei requisiti di onorabilità delle persone che operano per l'azienda. */
 class Onorabilita extends Model
 {
-    use UsesCoreConnection;
+    use UsesOwningAppConnection;
 
     protected $table = 'onorabilita';
 

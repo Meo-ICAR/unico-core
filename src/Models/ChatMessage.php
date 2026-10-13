@@ -4,12 +4,12 @@ namespace Unico\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 
 /** Messaggi delle conversazioni con l'assistente AI (NeuronAI). */
 class ChatMessage extends Model
 {
-    use UsesCoreConnection;
+    use UsesOwningAppConnection;
 
     protected $table = 'chat_messages';
 

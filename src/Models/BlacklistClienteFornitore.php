@@ -4,12 +4,12 @@ namespace Unico\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Concerns\UsesOwningAppConnection;
 
 /** Divieti di contatto tra un cliente e un fornitore. */
 class BlacklistClienteFornitore extends Model
 {
-    use UsesCoreConnection;
+    use UsesOwningAppConnection;
 
     protected $table = 'blacklist_clienti_fornitori';
 

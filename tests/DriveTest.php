@@ -21,7 +21,6 @@ use Unico\Core\Models\IncomingEmail;
 use Unico\Core\Tests\Support\CoreDatabase;
 use Unico\Core\Tests\Support\FakeDrive;
 use Unico\Core\Tests\Support\FakeDriveFiles;
-
 require_once __DIR__.'/Support/FakeDrive.php';
 
 class DriveTest extends TestCase
@@ -33,6 +32,19 @@ class DriveTest extends TestCase
     public static function setUpBeforeClass(): void
     {
         CoreDatabase::migrateFresh();
+
+        $schema = CoreDatabase::$capsule->getConnection('core')->getSchemaBuilder();
+        if (! $schema->hasTable('audits')) {
+            $schema->create('audits', function ($table) {
+                $table->id();
+                $table->unsignedBigInteger('company_id')->nullable();
+                $table->string('auditable_type');
+                $table->string('auditable_id', 36);
+                $table->string('drive_folder_id')->nullable();
+                $table->timestamps();
+                $table->softDeletes();
+            });
+        }
     }
 
     protected function setUp(): void

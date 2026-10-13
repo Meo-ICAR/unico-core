@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Enums\EmploymentDocumentGroup;
 
 /** Sottotipi di prodotto finanziario, con i relativi vincoli. */
 class TipoProdottoSub extends Model
@@ -20,6 +21,7 @@ class TipoProdottoSub extends Model
     {
         return [
             'is_active' => 'boolean',
+            'employment_document_group' => EmploymentDocumentGroup::class,
         ];
     }
 

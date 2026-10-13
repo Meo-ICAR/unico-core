@@ -29,6 +29,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Import anagrafiche da dump di produzione
+    |--------------------------------------------------------------------------
+    |
+    | Nomi dei database MySQL sorgente (stesso server della connessione core).
+    | Comando: php artisan unico-core:import-anagrafiche
+    | Dry-run di default; --execute scrive sul database core.
+    | employee_types, companies, employees da OAM; fornitoris e clientis da
+    | Proforma; document_types da OAM + Loan + Agent (merge per slug/nome).
+    |
+    */
+
+    'import' => [
+        'oam' => env('UNICO_CORE_IMPORT_OAM', 'unicooam'),
+        'proforma' => env('UNICO_CORE_IMPORT_PROFORMA', 'proforma'),
+        'loan' => env('UNICO_CORE_IMPORT_LOAN', 'unicoloan'),
+        'agent' => env('UNICO_CORE_IMPORT_AGENT', 'unicoagent'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Disco dei documenti
     |--------------------------------------------------------------------------
     |
