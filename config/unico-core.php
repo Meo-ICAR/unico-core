@@ -37,6 +37,8 @@ return [
     | Dry-run di default; --execute scrive sul database core.
     | employee_types, companies, employees da OAM; fornitoris e clientis da
     | Proforma; document_types da OAM + Loan + Agent (merge per slug/nome).
+    | users: super_admin hassistosrl@gmail.com, employees (@races.it / client),
+    | fornitoris Proforma con role fornitore.
     |
     */
 

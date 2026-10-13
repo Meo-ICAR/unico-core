@@ -368,6 +368,54 @@ class ImportAnagraficheCommand extends Command
         }
 
         $this->note('users da employees', "{$asEmployee} ruolo employee (@races.it), {$asClient} legati a client, {$skipped} senza corrispondenza");
+
+        $asFornitore = 0;
+        $skippedFornitore = 0;
+        $fornitori = $dest->table('fornitoris')
+            ->whereNull('deleted_at')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($fornitori as $fornitore) {
+            $email = Str::lower(trim((string) ($fornitore->email ?: $fornitore->email_private ?: '')));
+            if ($email === '') {
+                continue;
+            }
+
+            $existing = $dest->table('users')->where('email', $email)->first();
+            if ($existing !== null && ! in_array((string) $existing->role, ['fornitore', 'user'], true)
+                && (string) $existing->profile_type !== 'fornitore') {
+                $skippedFornitore++;
+                $this->note(
+                    'user fornitore saltato',
+                    "{$fornitore->name} ({$email}): email già usata come {$existing->role}"
+                );
+
+                continue;
+            }
+
+            $userId = $this->upsertUser($dest, [
+                'name' => $fornitore->name ?: $email,
+                'email' => $email,
+                'password' => $password,
+                'role' => 'fornitore',
+                'company_id' => $fornitore->company_id ?: $companyId,
+                'profile_type' => 'fornitore',
+                'profile_id' => $fornitore->id,
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ], $execute);
+            if ($execute && $userId) {
+                $dest->table('fornitoris')->where('id', $fornitore->id)->update(['user_id' => $userId]);
+            }
+            $asFornitore++;
+        }
+
+        $this->note(
+            'users da fornitoris',
+            "{$asFornitore} ruolo fornitore, {$skippedFornitore} saltati (email già usata)"
+        );
     }
 
     /** @param  array<string, mixed>  $payload */
