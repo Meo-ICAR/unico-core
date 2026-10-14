@@ -221,6 +221,13 @@ class Document extends Model implements HasMedia
         return $this->hasMany(SignatureRequest::class, 'document_id');
     }
 
+    public function latestSignatureRequest(): ?SignatureRequest
+    {
+        return $this->relationLoaded('signatureRequests')
+            ? $this->signatureRequests->sortByDesc('id')->first()
+            : $this->signatureRequests()->latest('id')->first();
+    }
+
     public function replacedBy(): BelongsTo
     {
         return $this->belongsTo(static::class, 'replaced_by_id');

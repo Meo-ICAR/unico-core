@@ -8,16 +8,25 @@ use Unico\Core\Models\Pratica;
 /** Dati della pratica e del cliente con cui compilare un modulo PDF da stampare. */
 class PracticeModuleData
 {
+    public function findClient(Pratica $pratica): ?Client
+    {
+        $client = $pratica->relationLoaded('praticaClients')
+            ? $pratica->praticaClients->first()?->client
+            : $pratica->praticaClients()->with('client')->first()?->client;
+
+        if ($client !== null || blank($pratica->codice_fiscale)) {
+            return $client;
+        }
+
+        return Client::query()
+            ->where(fn ($query) => $query->where('tax_code', $pratica->codice_fiscale)->orWhere('vat_number', $pratica->codice_fiscale))
+            ->first();
+    }
+
     public function for(Pratica $pratica): ResolvedModuleData
     {
         $pratica->loadMissing(['fornitori', 'praticaClients.client.employer']);
-        $client = $pratica->praticaClients->first()?->client;
-
-        if ($client === null && filled($pratica->codice_fiscale)) {
-            $client = Client::query()
-                ->where(fn ($query) => $query->where('tax_code', $pratica->codice_fiscale)->orWhere('vat_number', $pratica->codice_fiscale))
-                ->first();
-        }
+        $client = $this->findClient($pratica);
 
         $agent = $pratica->fornitori;
         $employer = $client?->employer;

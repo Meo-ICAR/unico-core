@@ -3,6 +3,7 @@
 namespace Unico\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Unico\Core\Concerns\UsesCoreConnection;
 
@@ -26,6 +27,11 @@ class TipoProdotto extends Model
             'requires_mandate' => 'boolean',
             'is_third_party' => 'boolean',
         ];
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class, 'company_id');
     }
 
     public function documentRequirements(): HasMany

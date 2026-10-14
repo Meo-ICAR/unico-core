@@ -67,6 +67,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | DocumentsRelationManager
+    |--------------------------------------------------------------------------
+    |
+    | oam_semester_filter: mostra il filtro «solo semestre in corso» (unicooam).
+    | task_model: classe plichi con getAvailableFor / generateDocumentsFor (unicoloan).
+    | export_class: export Excel Filament (es. App\Filament\Exports\DynamicGroupExport).
+    |
+    */
+
+    'documents' => [
+        'oam_semester_filter' => env('UNICO_CORE_DOCUMENTS_OAM_SEMESTER_FILTER', false),
+        'task_model' => env('UNICO_CORE_DOCUMENTS_TASK_MODEL'),
+        'export_class' => env('UNICO_CORE_DOCUMENTS_EXPORT_CLASS'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Modello utente
     |--------------------------------------------------------------------------
     |

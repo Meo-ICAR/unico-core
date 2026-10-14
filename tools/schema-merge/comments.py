@@ -126,6 +126,7 @@ SPECIFIC = {
     "documents.is_printable": "Modulo da firmare pronto per la stampa: tutti i campi obbligatori del modulo sono valorizzati nel record associato",
     "document_types.signer_model": "Alias MorphMap di chi firma il documento (es. client, fornitore); nullo = nessuno",
     "document_types.approver_model": "Alias MorphMap di chi mette la firma di approvazione (es. fornitore, employee); nullo = nessuna approvazione",
+    "tipoprodotto.company_id": "Company a cui è riservato il prodotto; nullo = prodotto valido per tutte le company",
     # signature_request_signers
     "signature_request_signers.signature_request_id": "Richiesta di firma a cui appartiene il firmatario",
     "signature_request_signers.position": "Ordine di firma",

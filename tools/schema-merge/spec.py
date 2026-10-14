@@ -74,7 +74,9 @@ t("addresses", "registry", ["proforma.addresses"])
 t("organizations", "registry", ["oam.organizations", "loan.organizations"])
 
 # ---------------------------------------------------------------- products
-t("tipoprodotto", "products", ["proforma.tipoprodotto", "oam.tipo_prodottos", "loan.tipo_prodottos"])
+t("tipoprodotto", "products", ["proforma.tipoprodotto", "oam.tipo_prodottos", "loan.tipo_prodottos"],
+  add=[col("company_id", "bigint", unsigned=True, comment="Company a cui è riservato il prodotto; nullo = prodotto valido per tutte le company")],
+  fk={"company_id": "companies"})
 t("tipoprodotto_sub", "products", ["proforma.tipoprodotto_sub"])
 t("tipoprodotto_sub_constraints", "products", ["proforma.tipoprodotto_sub_constraints", "oam.tipoprodotto_sub_constraints", "loan.tipoprodotto_sub_constraints"],
   fk={"role_id": "fornitoriroles"})
