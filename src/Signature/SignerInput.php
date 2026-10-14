@@ -51,7 +51,7 @@ final readonly class SignerInput
 
         return new self(
             $slot,
-            SignerRole::Collaborator,
+            SignerRole::Fornitore,
             $firstName,
             $lastName,
             $agent->email,
@@ -66,7 +66,7 @@ final readonly class SignerInput
     {
         [$firstName, $lastName] = self::splitName((string) $user->name);
 
-        return new self($slot, SignerRole::Collaborator, $firstName, $lastName, $user->email, null, null, 'user', (string) $user->getKey());
+        return new self($slot, SignerRole::Fornitore, $firstName, $lastName, $user->email, null, null, 'user', (string) $user->getKey());
     }
 
     /**

@@ -30,10 +30,34 @@ return new class extends Migration
                     ->comment('Modulo da firmare pronto per la stampa: tutti i campi obbligatori del modulo sono valorizzati nel record associato');
             }
         });
+
+        Schema::table('document_types', function (Blueprint $table) {
+            if (! Schema::hasColumn('document_types', 'signer_model')) {
+                $table->string('signer_model', 30)
+                    ->nullable()
+                    ->after('is_signed')
+                    ->comment('Alias MorphMap di chi firma il documento (es. client, fornitore); nullo = nessuno');
+            }
+
+            if (! Schema::hasColumn('document_types', 'approver_model')) {
+                $table->string('approver_model', 30)
+                    ->nullable()
+                    ->after('signer_model')
+                    ->comment('Alias MorphMap di chi mette la firma di approvazione (es. fornitore, employee); nullo = nessuna approvazione');
+            }
+        });
     }
 
     public function down(): void
     {
+        Schema::table('document_types', function (Blueprint $table) {
+            foreach (['approver_model', 'signer_model'] as $column) {
+                if (Schema::hasColumn('document_types', $column)) {
+                    $table->dropColumn($column);
+                }
+            }
+        });
+
         Schema::table('documents', function (Blueprint $table) {
             if (Schema::hasColumn('documents', 'is_printable')) {
                 $table->dropColumn('is_printable');

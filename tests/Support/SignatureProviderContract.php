@@ -29,7 +29,7 @@ trait SignatureProviderContract
             pdf: (string) file_get_contents(__DIR__.'/../Fixtures/pdf/modulo-prova.pdf'),
             signers: [
                 new EnvelopeSigner(1, 'signer1', SignerRole::Client, 'Mario', 'Rossi', 'mario@example.test', '+393381234567', null, $placement),
-                new EnvelopeSigner(2, 'signer2', SignerRole::Collaborator, 'Anna', 'Verdi', 'anna@example.test', '+393397654321', null, $placement),
+                new EnvelopeSigner(2, 'signer2', SignerRole::Fornitore, 'Anna', 'Verdi', 'anna@example.test', '+393397654321', null, $placement),
             ],
             expiresAt: now()->addDays(7),
             externalId: 'test-document-1',

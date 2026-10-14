@@ -35,7 +35,7 @@ trait SignatureTestKit
     {
         return [
             ['slot' => 'cliente', 'role' => 'client', 'page' => 1, 'x' => 50.0, 'y' => 700.0, 'width' => 150.0, 'height' => 40.0],
-            ['slot' => 'collaboratore', 'role' => 'collaborator', 'page' => 1, 'x' => 300.0, 'y' => 700.0, 'width' => 150.0, 'height' => 40.0],
+            ['slot' => 'fornitore', 'role' => 'fornitore', 'page' => 1, 'x' => 300.0, 'y' => 700.0, 'width' => 150.0, 'height' => 40.0],
         ];
     }
 
@@ -59,7 +59,7 @@ trait SignatureTestKit
     {
         return [
             new SignerInput('cliente', SignerRole::Client, 'Mario', 'Rossi', 'mario@example.com', '333 1234567', 'RSSMRA80A01H501U', 'client', '1'),
-            new SignerInput('collaboratore', SignerRole::Collaborator, 'Anna', 'Bianchi', 'anna@example.com', '+39 340 7654321', null, 'user', '2'),
+            new SignerInput('fornitore', SignerRole::Fornitore, 'Anna', 'Bianchi', 'anna@example.com', '+39 340 7654321', null, 'user', '2'),
         ] + $overrides;
     }
 

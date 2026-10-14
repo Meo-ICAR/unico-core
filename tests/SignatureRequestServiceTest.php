@@ -63,7 +63,7 @@ class SignatureRequestServiceTest extends TestCase
         $this->assertTrue($request->expires_at->isAfter(now()->addDays(6)));
 
         $signers = $request->signatureRequestSigners;
-        $this->assertSame(['cliente', 'collaboratore'], $signers->pluck('slot')->all());
+        $this->assertSame(['cliente', 'fornitore'], $signers->pluck('slot')->all());
         $this->assertSame([1, 2], $signers->pluck('position')->all());
         $this->assertSame(SignerStatus::Notified, $signers[0]->status);
         $this->assertNotEmpty($signers[0]->provider_signer_ref);
@@ -112,7 +112,7 @@ class SignatureRequestServiceTest extends TestCase
         $service = $this->service();
         $service->originals[$document->id] = file_get_contents(__DIR__.'/Fixtures/pdf/modulo-prova.pdf');
         $signers = $this->signers();
-        $signers[1] = new \Unico\Core\Signature\SignerInput('collaboratore', \Unico\Core\Enums\SignerRole::Collaborator, 'Anna', 'Bianchi', 'anna@example.com', 'non-un-numero', null, 'user', '2');
+        $signers[1] = new \Unico\Core\Signature\SignerInput('fornitore', \Unico\Core\Enums\SignerRole::Fornitore, 'Anna', 'Bianchi', 'anna@example.com', 'non-un-numero', null, 'user', '2');
 
         $this->expectException(SignatureRequestException::class);
         $this->expectExceptionMessage('Telefono non valido per Anna Bianchi');

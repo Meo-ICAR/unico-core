@@ -124,11 +124,13 @@ SPECIFIC = {
     # pdf_module_fields / documents: obbligatorietà e stampabilità
     "pdf_module_fields.is_required": "Campo obbligatorio: il modulo è stampabile solo se la sua chiave dati (source_key) è valorizzata",
     "documents.is_printable": "Modulo da firmare pronto per la stampa: tutti i campi obbligatori del modulo sono valorizzati nel record associato",
+    "document_types.signer_model": "Alias MorphMap di chi firma il documento (es. client, fornitore); nullo = nessuno",
+    "document_types.approver_model": "Alias MorphMap di chi mette la firma di approvazione (es. fornitore, employee); nullo = nessuna approvazione",
     # signature_request_signers
     "signature_request_signers.signature_request_id": "Richiesta di firma a cui appartiene il firmatario",
     "signature_request_signers.position": "Ordine di firma",
     "signature_request_signers.slot": "Riquadro di firma del modulo assegnato al firmatario",
-    "signature_request_signers.role": "Ruolo del firmatario (es. cliente, agente)",
+    "signature_request_signers.role": "Ruolo del firmatario (valore di SignerRole: client, fornitore)",
     "signature_request_signers.name": "Nome completo del firmatario",
     "signature_request_signers.first_name": "Nome del firmatario",
     "signature_request_signers.last_name": "Cognome del firmatario",
