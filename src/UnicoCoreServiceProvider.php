@@ -61,6 +61,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
         $this->app->bindIf(RecipientResolver::class, ConfigRecipientResolver::class);
 
         // Analisi documenti: ogni pezzo è sostituibile dall'app con un proprio bind.
+        $this->app->bind(\Unico\Core\Pdf\PracticeModuleData::class, fn ($app) => new \Unico\Core\Pdf\PracticeModuleData($app->tagged('unico-core.module-data-providers')));
         $this->app->singleton(CheckRegistry::class);
         $this->app->singleton(\Unico\Core\Access\AccessChecker::class);
         $this->app->bindIf(DocumentFileSource::class, MediaDocumentFileSource::class);

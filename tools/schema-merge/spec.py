@@ -57,6 +57,7 @@ t("client_types", "registry", ["oam.client_types", "loan.client_types", "proform
 t("lead_sources", "registry", ["oam.lead_sources", "loan.lead_sources"])
 t("clients", "registry", ["proforma.clients"],
   fk={"leadsource_id": "lead_sources"},
+  add=[col("profession", "varchar", "150", comment="Professione o attività svolta (adeguata verifica)")],
   comment="Clienti finali: persone fisiche e giuridiche, con dati KYC e consensi privacy")
 t("client_relations", "registry", ["oam.client_relations", "proforma.client_relations"])
 t("client_mandates", "registry", ["oam.client_mandates", "proforma.client_mandates"])
@@ -95,7 +96,13 @@ t("pratiches", "pratiche", ["proforma.pratiches"],
        dict(name="pratica_stato_id", base="bigint", args="", unsigned=True, nullable=True, default=None, comment="Stato attuale della pratica"),
        dict(name="tipoprodotto_id", base="bigint", args="", unsigned=True, nullable=True, default=None, comment="Categoria finanziaria"),
        dict(name="fornitori_id", base="bigint", args="", unsigned=True, nullable=True, default=None, comment="Agente/collaboratore"),
-       dict(name="clienti_id", base="bigint", args="", unsigned=True, nullable=True, default=None, comment="Banca/istituto erogante")],
+       dict(name="clienti_id", base="bigint", args="", unsigned=True, nullable=True, default=None, comment="Banca/istituto erogante"),
+       col("mediation_fee_percent", "decimal", "5,2", comment="Compenso del mediatore in percentuale sull'importo richiesto (alternativo all'importo fisso)"),
+       col("mediation_fee_amount", "decimal", "12,2", comment="Compenso del mediatore come importo fisso"),
+       col("mediation_fee_terms", "text", comment="Modalità e tempi di pagamento del compenso di mediazione"),
+       col("istruttoria_costs", "decimal", "12,2", comment="Stima delle spese di istruttoria o dei rimborsi spesa previsti"),
+       col("offer_valid_until", "date", comment="Data fino alla quale l'offerta di mediazione è valida"),
+       col("withdrawal_terms", "text", comment="Clausole relative al diritto di recesso")],
   nodefault={"upload_at"})
 t("pratica_clients", "pratiche", ["proforma.pratica_clients", "proforma.client_pratiches"],
   rename={"proforma.client_pratiches": {"pratiche_id": "pratica_id"}},

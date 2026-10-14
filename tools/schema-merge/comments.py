@@ -127,6 +127,13 @@ SPECIFIC = {
     "document_types.signer_model": "Alias MorphMap di chi firma il documento (es. client, fornitore); nullo = nessuno",
     "document_types.approver_model": "Alias MorphMap di chi mette la firma di approvazione (es. fornitore, employee); nullo = nessuna approvazione",
     "tipoprodotto.company_id": "Company a cui è riservato il prodotto; nullo = prodotto valido per tutte le company",
+    "pratiches.mediation_fee_percent": "Compenso del mediatore in percentuale sull'importo richiesto (alternativo all'importo fisso)",
+    "pratiches.mediation_fee_amount": "Compenso del mediatore come importo fisso",
+    "pratiches.mediation_fee_terms": "Modalità e tempi di pagamento del compenso di mediazione",
+    "pratiches.istruttoria_costs": "Stima delle spese di istruttoria o dei rimborsi spesa previsti",
+    "pratiches.offer_valid_until": "Data fino alla quale l'offerta di mediazione è valida",
+    "pratiches.withdrawal_terms": "Clausole relative al diritto di recesso",
+    "clients.profession": "Professione o attività svolta (adeguata verifica)",
     # signature_request_signers
     "signature_request_signers.signature_request_id": "Richiesta di firma a cui appartiene il firmatario",
     "signature_request_signers.position": "Ordine di firma",

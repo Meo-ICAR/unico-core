@@ -31,21 +31,21 @@ class OamSemester
         }
     }
 
-    public static function current(?CarbonImmutable $now = null): self
+    public static function current(?CarbonImmutable $now = null): static
     {
         $now ??= CarbonImmutable::now();
 
-        return $now->month <= 11
-            ? new self($now->year, 1)
-            : new self($now->year, 2);
+        return $now->month <= 10
+            ? new static($now->year, 1)
+            : new static($now->year, 2);
     }
 
-    public static function getInBaseAlMeseCorrente(): self
+    public static function getInBaseAlMeseCorrente(): static
     {
-        return self::current();
+        return static::current();
     }
 
-    public static function fromPeriod(string $period): self
+    public static function fromPeriod(string $period): static
     {
         if (! preg_match('/^(\d{4})(\d{2})$/', $period, $m)) {
             throw new InvalidArgumentException("Periodo non valido: {$period}. Atteso formato YYYYMM.");
@@ -53,11 +53,17 @@ class OamSemester
 
         $month = (int) $m[2];
 
-        return new self((int) $m[1], $month <= 6 ? 1 : 2);
+        return new static((int) $m[1], $month <= 6 ? 1 : 2);
     }
 
     public function period(): string
     {
         return sprintf('%04d%02d', $this->year, $this->semesterNumber === 1 ? 6 : 12);
+    }
+
+    /** Etichetta leggibile del periodo (es. "01/01/2026 - 30/06/2026"). */
+    public function label(): string
+    {
+        return $this->start->format('d/m/Y').' - '.$this->end->format('d/m/Y');
     }
 }

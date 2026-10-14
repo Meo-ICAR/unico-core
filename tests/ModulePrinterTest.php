@@ -3,6 +3,7 @@
 namespace Unico\Core\Tests;
 
 use PHPUnit\Framework\TestCase;
+use Unico\Core\Models\Branch;
 use Unico\Core\Models\Client;
 use Unico\Core\Models\Pratica;
 use Unico\Core\Models\PraticaClient;
@@ -114,5 +115,62 @@ class ModulePrinterTest extends TestCase
 
         $this->assertNull($readiness->missing($this->documentFor(true, true, $this->pratica([]), $fields)));
         $this->assertNull($readiness->missing($this->documentFor(false, false, $this->pratica([]), $fields)));
+    }
+
+    public function test_i_dati_di_mandato_kyc_e_documento_escono_dalla_pratica(): void
+    {
+        $type = new DocumentType(['code' => 'CARTA_IDENTITA', 'name' => 'Carta di Identità']);
+        $identity = new Document(['name' => 'Carta', 'docnumber' => 'AX123', 'emitted_by' => 'Comune di Roma', 'emitted_at' => '2024-01-10', 'expires_at' => '2099-01-10']);
+        $identity->setRelation('documentType', $type);
+        $scaduto = new Document(['name' => 'Vecchia', 'docnumber' => 'OLD', 'emitted_at' => '2010-01-01', 'expires_at' => '2020-01-01']);
+        $scaduto->setRelation('documentType', $type);
+
+        $client = new Client(['name' => 'Rossi', 'first_name' => 'Mario', 'profession' => 'Impiegato', 'is_pep' => false, 'consent_sic_at' => now()]);
+        $client->setRelation('employer', null);
+        $client->setRelation('legalRepresentative', null);
+        $client->setRelation('branches', collect([new Branch(['address' => 'Via Roma', 'street_number' => '1', 'city' => 'Milano', 'zip_code' => '20100', 'province' => 'MI', 'is_main_office' => true])]));
+        $client->setRelation('documents', collect([$scaduto, $identity]));
+
+        $link = new PraticaClient(['role' => 'richiedente', 'funds_origin' => 'Risparmi']);
+        $link->setRelation('client', $client);
+
+        $pratica = $this->pratica(['codice_pratica' => 'P-9', 'mediation_fee_percent' => 2.5, 'istruttoria_costs' => 150, 'withdrawal_terms' => '14 giorni']);
+        $pratica->setRelation('praticaClients', new \Illuminate\Database\Eloquent\Collection([$link]));
+        $pratica->setRelation('company', null);
+
+        $data = (new PracticeModuleData)->for($pratica);
+
+        $this->assertSame('AX123', $data->get('document.identity.docnumber'));
+        $this->assertSame('Comune di Roma', $data->get('document.identity.emitted_by'));
+        $this->assertSame('Via Roma 1, 20100 Milano (MI)', $data->get('branch.indirizzo_completo'));
+        $this->assertSame('Impiegato', $data->get('client.profession'));
+        $this->assertTrue($data->get('client.consent_sic'));
+        $this->assertFalse($data->get('client.consent_marketing'));
+        $this->assertFalse($data->get('client.is_pep'));
+        $this->assertTrue($data->has('client.is_pep'));
+        $this->assertSame('richiedente', $data->get('pratica_client.role'));
+        $this->assertSame('Risparmi', $data->get('pratica_client.funds_origin'));
+        $this->assertEquals(2.5, $data->get('mediation.fee_percent'));
+        $this->assertEquals(150, $data->get('mediation.istruttoria_costs'));
+        $this->assertSame('14 giorni', $data->get('mediation.withdrawal_terms'));
+        $this->assertFalse($data->has('mediation.fee_amount'));
+    }
+
+    public function test_i_dati_delle_app_si_aggiungono_ma_non_sovrascrivono_quelli_del_pacchetto(): void
+    {
+        $provider = new class implements \Unico\Core\Pdf\ModuleDataProvider
+        {
+            public function values(Pratica $pratica, ?Client $client): array
+            {
+                return ['kyc.pep_status' => 'no', 'pratica.codice_pratica' => 'DELL-APP'];
+            }
+        };
+        $readiness = new PrintReadiness(new PracticeModuleData([$provider]));
+
+        $fields = [new PdfModuleField(['source_key' => 'kyc.pep_status', 'is_required' => true]), new PdfModuleField(['source_key' => 'kyc.income_band', 'is_required' => true])];
+        $document = $this->documentFor(true, false, $this->pratica(['codice_pratica' => 'P-1']), $fields);
+
+        $this->assertSame(['kyc.income_band'], $readiness->missing($document));
+        $this->assertSame('P-1', (new PracticeModuleData([$provider]))->for($document->documentable)->get('pratica.codice_pratica'));
     }
 }

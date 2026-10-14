@@ -5,6 +5,7 @@ namespace Unico\Core\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Unico\Core\Concerns\UsesCoreConnection;
 
 /** Clienti finali: persone fisiche e giuridiche, con dati KYC e consensi privacy. */
@@ -93,6 +94,17 @@ class Client extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /** Sedi del cliente (indirizzo di residenza o sede legale). */
+    public function branches(): MorphMany
+    {
+        return $this->morphMany(Branch::class, 'branchable');
+    }
+
+    public function documents(): MorphMany
+    {
+        return $this->morphMany(Document::class, 'documentable');
     }
 
     public function clientMandates(): HasMany

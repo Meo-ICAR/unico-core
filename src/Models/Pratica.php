@@ -30,6 +30,10 @@ class Pratica extends Model
             'is_notowned' => 'boolean',
             'upload_at' => 'datetime',
             'rejected_at' => 'date',
+            'mediation_fee_percent' => 'decimal:2',
+            'mediation_fee_amount' => 'decimal:2',
+            'istruttoria_costs' => 'decimal:2',
+            'offer_valid_until' => 'date',
         ];
     }
 

@@ -23,7 +23,17 @@ class Company extends Model
     {
         return [
             'db_password' => 'encrypted',
+            'preventivatore_passkey' => 'encrypted',
+            'istruttoria_passkey' => 'encrypted',
+            'crm_config' => 'encrypted:array',
             'oam_at' => 'date',
+            'ivass_at' => 'date',
+            'is_trial' => 'boolean',
+            'trialend_at' => 'date',
+            'trial_activated_at' => 'date',
+            'activated_at' => 'date',
+            'crm_last_activation' => 'datetime',
+            'call_last_activation' => 'datetime',
         ];
     }
 
