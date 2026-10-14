@@ -5,11 +5,14 @@ namespace Unico\Core\Models;
 use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use InvalidArgumentException;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\MorphMap;
 
 /**
  * Catalogo dei tipi documento: a chi si applica, quanto vale, come si verifica.
@@ -22,6 +25,24 @@ class DocumentType extends Model
     protected $table = 'document_types';
 
     protected $guarded = ['id'];
+
+    protected static function booted(): void
+    {
+        static::saving(function (DocumentType $type): void {
+            foreach (['signer_model', 'approver_model'] as $column) {
+                $alias = $type->{$column};
+
+                if (filled($alias) && ! isset(MorphMap::all()[$alias]) && Relation::getMorphedModel($alias) === null) {
+                    throw new InvalidArgumentException("{$column}: alias «{$alias}» non presente in MorphMap.");
+                }
+            }
+
+            // Chi firma implica che il documento va firmato.
+            if (filled($type->signer_model)) {
+                $type->is_signed = true;
+            }
+        });
+    }
 
     protected function casts(): array
     {

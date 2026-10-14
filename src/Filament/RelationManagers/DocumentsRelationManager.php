@@ -13,20 +13,22 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Unico\Core\Enums\DocumentStatus;
+use Unico\Core\Filament\Concerns\HasRelationPlanAccess;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\Pratica;
 use Unico\Core\Pdf\ModulePrinter;
 use Unico\Core\Pdf\PdfFormException;
 
 /**
- * Documenti di una pratica: caricamento, stampa del modulo PDF e download del file.
- * Le app lo agganciano alla risorsa Filament della pratica.
+ * Documenti collegati al record: caricamento, stampa del modulo PDF e download del file.
+ * Le app lo agganciano alle risorse Filament; unicogdpr tiene il proprio gestore.
  */
 class DocumentsRelationManager extends RelationManager
 {
+    use HasRelationPlanAccess;
+
     protected static string $relationship = 'documents';
 
     protected static ?string $title = 'Documenti';
@@ -34,11 +36,6 @@ class DocumentsRelationManager extends RelationManager
     protected static ?string $modelLabel = 'Documento';
 
     protected static ?string $pluralModelLabel = 'Documenti';
-
-    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
-    {
-        return $ownerRecord instanceof Pratica;
-    }
 
     public function form(Schema $schema): Schema
     {
@@ -98,7 +95,7 @@ class DocumentsRelationManager extends RelationManager
                 Action::make('stampa')
                     ->label('Stampa')
                     ->icon('heroicon-o-printer')
-                    ->visible(fn (Document $record): bool => (bool) $record->documentType?->pdfModule?->is_active)
+                    ->visible(fn (Document $record): bool => $this->getOwnerRecord() instanceof Pratica && (bool) $record->documentType?->pdfModule?->is_active)
                     ->action(fn (Document $record) => $this->printModule($record)),
                 Action::make('scarica')
                     ->label('Scarica')

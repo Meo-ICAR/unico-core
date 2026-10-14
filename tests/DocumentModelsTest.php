@@ -293,4 +293,18 @@ class DocumentModelsTest extends TestCase
         $this->assertSame([$failed->id], Document::query()->whereLatestVerification(['failed'])->pluck('id')->all());
         $this->assertEqualsCanonicalizing([$recovered->id], Document::query()->whereLatestVerification(['passed'])->pluck('id')->all());
     }
+
+    public function test_chi_firma_implica_documento_da_firmare(): void
+    {
+        $type = $this->type(['signer_model' => 'client', 'approver_model' => 'fornitore']);
+
+        $this->assertTrue($type->fresh()->is_signed);
+    }
+
+    public function test_un_alias_sconosciuto_non_si_salva(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->type(['signer_model' => 'Quel\\Che\\Sia']);
+    }
 }

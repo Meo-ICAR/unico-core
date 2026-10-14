@@ -18,7 +18,9 @@
         "illuminate/http": "^13.0",
         "illuminate/cache": "^13.0",
         "google/apiclient": "^2.18",
-        "mikehaertl/php-pdftk": "^0.14.4"
+        "mikehaertl/php-pdftk": "^0.14.4",
+        "filament/filament": "^5.10",
+        "filament/spatie-laravel-media-library-plugin": "^5.10"
     },
     "autoload": {
         "psr-4": {
