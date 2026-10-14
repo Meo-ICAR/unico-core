@@ -4,3 +4,10 @@ __pycache__/
 
 .env
 .phpunit.result.cache
+
+# Dati personali: mai nei seeder (si ripristinano dal dump del database)
+database/seeders/data/fornitoris.json
+database/seeders/data/clientis.json
+database/seeders/data/branches.json
+database/seeders/data/clients.json
+database/seeders/data/pratiches.json

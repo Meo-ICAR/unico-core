@@ -369,6 +369,27 @@ class DocumentPipelineTest extends TestCase
         $this->assertStringContainsString('non è riconoscibile', $this->pipeline()->run($other)->issues[0]);
     }
 
+    public function test_informativa_must_be_our_form_and_signed(): void
+    {
+        $type = $this->type(['name' => 'Informativa privacy', 'ai_kind' => 'informativa', 'is_signed' => true]);
+        $fields = fn (array $overrides = []) => $overrides + ['legible' => true, 'kind_detected' => 'informativa', 'matches_template' => true, 'signed' => true];
+
+        $this->reader->fields = $fields();
+        $this->assertSame('passed', $this->pipeline()->run($this->document($type, $this->jpeg()))->analyses[1]->outcome);
+
+        $this->reader->fields = $fields(['matches_template' => false]);
+        $this->assertStringContainsString('non sembra il nostro modulo', $this->pipeline()->run($this->document($type, $this->jpeg('b')))->issues[0]);
+
+        $this->reader->fields = $fields(['signed' => false]);
+        $this->assertStringContainsString('non risulta firmata', $this->pipeline()->run($this->document($type, $this->jpeg('c')))->issues[0]);
+
+        $this->reader->fields = $fields(['signed' => null]);
+        $this->assertStringContainsString('non risulta firmata', $this->pipeline()->run($this->document($type, $this->jpeg('d')))->issues[0]);
+
+        $this->reader->fields = $fields(['kind_detected' => 'reddito']);
+        $this->assertStringContainsString('documento di reddito', $this->pipeline()->run($this->document($type, $this->jpeg('e')))->issues[0]);
+    }
+
     public function test_illegible_photo_marks_the_document_unreadable(): void
     {
         $document = $this->document($this->identityType(), $this->jpeg());

@@ -1,0 +1,16 @@
+[
+{"id":1,"tipoprodotto_id":1,"name":"Statale","code":"EMP_STATALE","vincoli":null,"is_active":1,"employment_document_group":"pubblici","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":2,"tipoprodotto_id":1,"name":"Pubblico","code":"EMP_PUBBLICO","vincoli":null,"is_active":1,"employment_document_group":"pubblici","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":3,"tipoprodotto_id":1,"name":"Privato SPA","code":"EMP_PRIVATO_SPA","vincoli":null,"is_active":1,"employment_document_group":"privati","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":4,"tipoprodotto_id":1,"name":"Privato Altra forma","code":"EMP_PRIV_ALTRO","vincoli":null,"is_active":1,"employment_document_group":"privati","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":5,"tipoprodotto_id":1,"name":"Privato Small Business","code":"EMP_PRIV_SMALL","vincoli":null,"is_active":1,"employment_document_group":"privati","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":6,"tipoprodotto_id":1,"name":"Postale","code":"EMP_POSTALE","vincoli":null,"is_active":1,"employment_document_group":"pubblici","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":7,"tipoprodotto_id":1,"name":"Ferroviere","code":"EMP_FERROVIERE","vincoli":null,"is_active":1,"employment_document_group":"pubblici","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":8,"tipoprodotto_id":1,"name":"Parapubblico","code":"EMP_PARAPUBBLICO","vincoli":null,"is_active":1,"employment_document_group":"parapubblici","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":9,"tipoprodotto_id":1,"name":"Medico","code":"EMP_MEDICO","vincoli":null,"is_active":1,"employment_document_group":"pubblici","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":10,"tipoprodotto_id":1,"name":"Pensionato INPS","code":"EMP_PENS_INPS","vincoli":null,"is_active":1,"employment_document_group":"pensionati","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":11,"tipoprodotto_id":1,"name":"Pensionato INPDAP","code":"EMP_PENS_INPDAP","vincoli":null,"is_active":1,"employment_document_group":"pensionati","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":12,"tipoprodotto_id":1,"name":"Pensionato altri enti","code":"EMP_PENS_ALTRI","vincoli":null,"is_active":1,"employment_document_group":"pensionati","created_at":"2026-10-13 07:56:13","updated_at":"2026-10-13 07:56:13"},
+{"id":13,"tipoprodotto_id":7,"name":"Lavoratore autonomo","code":"EMP_AUTONOMO","vincoli":null,"is_active":1,"employment_document_group":"autonomi","created_at":"2026-10-14 17:19:39","updated_at":"2026-10-14 17:19:39"},
+{"id":14,"tipoprodotto_id":7,"name":"Libero professionista","code":"EMP_LIBERO_PROF","vincoli":null,"is_active":1,"employment_document_group":"autonomi","created_at":"2026-10-14 17:19:39","updated_at":"2026-10-14 17:19:39"}
+]

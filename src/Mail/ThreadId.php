@@ -13,6 +13,25 @@ final class ThreadId
         return '<doc-'.$documentId.'@'.self::domain().'>';
     }
 
+    /**
+     * Message-Id di una richiesta di documenti su una pratica: la risposta lo riporta in `In-Reply-To`/`References`.
+     * Il suffisso casuale rende unico ogni invio, il numero della pratica resta riconoscibile.
+     */
+    public static function forPratica(int|string $praticaId): string
+    {
+        return '<pratica-'.$praticaId.'-'.bin2hex(random_bytes(6)).'@'.self::domain().'>';
+    }
+
+    /** L'id della pratica a cui si riferisce un Message-Id o un elenco `References` di una richiesta di documenti, se c'è. */
+    public static function praticaFrom(?string $headers): ?string
+    {
+        if ($headers !== null && preg_match('/<pratica-(\d+)-[0-9a-f]+@[^>\s]+>/', $headers, $m)) {
+            return $m[1];
+        }
+
+        return null;
+    }
+
     /** L'id del documento a cui si riferisce un Message-Id o un elenco `References`, se è un identificativo di sollecito. */
     public static function documentFrom(?string $headers): ?string
     {

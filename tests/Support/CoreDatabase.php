@@ -58,7 +58,7 @@ class CoreDatabase
             'driver' => 'mysql',
             'host' => getenv('CORE_TEST_DB_HOST') ?: '127.0.0.1',
             'port' => getenv('CORE_TEST_DB_PORT') ?: 3306,
-            'database' => getenv('CORE_TEST_DB_DATABASE') ?: 'unico_core_test',
+            'database' => getenv('CORE_TEST_DB_DATABASE') ?: 'unico_core_phpunit',
             'username' => getenv('CORE_TEST_DB_USERNAME') ?: 'unico',
             'password' => getenv('CORE_TEST_DB_PASSWORD') ?: 'unico',
             'charset' => 'utf8mb4',
@@ -83,6 +83,12 @@ class CoreDatabase
         self::boot();
 
         $db = self::$capsule->getConnection('core');
+
+        // Il reset elimina tutte le tabelle: mai sul database condiviso fra le app.
+        if ($db->getDatabaseName() === 'unico_core_test') {
+            throw new \RuntimeException('I test non possono ricreare unico_core_test: è il database condiviso. Usa CORE_TEST_DB_DATABASE=unico_core_phpunit.');
+        }
+
         $db->statement('SET FOREIGN_KEY_CHECKS=0');
         foreach ($db->select('SHOW TABLES') as $row) {
             $db->statement('DROP TABLE `'.array_values((array) $row)[0].'`');

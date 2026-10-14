@@ -76,7 +76,7 @@ class SendForSignatureAction
                 $required = app(SignatureProviderManager::class)->provider()->requiredContactFields();
 
                 return collect(self::slotsOf(self::resolveDocument($record)))
-                    ->map(fn (array $slot): Section => Section::make('Firmatario: '.(SignerRole::tryFrom((string) ($slot['role'] ?? ''))?->getLabel() ?? $slot['slot']))
+                    ->map(fn (array $slot): Section => Section::make('Firmatario: '.(SignerRole::fromSlot((string) ($slot['role'] ?? ''))->getLabel() ?? $slot['slot']))
                         ->statePath($slot['slot'])
                         ->columns(2)
                         ->schema([
@@ -169,7 +169,7 @@ class SendForSignatureAction
 
         return new SignerInput(
             $slot['slot'],
-            SignerRole::from((string) $slot['role']),
+            SignerRole::fromSlot((string) $slot['role']),
             $values['firstName'],
             $values['lastName'],
             $values['email'],

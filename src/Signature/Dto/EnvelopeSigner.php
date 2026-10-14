@@ -16,5 +16,13 @@ final readonly class EnvelopeSigner
         public ?string $phone,
         public ?string $taxCode,
         public SignaturePlacement $placement,
+        /** Altri punti di firma dello stesso firmatario (moduli con più pagine da firmare). */
+        public array $extraPlacements = [],
     ) {}
+
+    /** @return list<SignaturePlacement> */
+    public function placements(): array
+    {
+        return [$this->placement, ...$this->extraPlacements];
+    }
 }

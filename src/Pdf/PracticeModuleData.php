@@ -36,7 +36,7 @@ class PracticeModuleData
 
     public function for(Pratica $pratica): ResolvedModuleData
     {
-        $pratica->loadMissing(['fornitori', 'company', 'praticaClients.client.employer.branches', 'praticaClients.client.branches', 'praticaClients.client.legalRepresentative', 'praticaClients.client.documents.documentType']);
+        $pratica->loadMissing(['fornitori.branch', 'company', 'praticaClients.client.employer.branches', 'praticaClients.client.branches', 'praticaClients.client.addresses.addressType', 'praticaClients.client.legalRepresentative', 'praticaClients.client.documents.documentType']);
         $client = $this->findClient($pratica);
         $link = $pratica->praticaClients->first();
 
@@ -46,6 +46,8 @@ class PracticeModuleData
         $representative = $client?->legalRepresentative;
         $branch = $client === null ? null : $this->mainBranch($client);
         $employerBranch = $employer === null ? null : $this->mainBranch($employer);
+        $place = $client === null ? null : $this->clientPlace($client, $branch);
+        $agentBranch = $agent?->branch;
         $identity = $client === null ? null : $this->identityDocument($client);
         $nominativo = trim(($client?->name ?? $pratica->cognome_cliente ?? '').' '.($client?->first_name ?? $pratica->nome_cliente ?? ''));
 
@@ -80,6 +82,7 @@ class PracticeModuleData
             'agent.oam' => $agent?->oam,
             'agent.oam_at' => $agent?->oam_at,
             'agent.numero_iscrizione_rui' => $agent?->numero_iscrizione_rui,
+            'agent.branch_city' => $agentBranch?->city,
             'agent.indirizzo_completo' => $agent === null ? null : $this->formatAddress($agent->indirizzo, $agent->cap, $agent->comune, $agent->prov),
             'employer.name' => $employer?->name,
             'employer.vat_number' => $employer?->vat_number,
@@ -98,11 +101,20 @@ class PracticeModuleData
             'client.is_pep' => $client?->is_pep,
             'client.consent_general' => $client === null ? null : $client->general_consent_at !== null,
             'client.consent_sic' => $client === null ? null : $client->consent_sic_at !== null,
+            'client.consent_group' => $client === null ? null : $client->consent_group_at !== null,
+            'client.consent_third_parties' => $client === null ? null : $client->consent_third_parties_at !== null,
             'client.consent_marketing' => $client === null ? null : $client->consent_marketing_at !== null,
             'client.consent_profiling' => $client === null ? null : $client->consent_profiling_at !== null,
             'legal_rep.nominativo' => $representative === null ? null : trim(($representative->name ?? '').' '.($representative->first_name ?? '')),
             'legal_rep.email' => $representative?->email,
             'legal_rep.phone' => $representative?->phone,
+            'client.address.street' => $place['street'] ?? null,
+            'client.address.line' => $place === null ? null : (trim(($place['street'] ?? '').' '.($place['number'] ?? '')) ?: null),
+            'client.address.number' => $place['number'] ?? null,
+            'client.address.zip_code' => $place['zip_code'] ?? null,
+            'client.address.city' => $place['city'] ?? null,
+            'client.address.province' => $place['province'] ?? null,
+            'client.address.full' => $place === null ? null : $this->formatAddress(trim(($place['street'] ?? '').' '.($place['number'] ?? '')), $place['zip_code'] ?? null, $place['city'] ?? null, $place['province'] ?? null),
             'branch.address' => $branch?->address,
             'branch.street_number' => $branch?->street_number,
             'branch.city' => $branch?->city,
@@ -130,6 +142,30 @@ class PracticeModuleData
         }
 
         return new ResolvedModuleData($values);
+    }
+
+    /**
+     * Indirizzo del cliente: le persone fisiche usano `addresses` (residenza, altrimenti domicilio),
+     * le società la sede principale.
+     *
+     * @return array{street: ?string, number: ?string, zip_code: ?string, city: ?string, province: ?string}|null
+     */
+    private function clientPlace(Client $client, ?Branch $branch): ?array
+    {
+        if ($client->is_person === false) {
+            return $branch === null ? null : [
+                'street' => $branch->address, 'number' => $branch->street_number,
+                'zip_code' => $branch->zip_code, 'city' => $branch->city, 'province' => $branch->province,
+            ];
+        }
+
+        $addresses = $client->addresses->sortByDesc(fn ($address) => [$address->updated_at?->getTimestamp() ?? 0, (int) $address->id]);
+        $address = $addresses->firstWhere('address_type_id', 1) ?? $addresses->firstWhere('address_type_id', 2) ?? $addresses->first();
+
+        return $address === null ? null : [
+            'street' => $address->street, 'number' => $address->numero,
+            'zip_code' => $address->zip_code, 'city' => $address->city, 'province' => $address->province,
+        ];
     }
 
     /** Sede principale: la più recente tra quelle marcate `is_main_office`, altrimenti tra le non dismesse. */

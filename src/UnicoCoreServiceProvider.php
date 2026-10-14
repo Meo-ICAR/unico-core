@@ -9,6 +9,11 @@ use Illuminate\Support\ServiceProvider;
 use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
 use Unico\Core\Console\FetchMailCommand;
 use Unico\Core\Console\MailHealthCommand;
+use Unico\Core\Console\MailAccountFromEnvCommand;
+use Unico\Core\Console\PdfSignatureSlotsCommand;
+use Unico\Core\Documents\PracticeMailReplyHandler;
+use Unico\Core\Events\IncomingEmailReceived;
+use Unico\Core\Console\SeedExportCommand;
 use Unico\Core\Console\ImportAnagraficheCommand;
 use Unico\Core\Console\MigrateCoreCommand;
 use Unico\Core\Drive\GoogleDriveFactory;
@@ -93,6 +98,10 @@ class UnicoCoreServiceProvider extends ServiceProvider
             )]);
         }
 
+        if (config('unico-core.practice_intake.mail_replies', true) && class_exists(IncomingEmailReceived::class)) {
+            Event::listen(IncomingEmailReceived::class, [PracticeMailReplyHandler::class, 'handle']);
+        }
+
         if (config('unico-core.documents.analysis.auto') && class_exists(MediaHasBeenAddedEvent::class)) {
             Event::listen(MediaHasBeenAddedEvent::class, AnalyzeUploadedDocument::class);
         }
@@ -114,7 +123,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
                 __DIR__.'/../config/unico-core.php' => config_path('unico-core.php'),
             ], 'unico-core-config');
 
-            $this->commands([MigrateCoreCommand::class, ImportAnagraficheCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class]);
+            $this->commands([MigrateCoreCommand::class, SeedExportCommand::class, MailAccountFromEnvCommand::class, PdfSignatureSlotsCommand::class, ImportAnagraficheCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class]);
         }
     }
 

@@ -1,0 +1,19 @@
+[
+{"id":1,"app_name":"admin","key":"audits","name":"Audit","group":"Compliance","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":2,"app_name":"admin","key":"audit-findings","name":"Rilievi Audit","group":"Compliance","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":3,"app_name":"admin","key":"complaint-registries","name":"Registro Reclami","group":"Compliance","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":4,"app_name":"admin","key":"suspicious-activity-reports","name":"Segnalazioni Operazioni Sospette","group":"Compliance","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":5,"app_name":"admin","key":"remediations","name":"Piani di Rimedio","group":"Compliance","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":6,"app_name":"admin","key":"oam-semestrales","name":"Semestrale OAM","group":"Compliance","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":7,"app_name":"admin","key":"documents","name":"Documenti","group":"Anagrafiche","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":8,"app_name":"admin","key":"firma","name":"Firma documenti","group":"Anagrafiche","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":9,"app_name":"admin","key":"document-schedules","name":"Scadenzario Documenti","group":"Anagrafiche","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":10,"app_name":"admin","key":"employees","name":"Dipendenti","group":"Anagrafiche","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":11,"app_name":"admin","key":"companies","name":"Aziende","group":"Anagrafiche","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":12,"app_name":"admin","key":"branches","name":"Sedi","group":"Anagrafiche","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":13,"app_name":"admin","key":"websites","name":"Siti Web","group":"Anagrafiche","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":14,"app_name":"admin","key":"users","name":"Utenti","group":"System","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":15,"app_name":"admin","key":"employee-types","name":"Ruoli","group":"System","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":16,"app_name":"admin","key":"email-templates","name":"Template Email","group":"System","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"},
+{"id":17,"app_name":"admin","key":"tasks","name":"Attivita","group":"System","min_plan":"BASE","created_at":"2026-10-13 18:38:30","updated_at":"2026-10-13 18:38:30"}
+]

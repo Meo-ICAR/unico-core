@@ -276,15 +276,15 @@ class YousignSignatureProvider implements SignatureProvider
             ],
             'signature_level' => $this->config['signature_level'] ?? 'electronic_signature',
             'signature_authentication_mode' => 'otp_sms',
-            'fields' => [[
+            'fields' => array_map(fn ($placement): array => [
                 'type' => 'signature',
                 'document_id' => $documentId,
-                'page' => $signer->placement->page,
-                'x' => $signer->placement->x,
-                'y' => $signer->placement->y,
-                'width' => $signer->placement->width,
-                'height' => $signer->placement->height,
-            ]],
+                'page' => $placement->page,
+                'x' => $placement->x,
+                'y' => $placement->y,
+                'width' => $placement->width,
+                'height' => $placement->height,
+            ], $signer->placements()),
         ];
     }
 

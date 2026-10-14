@@ -51,7 +51,8 @@ class SignatureRequestService
             throw new SignatureRequestException('Il modulo non ha slot di firma configurati.');
         }
 
-        $moduleSlots = array_column($slots, 'slot');
+        // Uno stesso firmatario può avere più punti di firma (più righe con lo stesso slot).
+        $moduleSlots = array_values(array_unique(array_column($slots, 'slot')));
         $bySlot = [];
         foreach ($signers as $signer) {
             $bySlot[$signer->slot] = $signer;
@@ -400,7 +401,14 @@ class SignatureRequestService
     {
         $result = [];
 
-        foreach (array_values($slots) as $index => $slot) {
+        $grouped = [];
+
+        foreach ($slots as $slot) {
+            $grouped[$slot['slot']][] = $slot;
+        }
+
+        foreach (array_values($grouped) as $index => $placements) {
+            $slot = $placements[0];
             $input = $bySlot[$slot['slot']];
             $label = trim($input->firstName.' '.$input->lastName) ?: $input->slot;
 
@@ -436,6 +444,7 @@ class SignatureRequestService
                     $phone,
                     $input->taxCode,
                     new SignaturePlacement((int) $slot['page'], (float) $slot['x'], (float) $slot['y'], (float) $slot['width'], (float) $slot['height']),
+                    array_map(fn (array $extra): SignaturePlacement => new SignaturePlacement((int) $extra['page'], (float) $extra['x'], (float) $extra['y'], (float) $extra['width'], (float) $extra['height']), array_slice($placements, 1)),
                 ),
             ];
         }

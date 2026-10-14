@@ -174,6 +174,8 @@ return [
     */
 
     'signature' => [
+        // Modulistica di una pratica da stampare e firmare (componente PracticeSignaturePackageForm).
+        'practice_package' => env('UNICO_CORE_SIGNATURE_PRACTICE_PACKAGE', true),
         // Firma elettronica: `fake` (sviluppo e test) o `yousign`.
         'driver' => env('SIGNATURE_DRIVER', 'fake'),
         'ttl_days' => (int) env('SIGNATURE_REQUEST_TTL_DAYS', 7),
@@ -197,6 +199,41 @@ return [
         // Moduli PDF compilabili (AcroForm): binario pdftk e disco dove stanno i modelli (file_path di pdf_modules).
         'pdftk_binary' => env('PDFTK_BINARY', 'pdftk'),
         'modules_disk' => env('UNICO_CORE_PDF_MODULES_DISK', 'public'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Acquisizione dei documenti di una pratica
+    |--------------------------------------------------------------------------
+    |
+    | Caricamento unico dei documenti richiesti (PracticeDocumentIntake e il componente Filament
+    | PracticeDocumentsUpload): il file si classifica (regex sul nome, poi AI), si leggono i dati
+    | e, con `populate_client`, si compila l'anagrafica del richiedente.
+    |
+    */
+
+    'practice_intake' => [
+        'enabled' => env('UNICO_CORE_PRACTICE_INTAKE', true),
+        'populate_client' => env('UNICO_CORE_PRACTICE_INTAKE_POPULATE_CLIENT', true),
+        // Richiesta dei documenti al cliente per email e acquisizione degli allegati della risposta.
+        'mail_replies' => env('UNICO_CORE_PRACTICE_INTAKE_MAIL_REPLIES', true),
+        // Template email (email_templates.code) della richiesta: il grado (severity) sceglie fra richiesta e solleciti.
+        'request_template' => env('UNICO_CORE_PRACTICE_REQUEST_TEMPLATE', 'PRATICA_DOCUMENTI_RICHIESTI'),
+        // Casella creata da `unico-core:mail-account-from-env`: IMAP_* e MAIL_* del .env (es. OVH).
+        'env_mail_account' => [
+            'name' => env('UNICO_CORE_ENV_MAIL_ACCOUNT_NAME', 'Casella del .env'),
+            'imap_host' => env('IMAP_HOST'),
+            'imap_port' => env('IMAP_PORT', 993),
+            'imap_encryption' => env('IMAP_ENCRYPTION', 'ssl'),
+            'imap_username' => env('IMAP_USERNAME'),
+            'imap_password' => env('IMAP_PASSWORD'),
+            'smtp_host' => env('MAIL_HOST'),
+            'smtp_port' => env('MAIL_PORT', 465),
+            'smtp_encryption' => env('MAIL_ENCRYPTION', 'ssl'),
+            'smtp_username' => env('MAIL_USERNAME'),
+            'smtp_password' => env('MAIL_PASSWORD'),
+            'email_address' => env('MAIL_FROM_ADDRESS'),
+        ],
     ],
 
     'documents' => [
@@ -246,10 +283,12 @@ return [
             'tipo_documento' => \Unico\Core\Documents\Checks\KindCheck::class,
             'dati_coerenti' => \Unico\Core\Documents\Checks\MatchesDeclaredCheck::class,
             'non_scaduto' => \Unico\Core\Documents\Checks\NotExpiredCheck::class,
+            'informativa_firmata' => \Unico\Core\Documents\Checks\InformativaFirmataCheck::class,
         ],
         'default_checks' => [
             '*' => ['leggibile', 'tipo_documento', 'dati_coerenti'],
             'identita' => ['leggibile', 'tipo_documento', 'dati_coerenti', 'non_scaduto'],
+            'informativa' => ['leggibile', 'tipo_documento', 'informativa_firmata'],
         ],
     ],
 

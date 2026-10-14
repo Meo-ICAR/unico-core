@@ -1,0 +1,12 @@
+[
+{"id":1,"name":"dipendente","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":2,"name":"cda","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":3,"name":"istruttore","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":4,"name":"SOS","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":5,"name":"audit","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":6,"name":"compliance","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":7,"name":"segretaria","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":8,"name":"amministrativo","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":9,"name":"commerciale","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":10,"name":"qualita","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null}
+]

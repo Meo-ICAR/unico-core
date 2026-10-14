@@ -71,7 +71,7 @@ class SignerDefaults
 
         return new SignerInput(
             $slot,
-            SignerRole::Collaborator,
+            SignerRole::Fornitore,
             (string) $firstName,
             (string) $lastName,
             $agent->email,
@@ -88,7 +88,7 @@ class SignerDefaults
 
         return new SignerInput(
             $slot,
-            SignerRole::Collaborator,
+            SignerRole::Fornitore,
             (string) $firstName,
             (string) $lastName,
             $user->email,

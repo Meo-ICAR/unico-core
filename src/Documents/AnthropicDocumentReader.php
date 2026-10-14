@@ -23,7 +23,8 @@ Set "legible" to false when the photo is too blurry, cut off or covered to read 
 Set "kind_detected" to what the document really is: identita (identity card, passport, driving licence),
 codice_fiscale (tax code card or health card), reddito (payslip, pension slip, CUD, tax return, balance sheet),
 informativa (a privacy notice), or altro (anything else).
-For an identity document set "document_type" to carta_identita, patente or passaporto; null if none or unclear.
+For an identity document set "document_type" to carta_identita, patente or passaporto; null if none or unclear,
+and "issuer" to the issuing authority (e.g. the municipality or prefecture) and "issue_date" to the issue date.
 For a privacy notice: "matches_template" true only if it is the form titled "Informativa sul trattamento dei dati personali"
 with a "Per presa visione" block; "signed" true only if a handwritten or digital signature is visibly present in the
 signature area, false if the area is empty, null if you cannot tell. For any other document leave both null.
@@ -190,6 +191,8 @@ TXT;
             'birth_place' => $text,
             'document_number' => $text,
             'expiry_date' => $text,
+            'issuer' => $text,
+            'issue_date' => $text,
             'document_type' => ['type' => ['string', 'null'], 'enum' => ['carta_identita', 'patente', 'passaporto', null]],
             'employer' => $text,
             'period' => $text,

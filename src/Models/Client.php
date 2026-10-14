@@ -30,6 +30,8 @@ class Client extends Model
             'consent_sic_at' => 'datetime',
             'consent_marketing_at' => 'datetime',
             'consent_profiling_at' => 'datetime',
+            'consent_group_at' => 'datetime',
+            'consent_third_parties_at' => 'datetime',
             'is_company' => 'boolean',
             'is_lead' => 'boolean',
             'acquired_at' => 'datetime',
@@ -100,6 +102,12 @@ class Client extends Model
     public function branches(): MorphMany
     {
         return $this->morphMany(Branch::class, 'branchable');
+    }
+
+    /** Indirizzi della persona fisica (residenza, domicilio): al posto delle sedi, che restano per le società. */
+    public function addresses(): MorphMany
+    {
+        return $this->morphMany(Address::class, 'addressable');
     }
 
     public function documents(): MorphMany

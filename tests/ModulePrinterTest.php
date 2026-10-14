@@ -156,6 +156,58 @@ class ModulePrinterTest extends TestCase
         $this->assertFalse($data->has('mediation.fee_amount'));
     }
 
+    public function test_la_persona_fisica_usa_gli_indirizzi_la_societa_la_sede_e_il_luogo_e_della_sede_dell_agente(): void
+    {
+        $residenza = new \Unico\Core\Models\Address(['street' => 'Via Verdi', 'numero' => '7', 'city' => 'Roma', 'zip_code' => '00100', 'province' => 'RM', 'address_type_id' => 1]);
+        $domicilio = new \Unico\Core\Models\Address(['street' => 'Via Bianchi', 'numero' => '9', 'city' => 'Napoli', 'zip_code' => '80100', 'province' => 'NA', 'address_type_id' => 2]);
+        $sede = new Branch(['address' => 'Via Sede', 'street_number' => '3', 'city' => 'Torino', 'zip_code' => '10100', 'province' => 'TO', 'is_main_office' => true]);
+
+        $build = function (bool $isPerson) use ($residenza, $domicilio, $sede): PracticeModuleData|\Unico\Core\Pdf\ResolvedModuleData {
+            $client = new Client(['name' => 'Rossi', 'first_name' => 'Mario', 'is_person' => $isPerson, 'consent_group_at' => now()]);
+            $client->setRelation('employer', null);
+            $client->setRelation('legalRepresentative', null);
+            $client->setRelation('documents', collect());
+            $client->setRelation('addresses', collect([$domicilio, $residenza]));
+            $client->setRelation('branches', collect([$sede]));
+
+            $link = new PraticaClient(['role' => 'richiedente']);
+            $link->setRelation('client', $client);
+
+            $pratica = $this->pratica([]);
+            $pratica->setRelation('praticaClients', new \Illuminate\Database\Eloquent\Collection([$link]));
+            $pratica->setRelation('company', null);
+            $agente = new \Unico\Core\Models\Fornitore(['name' => 'Agente']);
+            $agente->setRelation('branch', new Branch(['city' => 'Foggia']));
+            $pratica->setRelation('fornitori', $agente);
+
+            return (new PracticeModuleData)->for($pratica);
+        };
+
+        $persona = $build(true);
+        $this->assertSame('Via Verdi', $persona->get('client.address.street'));
+        $this->assertSame('RM', $persona->get('client.address.province'));
+        $this->assertSame('Via Verdi 7, 00100 Roma (RM)', $persona->get('client.address.full'));
+        $this->assertSame('Foggia', $persona->get('agent.branch_city'));
+        $this->assertTrue($persona->get('client.consent_group'));
+        $this->assertFalse($persona->get('client.consent_third_parties'));
+
+        $societa = $build(false);
+        $this->assertSame('Via Sede', $societa->get('client.address.street'));
+        $this->assertSame('TO', $societa->get('client.address.province'));
+    }
+
+    public function test_senza_branch_dell_agente_il_luogo_resta_vuoto(): void
+    {
+        $pratica = $this->pratica([]);
+        $pratica->setRelation('praticaClients', new \Illuminate\Database\Eloquent\Collection);
+        $pratica->setRelation('company', null);
+        $agente = new \Unico\Core\Models\Fornitore(['name' => 'Agente']);
+        $agente->setRelation('branch', null);
+        $pratica->setRelation('fornitori', $agente);
+
+        $this->assertFalse((new PracticeModuleData)->for($pratica)->has('agent.branch_city'));
+    }
+
     public function test_i_dati_delle_app_si_aggiungono_ma_non_sovrascrivono_quelli_del_pacchetto(): void
     {
         $provider = new class implements \Unico\Core\Pdf\ModuleDataProvider

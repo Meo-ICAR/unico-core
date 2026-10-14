@@ -4,6 +4,7 @@ namespace Unico\Core\Models;
 
 use Carbon\Carbon;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -107,6 +108,29 @@ class DocumentType extends Model
     }
 
     /** Modulo PDF compilabile associato al tipo (con gli slot di firma). */
+    /** Istituto (banca) a cui è legato il documento, se è specifico di una banca. */
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class, 'clienti_id');
+    }
+
+    /**
+     * Tipi che valgono per quella banca: quelli senza banca (per tutte) e quelli della banca della pratica.
+     * Con la banca non ancora scelta restano solo quelli validi per tutte.
+     *
+     * @param  Builder<DocumentType>  $query
+     */
+    public function scopeForBank(Builder $query, int|string|null $clientiId): Builder
+    {
+        return $query->where(fn (Builder $q) => $q->whereNull('clienti_id')->when($clientiId !== null, fn (Builder $w) => $w->orWhere('clienti_id', $clientiId)));
+    }
+
+    /** Il documento vale per la pratica di quella banca? */
+    public function appliesToBank(int|string|null $clientiId): bool
+    {
+        return $this->clienti_id === null || ($clientiId !== null && (int) $this->clienti_id === (int) $clientiId);
+    }
+
     public function pdfModule(): HasOne
     {
         return $this->hasOne(PdfModule::class, 'document_type_id');

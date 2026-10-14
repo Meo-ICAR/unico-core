@@ -1,0 +1,6 @@
+[
+{"id":2,"company_id":1,"name":"Controllo Semestrale","funzione":"compliance","is_external":1,"dal":"2026-01-01","al":"2026-06-30","execution_method":"documentale","expertName":"Michele Ferri","n":1,"created_at":"2026-10-13 18:46:09","updated_at":"2026-10-13 18:46:09"},
+{"id":3,"company_id":1,"name":"Controllo Semestrale","funzione":"compliance","is_external":1,"dal":"2026-01-01","al":"2026-06-30","execution_method":"onsite","expertName":"Michele Ferri","n":0,"created_at":"2026-10-13 18:46:09","updated_at":"2026-10-13 18:46:09"},
+{"id":4,"company_id":1,"name":"Audit Esterno","funzione":"internal audit","is_external":1,"dal":"2026-07-01","al":"2026-07-15","execution_method":"onsite","expertName":"Michele Ferri","n":2,"created_at":"2026-10-13 18:46:09","updated_at":"2026-10-13 18:46:09"},
+{"id":5,"company_id":1,"name":"Verifica Antiriciclaggio","funzione":"aml","is_external":0,"dal":null,"al":null,"execution_method":"?","expertName":"Luca Verdi","n":3,"created_at":"2026-10-13 18:46:09","updated_at":"2026-10-13 18:46:09"}
+]
