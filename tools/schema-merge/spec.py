@@ -122,7 +122,8 @@ t("document_types", "documents",
 t("documents", "documents", ["loan.documents", "oam.documents"],
   rename={"loan.documents": {"is_endMonth": "is_end_month", "renewed_by_id": "replaced_by_id"},
           "oam.documents": {"is_endMonth": "is_end_month", "renewed_by_id": "replaced_by_id"}},
-  add=[col("channel", "varchar", "30", comment="Canale di arrivo: upload, email, whatsapp, drive, sharepoint, generated, signature"),
+  add=[col("is_printable", "tinyint", "1", nullable=False, default="'0'", comment="Modulo da firmare pronto per la stampa: tutti i campi obbligatori del modulo sono valorizzati nel record associato"),
+       col("channel", "varchar", "30", comment="Canale di arrivo: upload, email, whatsapp, drive, sharepoint, generated, signature"),
        col("channel_ref", "varchar", "255", comment="Riferimento nel canale (Message-Id, media id WhatsApp, id busta di firma)")],
   patch={"document_url": {"args": "2048"}, "status": {"default": "'caricato'",
          "comment": "Valori di DocumentStatus: na, richiesto, caricato, approvato, respinto, provvisorio, scaduto, illegibile, revocato"}},
@@ -173,7 +174,8 @@ t("document_analyses", "documents", [],
 t("signature_requests", "documents", ["loan.signature_requests"])
 t("signature_request_signers", "documents", ["loan.signature_request_signers"])
 t("pdf_modules", "documents", ["loan.pdf_modules"])
-t("pdf_module_fields", "documents", ["loan.pdf_module_fields"])
+t("pdf_module_fields", "documents", ["loan.pdf_module_fields"],
+  add=[col("is_required", "tinyint", "1", nullable=False, default="'0'", comment="Campo obbligatorio: il modulo è stampabile solo se la sua chiave dati (source_key) è valorizzata")])
 t("document_reminders", "documents", ["loan.document_reminders", "oam.document_reminders"])
 t("document_schedules", "documents", ["loan.document_schedules", "oam.document_schedules"])
 t("tasks", "documents", ["loan.tasks", "oam.tasks"])

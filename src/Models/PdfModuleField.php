@@ -18,7 +18,7 @@ class PdfModuleField extends Model
 
     protected function casts(): array
     {
-        return ['formatter' => ModuleFormatter::class];
+        return ['formatter' => ModuleFormatter::class, 'is_required' => 'boolean'];
     }
 
     public function pdfModule(): BelongsTo

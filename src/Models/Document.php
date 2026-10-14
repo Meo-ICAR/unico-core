@@ -49,6 +49,7 @@ class Document extends Model implements HasMedia
             'metadata' => 'array',
             'is_template' => 'boolean',
             'is_signed' => 'boolean',
+            'is_printable' => 'boolean',
             'is_unique' => 'boolean',
             'is_end_month' => 'boolean',
             'is_monitored' => 'boolean',

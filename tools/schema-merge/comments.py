@@ -121,6 +121,9 @@ SPECIFIC = {
     "training_records.certificate_number": "Numero dell'attestato",
     # clients
     "clients.website": "Sito web del cliente",
+    # pdf_module_fields / documents: obbligatorietà e stampabilità
+    "pdf_module_fields.is_required": "Campo obbligatorio: il modulo è stampabile solo se la sua chiave dati (source_key) è valorizzata",
+    "documents.is_printable": "Modulo da firmare pronto per la stampa: tutti i campi obbligatori del modulo sono valorizzati nel record associato",
     # signature_request_signers
     "signature_request_signers.signature_request_id": "Richiesta di firma a cui appartiene il firmatario",
     "signature_request_signers.position": "Ordine di firma",
