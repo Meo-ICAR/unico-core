@@ -79,6 +79,11 @@ if (! function_exists('partitaIvaItalianaChecksum')) {
      */
     function partitaIvaItalianaChecksum(string $value): bool
     {
+        // Soli zeri: il checksum torna (somma 0) ma non è una partita IVA.
+        if (substr($value, 0, 11) === '00000000000') {
+            return false;
+        }
+
         $s = 0;
         for ($i = 0; $i < 11; $i++) {
             $n = ord($value[$i]) - ord('0');

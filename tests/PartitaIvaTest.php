@@ -50,4 +50,11 @@ class PartitaIvaTest extends TestCase
             controllaPartitaIva('IT1234567890A'),
         );
     }
+
+    public function test_rifiuta_la_partita_iva_di_soli_zeri_anche_se_il_checksum_torna(): void
+    {
+        $this->assertNotNull(controllaPartitaIva('00000000000'));
+        $this->assertFalse(partitaIvaValida('00000000000'));
+        $this->assertFalse(partitaIvaValida('IT00000000000'));
+    }
 }
