@@ -408,6 +408,9 @@ return [
         // Credit score (GET {creditscore_url}/IT-creditscore-top/{codiceFiscale}): per ora la richiesta è simulata, senza chiamata.
         'creditscore_url' => env('OPENAPI_CREDITSCORE_URL', 'https://test.risk.openapi.com'),
         'creditscore_live' => (bool) env('OPENAPI_CREDITSCORE_LIVE', false),
+        // Catasto (codice fiscale + indirizzo): per ora simulato, senza chiamata.
+        'catasto_url' => env('OPENAPI_CATASTO_URL', 'https://catasto.openapi.com'),
+        'catasto_live' => (bool) env('OPENAPI_CATASTO_LIVE', false),
         'timeout' => (int) env('OPENAPI_TIMEOUT', 30),
     ],
 
