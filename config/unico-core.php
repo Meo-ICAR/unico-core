@@ -191,6 +191,9 @@ return [
         'practice_package' => env('UNICO_CORE_SIGNATURE_PRACTICE_PACKAGE', true),
         // Firma elettronica: `fake` (sviluppo e test) o `yousign`.
         'driver' => env('SIGNATURE_DRIVER', 'fake'),
+        // Simulazione per le dimostrazioni (solo con il provider `fake`): nessun SMS, il cliente firma con un codice fisso.
+        'demo' => (bool) env('SIGNATURE_DEMO', false),
+        'demo_otp' => env('SIGNATURE_DEMO_OTP', '123456'),
         'ttl_days' => (int) env('SIGNATURE_REQUEST_TTL_DAYS', 7),
         'sync' => [
             'stale_minutes' => 30,

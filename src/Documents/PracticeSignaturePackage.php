@@ -10,12 +10,15 @@ use Unico\Core\Enums\DocumentStatus;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\DocumentType;
 use Unico\Core\Models\Pratica;
+use Unico\Core\Signature\FakeSignatureProvider;
+use Unico\Core\Signature\SignatureDemo;
 use Unico\Core\Models\SignatureRequest;
 use Unico\Core\Pdf\ModulePrinter;
 use Unico\Core\Pdf\PdfFormException;
 use Unico\Core\Pdf\PracticeModuleData;
 use Unico\Core\Pdf\PrintReadiness;
 use Unico\Core\Signature\Exceptions\SignatureRequestException;
+use Unico\Core\Signature\SignatureProviderManager;
 use Unico\Core\Signature\SignatureRequestService;
 use Unico\Core\Signature\SignerDefaults;
 
@@ -137,6 +140,35 @@ class PracticeSignaturePackage
     }
 
     /** Aggiorna lo stato delle richieste aperte dal provider (utile senza webhook). */
+    /**
+     * Simulazione (solo in modalità demo): il cliente ha digitato il codice OTP e firma tutte le richieste aperte della modulistica.
+     *
+     * @return int richieste firmate
+     */
+    public function simulaFirmaOtp(Pratica $pratica, Collection $types): int
+    {
+        if (! SignatureDemo::attiva()) {
+            return 0;
+        }
+
+        $firmate = 0;
+        $provider = app(SignatureProviderManager::class)->provider('fake');
+
+        foreach ($this->status($pratica, $types) as $entry) {
+            $request = $entry['document']?->signatureRequests()->latest('id')->first();
+
+            if (! $request instanceof SignatureRequest || ! $request->isOpen() || ! $provider instanceof FakeSignatureProvider) {
+                continue;
+            }
+
+            $provider->completeAll($request->provider_ref);
+            $this->signatures->reconcile($request);
+            $firmate++;
+        }
+
+        return $firmate;
+    }
+
     public function refresh(Pratica $pratica, Collection $types): void
     {
         foreach ($this->status($pratica, $types) as $entry) {

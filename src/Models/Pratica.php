@@ -68,6 +68,23 @@ class Pratica extends Model
         return $this->belongsTo(TipoProdotto::class, 'tipoprodotto_id');
     }
 
+    /**
+     * Compenso di mediazione richiesto al cliente: l'importo fisso, altrimenti la percentuale sull'importo richiesto.
+     */
+    public static function mediationFee(float|int|string|null $fixed, float|int|string|null $percent, float|int|string|null $amount): ?float
+    {
+        if (filled($fixed)) {
+            return round((float) $fixed, 2);
+        }
+
+        return filled($percent) && filled($amount) ? round((float) $amount * (float) $percent / 100, 2) : null;
+    }
+
+    public function mediationFeeDue(): ?float
+    {
+        return static::mediationFee($this->mediation_fee_amount, $this->mediation_fee_percent, $this->amount);
+    }
+
     public function immobili(): HasMany
     {
         return $this->hasMany(PraticaImmobile::class, 'pratica_id');

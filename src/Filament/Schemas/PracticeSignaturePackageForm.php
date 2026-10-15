@@ -5,6 +5,7 @@ namespace Unico\Core\Filament\Schemas;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
@@ -15,6 +16,7 @@ use Illuminate\Support\HtmlString;
 use Unico\Core\Documents\PracticeSignaturePackage;
 use Unico\Core\Models\DocumentType;
 use Unico\Core\Models\Pratica;
+use Unico\Core\Signature\SignatureDemo;
 
 /**
  * Modulistica da firmare di una pratica, solo componenti di form Filament: elenco dei moduli con quelli firmati spuntati, i dati
@@ -55,6 +57,9 @@ class PracticeSignaturePackageForm
                         ->disabled()
                         ->dehydrated(false)
                         ->afterStateHydrated(fn (CheckboxList $component) => $component->state($signed())),
+                    Text::make(fn (): HtmlString => new HtmlString('<strong>Modalità simulazione:</strong> nessun SMS viene inviato e nessuna firma è reale. Per firmare il cliente digita il codice OTP <code>'.e(SignatureDemo::codice()).'</code>.'))
+                        ->color('warning')
+                        ->visible(fn (): bool => SignatureDemo::attiva()),
                     Text::make(fn (): HtmlString => static::summary($status()))->color('gray'),
                     Actions::make([
                         Action::make('inviaPerFirma')
@@ -73,6 +78,10 @@ class PracticeSignaturePackageForm
 
                                 $results = app(PracticeSignaturePackage::class)->send($record, $types(), auth()->user());
 
+                                if (SignatureDemo::attiva()) {
+                                    Notification::make()->title('Simulazione: nessun SMS inviato')->body('Codice OTP per firmare: '.SignatureDemo::codice())->warning()->send();
+                                }
+
                                 foreach ($results as $result) {
                                     Notification::make()->title($result['name'])->body($result['message'])->{$result['ok'] ? 'success' : 'warning'}()->send();
                                 }
@@ -82,6 +91,35 @@ class PracticeSignaturePackageForm
                                 if ($afterSend !== null) {
                                     $afterSend($results);
                                 }
+                            }),
+                        Action::make('simulaOtp')
+                            ->label('Simula firma OTP del cliente')
+                            ->icon('heroicon-o-device-phone-mobile')
+                            ->color('warning')
+                            ->visible(fn (): bool => SignatureDemo::attiva())
+                            ->modalHeading('Firma con codice OTP (simulazione)')
+                            ->modalDescription('Il cliente riceverebbe un codice via SMS: in simulazione è un codice fisso, mostrato sopra.')
+                            ->modalSubmitActionLabel('Firma')
+                            ->schema([
+                                TextInput::make('otp')
+                                    ->label('Codice OTP')
+                                    ->required()
+                                    ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                                        if (trim((string) $value) !== SignatureDemo::codice()) {
+                                            $fail('Codice OTP non corretto.');
+                                        }
+                                    }),
+                            ])
+                            ->action(function (Set $set) use ($pratica, $types, $signed): void {
+                                $record = $pratica();
+                                $firmate = $record === null ? 0 : app(PracticeSignaturePackage::class)->simulaFirmaOtp($record, $types());
+                                $set('firmati', $signed());
+
+                                Notification::make()
+                                    ->title($firmate > 0 ? 'Firma OTP simulata' : 'Nessun modulo da firmare')
+                                    ->body($firmate > 0 ? $firmate.' moduli firmati (simulazione).' : 'Prima invia i moduli per la firma.')
+                                    ->{$firmate > 0 ? 'success' : 'warning'}()
+                                    ->send();
                             }),
                         Action::make('aggiornaFirme')
                             ->label('Aggiorna stato')

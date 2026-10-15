@@ -8,5 +8,11 @@
 {"id":7,"name":"segretaria","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
 {"id":8,"name":"amministrativo","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
 {"id":9,"name":"commerciale","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
-{"id":10,"name":"qualita","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null}
+{"id":10,"name":"qualita","icon":null,"companytype":"FINANCE","is_external":0,"created_at":null,"updated_at":null},
+{"id":11,"name":"amministratore delegato","icon":null,"companytype":"FINANCE","is_external":0,"created_at":"2026-10-15 16:42:23","updated_at":"2026-10-15 16:42:23"},
+{"id":12,"name":"antiriciclaggio","icon":null,"companytype":"FINANCE","is_external":0,"created_at":"2026-10-15 16:42:23","updated_at":"2026-10-15 16:42:23"},
+{"id":13,"name":"it","icon":null,"companytype":"FINANCE","is_external":0,"created_at":"2026-10-15 16:42:23","updated_at":"2026-10-15 16:42:23"},
+{"id":14,"name":"risorse umane","icon":null,"companytype":"FINANCE","is_external":0,"created_at":"2026-10-15 16:42:23","updated_at":"2026-10-15 16:42:23"},
+{"id":15,"name":"dpo","icon":null,"companytype":"FINANCE","is_external":1,"created_at":"2026-10-15 16:42:23","updated_at":"2026-10-15 16:42:23"},
+{"id":16,"name":"legale","icon":null,"companytype":"FINANCE","is_external":1,"created_at":"2026-10-15 16:42:23","updated_at":"2026-10-15 16:42:23"}
 ]

@@ -28,6 +28,7 @@ class CoreDataSeeder extends Seeder
         'address_types',
         'company_roles',
         'employee_types',
+        'business_functions',
         'resources',
         'email_templates',
         'tipoprodotto',
