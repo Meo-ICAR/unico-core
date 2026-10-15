@@ -63,6 +63,19 @@ return [
 
     'documents_disk' => env('UNICO_CORE_DOCUMENTS_DISK', 'documents'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Audit
+    |--------------------------------------------------------------------------
+    |
+    | `stamp_users`: scrive l'utente autenticato in `created_by`/`updated_by` dei documenti. Va spento nelle app i cui
+    | utenti non stanno nella tabella `users` del core (unicoagent): i loro id violerebbero le chiavi esterne.
+    |
+    */
+    'audit' => [
+        'stamp_users' => env('UNICO_CORE_STAMP_USERS', true),
+    ],
+
     'documents_root' => env('UNICO_CORE_DOCUMENTS_ROOT'),
 
     /*

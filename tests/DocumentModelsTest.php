@@ -165,6 +165,24 @@ class DocumentModelsTest extends TestCase
         $this->assertSame(9, (int) $fresh->updated_by);
     }
 
+    public function test_con_gli_audit_spenti_non_si_scrive_l_utente_autenticato(): void
+    {
+        // Un'app con utenti propri (non quelli del core) non deve scrivere i suoi id nelle chiavi esterne verso `users` del core.
+        config(['unico-core.audit.stamp_users' => false]);
+        CoreDatabase::$auth->userId = 424242;
+
+        try {
+            $document = $this->document($this->type());
+            $document->update(['name' => 'Rinominato']);
+
+            $fresh = $document->fresh();
+            $this->assertNull($fresh->created_by);
+            $this->assertNull($fresh->updated_by);
+        } finally {
+            config(['unico-core.audit.stamp_users' => true]);
+        }
+    }
+
     public function test_renew_creates_new_document_and_expires_the_old_one(): void
     {
         $type = $this->type();

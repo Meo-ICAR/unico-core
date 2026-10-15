@@ -82,10 +82,14 @@ class Document extends Model implements HasMedia
         });
     }
 
-    /** Compila gli utenti di creazione e modifica, se c'è un utente autenticato. */
+    /**
+     * Compila gli utenti di creazione e modifica, se c'è un utente autenticato.
+     * Un'app con utenti propri (non quelli della tabella `users` del core) spegne `unico-core.audit.stamp_users`:
+     * i suoi id non esistono nel core e violerebbero le chiavi esterne.
+     */
     protected function stampAudit(): void
     {
-        $userId = Auth::id();
+        $userId = config('unico-core.audit.stamp_users', true) ? Auth::id() : null;
 
         if ($userId === null) {
             return;
