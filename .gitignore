@@ -11,3 +11,4 @@ database/seeders/data/clientis.json
 database/seeders/data/branches.json
 database/seeders/data/clients.json
 database/seeders/data/pratiches.json
+..env.swp
