@@ -402,6 +402,9 @@ return [
     'openapi' => [
         'token' => env('OPENAPI_TOKEN'),
         'company_url' => env('OPENAPI_COMPANY_URL', 'https://company.openapi.com'),
+        // Credit score (GET {creditscore_url}/IT-creditscore-top/{codiceFiscale}): per ora la richiesta è simulata, senza chiamata.
+        'creditscore_url' => env('OPENAPI_CREDITSCORE_URL', 'https://test.risk.openapi.com'),
+        'creditscore_live' => (bool) env('OPENAPI_CREDITSCORE_LIVE', false),
         'timeout' => (int) env('OPENAPI_TIMEOUT', 30),
     ],
 

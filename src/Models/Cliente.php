@@ -62,6 +62,12 @@ class Cliente extends Model
         return $this->hasMany(ComplaintRegistry::class, 'bank_id');
     }
 
+    /** Documenti specifici di questo istituto (document_types.clienti_id). */
+    public function documentTypes(): HasMany
+    {
+        return $this->hasMany(DocumentType::class, 'clienti_id');
+    }
+
     public function pratiches(): HasMany
     {
         return $this->hasMany(Pratica::class, 'clienti_id');

@@ -87,16 +87,36 @@ class ChecklistPerfezionamentoSeeder extends Seeder
         'Documentazione risparmi (polizze, libretti postali, titoli, buoni)' => ['/risparmi|libretti|polizz|titoli|buoni/i'],
         "Partita IVA e iscrizione all'albo professionale" => ['/partita.?iva|albo/i'],
         'Informativa Privacy Compass' => ['/compass/i'],
+        'Centrale Rischi di società, soci e garanti' => ['/centrale.?rischi|\bcr\b/i'],
+        'Dichiarazione dei redditi 1' => ['/dichiarazion.*redditi|redditi|unico/i', 'DICHIARAZIONE_REDDITI'],
+        'Dichiarazione dei redditi 2' => ['/dichiarazion.*redditi|redditi|unico/i', 'DICHIARAZIONE_REDDITI'],
+        'Estratto conto trimestrale 1' => ['/estratto.?conto/i', 'ESTRATTO_CONTO'],
+        'Estratto conto trimestrale 2' => ['/estratto.?conto/i', 'ESTRATTO_CONTO'],
+        'Preventivi dei lavori di ristrutturazione' => ['/preventiv|lavori|ristruttur/i'],
     ];
+
+    /** Tipi rinominati: nome precedente => nome attuale (le istanze già in database restano collegate). */
+    private const RINOMINATI = [
+        'Modello OBISM' => 'Modello OBIS/M',
+        'Contratto di locazione' => 'Contratto di locazione o di acquisto',
+    ];
+
+    /** Prodotti aziendali: i task di stato (Inserita, ...) ricalcano quelli del leasing, non quelli retail. */
+    private const PRODOTTI_AZIENDALI = ['CHIROGRAFARIO', 'Microcredito'];
+
+    private const STATI_AZIENDALI = ['Inserita', 'ACCETTATO PREVENTIVO', 'Richiesta Istruttoria'];
+
+    /** Mutuo per ristrutturazione: stessi task del mutuo, più i preventivi dei lavori. */
+    public const MUTUO_RISTRUTTURAZIONE = 'Mutuo ristrutturazione';
 
     /** Tipi esistenti a cui si aggiunge il riconoscimento (regex e AI). */
     private const RICONOSCIMENTO = [
         'Visura camerale' => '/visura/i',
-        'Contratto di locazione' => '/locazione|acquisto|contratto/i',
+        'Contratto di locazione o di acquisto' => '/locazione|acquisto|contratto/i',
         'Busta paga' => '/busta|paga|cedolino/i',
         'Certificazione Unica (CU)' => '/\bcu\b|certificazione.?unica|cud/i',
         'Cedolino Pensione' => '/cedolino|pension/i',
-        'Modello OBISM' => '/obis/i',
+        'Modello OBIS/M' => '/obis/i',
         'F24 / Agenzia delle Entrate' => '/f24/i',
         'Estratto Conto Bancario' => '/estratto.?conto/i',
         'Modello 730 / Redditi' => '/730|redditi|unico/i',
@@ -127,6 +147,7 @@ class ChecklistPerfezionamentoSeeder extends Seeder
 
     public function run(): void
     {
+        $this->rinomina();
         $this->tipi();
         $this->banche();
         $this->togliDaiTaskDiStato();
@@ -138,6 +159,81 @@ class ChecklistPerfezionamentoSeeder extends Seeder
         foreach ($this->firma() as [$prodotto, $documenti]) {
             $this->task($prodotto.' · '.self::FASE_FIRMA, 'Modulistica da stampare e far firmare con OTP.', $prodotto, 'stato_pratica', self::FASE_FIRMA, $documenti, false);
         }
+
+        $this->allineaStatiAziendali();
+        $this->mutuoRistrutturazione();
+    }
+
+    private function rinomina(): void
+    {
+        foreach (self::RINOMINATI as $old => $new) {
+            if (! DocumentType::query()->where('name', $new)->exists()) {
+                DocumentType::query()->where('name', $old)->update(['name' => $new]);
+            }
+        }
+    }
+
+    /** I task di stato del chirografario e del microcredito (prodotti aziendali) copiano quelli del leasing: niente busta paga e CU né fascicolo retail. */
+    private function allineaStatiAziendali(): void
+    {
+        foreach (self::PRODOTTI_AZIENDALI as $prodotto) {
+            foreach (self::STATI_AZIENDALI as $stato) {
+                $origine = Task::query()->where('name', "LEASING · {$stato}")->first();
+                $destinazione = Task::query()->where('name', "{$prodotto} · {$stato}")->first();
+
+                if ($origine === null || $destinazione === null) {
+                    continue;
+                }
+
+                $this->copiaRequisiti($origine, $destinazione);
+            }
+        }
+    }
+
+    /** Task del mutuo per ristrutturazione: copia di quelli del mutuo, con in più i preventivi dei lavori nelle check list. */
+    private function mutuoRistrutturazione(): void
+    {
+        $preventivi = DocumentType::query()->where('name', 'Preventivi dei lavori di ristrutturazione')->value('id');
+
+        Task::query()->where('taskable', 'pratica')->where('trigger_field', 'tipo_prodotto')->where('trigger_value', 'Mutuo')->get()->each(function (Task $origine) use ($preventivi): void {
+            $name = str_replace(['Mutuo ·', 'Mutui ·'], [self::MUTUO_RISTRUTTURAZIONE.' ·', 'Mutui ristrutturazione ·'], $origine->name);
+
+            $destinazione = Task::query()->firstOrCreate(['name' => $name], [
+                'description' => $origine->description,
+                'taskable' => 'pratica',
+                'trigger_field' => 'tipo_prodotto',
+                'trigger_value' => self::MUTUO_RISTRUTTURAZIONE,
+                'trigger_state' => $origine->trigger_state,
+                'trigger_subfield' => $origine->trigger_subfield,
+                'trigger_subvalue' => $origine->trigger_subvalue,
+                'is_active' => true,
+            ]);
+
+            $this->copiaRequisiti($origine, $destinazione);
+
+            if ($preventivi !== null && $origine->trigger_subfield === 'employment_document_group') {
+                DocumentRequirement::query()->updateOrCreate(
+                    ['task_id' => $destinazione->getKey(), 'document_type_id' => $preventivi],
+                    ['is_required' => true, 'sort_order' => (int) $destinazione->documentRequirements()->max('sort_order') + 1],
+                );
+            }
+        });
+    }
+
+    /** I requisiti di $destinazione diventano quelli di $origine (stessi documenti, stesso ordine). */
+    private function copiaRequisiti(Task $origine, Task $destinazione): void
+    {
+        $ids = [];
+
+        foreach ($origine->documentRequirements as $requisito) {
+            $ids[] = $requisito->document_type_id;
+            DocumentRequirement::query()->updateOrCreate(
+                ['task_id' => $destinazione->getKey(), 'document_type_id' => $requisito->document_type_id],
+                ['is_required' => $requisito->is_required, 'sort_order' => $requisito->sort_order],
+            );
+        }
+
+        DocumentRequirement::query()->where('task_id', $destinazione->getKey())->whereNotIn('document_type_id', $ids)->delete();
     }
 
     private function tipi(): void
@@ -213,7 +309,7 @@ class ChecklistPerfezionamentoSeeder extends Seeder
         $cedolini = array_map(fn (string $name): array => [$name, true], self::CEDOLINI);
 
         // Cessione e delega
-        $cqPensionati = [...$base, [self::IBAN, true], ['Modello OBISM', false], ['Cedolino Pensione', false], ['Certificazione Unica (CU)', true]];
+        $cqPensionati = [...$base, [self::IBAN, true], ['Modello OBIS/M', false], ['Cedolino Pensione', false], ['Certificazione Unica (CU)', true]];
         $cqPrivati = [...$base, [self::IBAN, true], ...$buste(2), ['Certificazione Unica (CU)', true], ['Certificato di stipendio e quota cedibile', false], ['Delega richiesta allegati statali', false], ['Estratto conto fondo pensione', false]];
         $cqPubblici = [...$base, ...$buste(2), ['Certificazione Unica (CU)', true]];
 
@@ -221,7 +317,14 @@ class ChecklistPerfezionamentoSeeder extends Seeder
         $famiglia = [['Stato di famiglia', true], ['Stato libero o certificato di matrimonio con annotazioni', true], ['Documentazione separazione/divorzio con condizioni economiche', false]];
         $coda = [['Estratto Conto Bancario', true], ['Lista movimenti aggiornata', true], ['Documentazione risparmi (polizze, libretti postali, titoli, buoni)', false]];
         $mutuiDipendenti = [...$base, ...$famiglia, ...$cu2, ...$buste(3), ['Estratto contributivo', true], ...$coda];
-        $mutuiPensionati = [...$base, ...$famiglia, ...$cu2, ...$cedolini, ['Modello OBISM', true], ...$coda];
+        $mutuiPensionati = [...$base, ...$famiglia, ...$cu2, ...$cedolini, ['Modello OBIS/M', true], ...$coda];
+        $mutuiAutonomi = [
+            ...$base, ...$famiglia,
+            ['Dichiarazione dei redditi 1', true], ['Dichiarazione dei redditi 2', true], ['F24 / Agenzia delle Entrate', true],
+            ['Estratto contributivo', true], ['Visura camerale', true], ["Partita IVA e iscrizione all'albo professionale", false],
+            ['Estratto conto trimestrale 1', true], ['Estratto conto trimestrale 2', true],
+            ['Lista movimenti aggiornata', true], ['Documentazione risparmi (polizze, libretti postali, titoli, buoni)', false],
+        ];
 
         // Prestito personale
         $prestitoDipendenti = [...$base, ...$buste(2)];
@@ -249,6 +352,7 @@ class ChecklistPerfezionamentoSeeder extends Seeder
             ['Check list Mutui · pubblici', 'Mutuo', 'pubblici', $mutuiDipendenti],
             ['Check list Mutui · parapubblici', 'Mutuo', 'parapubblici', $mutuiDipendenti],
             ['Check list Mutui · pensionati', 'Mutuo', 'pensionati', $mutuiPensionati],
+            ['Check list Mutui · autonomi', 'Mutuo', 'autonomi', $mutuiAutonomi],
             ['Check list Prestito personale · pensionati', 'Prestito', 'pensionati', $prestitoPensionati],
             ['Check list Prestito personale · privati', 'Prestito', 'privati', $prestitoDipendenti],
             ['Check list Prestito personale · pubblici', 'Prestito', 'pubblici', $prestitoDipendenti],
@@ -257,14 +361,14 @@ class ChecklistPerfezionamentoSeeder extends Seeder
             ['Check list Corporate · Mutuo chirografario', 'CHIROGRAFARIO', null, $corporate('Prospetto degli affidamenti bancari')],
             ['Check list Corporate · Microcredito', 'Microcredito', null, [
                 ['Visura camerale', true], [self::ID, true], ['Secondo documento di riconoscimento (patente o passaporto)', true], [self::CF, true],
-                ['Modello DM10', true], ['Centrale Rischi ultimi 36 mesi', true],
+                ['Modello DM10', true], ['Centrale Rischi di società, soci e garanti', true],
                 ['Bilancio 2024 depositato', true], ['Bilancio 2025 depositato', true], ['Ricevuta di invio telematico del bilancio', true],
                 ['Situazione contabile provvisoria', true],
                 ['Dichiarazione dei redditi (ditte individuali e società di persone)', false],
                 ['Registro dei corrispettivi o delle fatture attive', true],
                 ['Estratto Conto Bancario', true], ['Lista movimenti aggiornata', true],
                 ['Documentazione bancaria dei soci e dei garanti', true],
-                ['Contratto di locazione', true], ["Documentazione fotografica dell'attività", true],
+                ['Contratto di locazione o di acquisto', true], ["Documentazione fotografica dell'attività", true],
                 ['Preventivi firmati', true],
             ]],
         ];

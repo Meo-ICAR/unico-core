@@ -68,6 +68,11 @@ class Pratica extends Model
         return $this->belongsTo(TipoProdotto::class, 'tipoprodotto_id');
     }
 
+    public function immobili(): HasMany
+    {
+        return $this->hasMany(PraticaImmobile::class, 'pratica_id');
+    }
+
     public function praticaClients(): HasMany
     {
         return $this->hasMany(PraticaClient::class, 'pratica_id');
