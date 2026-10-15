@@ -47,6 +47,12 @@ class Pratica extends Model
         return $this->belongsTo(Company::class, 'company_id');
     }
 
+    /** Istruttore che segue la pratica. */
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'employee_id');
+    }
+
     public function fornitori(): BelongsTo
     {
         return $this->belongsTo(Fornitore::class, 'fornitori_id');

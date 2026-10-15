@@ -31,4 +31,10 @@ class PraticaStatusHistory extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    /** Dipendente collegato all'utente che ha cambiato lo stato. */
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'user_id', 'user_id');
+    }
 }
