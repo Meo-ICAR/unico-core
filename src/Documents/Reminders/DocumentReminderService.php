@@ -45,8 +45,7 @@ class DocumentReminderService
                         ->whereNotIn('status', [DocumentStatus::REJECTED->value, DocumentStatus::NA->value])
                         ->where(fn (Builder $q) => $q->whereNull('last_sent_at')->orWhere('last_sent_at', '<', now()->subDays($resendAfter)));
                 })
-                    ->orWhere('status', DocumentStatus::PENDING->value)
-                    ->orWhere('status', DocumentStatus::REJECTED->value)
+                    ->orWhereIn('status', [DocumentStatus::PENDING->value, DocumentStatus::REJECTED->value, DocumentStatus::ANOMALY->value, DocumentStatus::SUPPLEMENTARY->value])
                     ->orWhere(function (Builder $anomalies) {
                         // Anomalie dall'ultima verifica del pipeline (document_analyses) oppure, per le app che non lo usano ancora,
                         // dai metadati del documento (`metadata.verifica.anomalie`).

@@ -27,7 +27,8 @@ return new class extends Migration
             $table->string('catasto_categoria', 10)->nullable()->comment('Categoria catastale (A/2, C/6, ...)');
             $table->string('stato_occupazione', 20)->nullable()->comment('libero | locato | occupato');
             $table->text('notes')->nullable()->comment('Note');
-            $table->timestamps();
+            $table->timestamp('created_at')->nullable()->comment('Data e ora di creazione del record');
+            $table->timestamp('updated_at')->nullable()->comment('Data e ora dell\'ultima modifica del record');
             $table->comment('Immobili oggetto o garanzia di una pratica di mutuo; l\'indirizzo è un address di tipo Località');
         });
     }

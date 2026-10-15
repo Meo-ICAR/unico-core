@@ -34,6 +34,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Unico\Core\Enums\DocumentStatus;
 use Unico\Core\Enums\SignatureRequestStatus;
+use Unico\Core\Filament\Actions\DocumentOutcomeAction;
 use Unico\Core\Filament\Actions\RetrySharePointUploadAction;
 use Unico\Core\Filament\Actions\SendForSignatureAction;
 use Unico\Core\Filament\Concerns\HasRelationPlanAccess;
@@ -413,6 +414,7 @@ class DocumentsRelationManager extends RelationManager
             ->filters($filters)
             ->headerActions($headerActions)
             ->recordActions([
+                DocumentOutcomeAction::make(),
                 EditAction::make(),
                 RetrySharePointUploadAction::make(),
                 Action::make('refreshSignature')
@@ -530,6 +532,7 @@ class DocumentsRelationManager extends RelationManager
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    DocumentOutcomeAction::bulk(),
                     BulkAction::make('setEmittedAt')
                         ->label('Imposta Data Emissione')
                         ->icon('heroicon-o-calendar')

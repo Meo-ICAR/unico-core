@@ -37,7 +37,7 @@ class PracticeTaskDocuments
 
         return $task === null
             ? collect()
-            : $task->documentRequirements()->with('documentType')->orderBy('sort_order')->get();
+            : $task->requisitiEffettivi();
     }
 
     /**
@@ -56,10 +56,7 @@ class PracticeTaskDocuments
             return collect();
         }
 
-        return $task->documentRequirements()
-            ->with('documentType')
-            ->orderBy('sort_order')
-            ->get()
+        return $task->requisitiEffettivi()
             ->filter(fn (DocumentRequirement $requirement): bool => $this->appliesToBank($requirement, $bankId))
             ->values();
     }
@@ -81,8 +78,7 @@ class PracticeTaskDocuments
         $tasks = Task::query()
             ->where('taskable', 'pratica')
             ->where('is_active', true)
-            ->where('trigger_field', 'tipo_prodotto')
-            ->where('trigger_value', $productName)
+            ->delProdotto($productName)
             ->where(function ($query) use ($group): void {
                 $query->where(fn ($query) => $query->where('trigger_subfield', 'employment_document_group')->where('trigger_subvalue', $group))
                     ->orWhere(fn ($query) => $query->whereNull('trigger_subfield')->where('name', 'like', 'Check list%'));
@@ -90,7 +86,7 @@ class PracticeTaskDocuments
             ->get();
 
         return $tasks
-            ->flatMap(fn (Task $task) => $task->documentRequirements()->with('documentType')->orderBy('sort_order')->get())
+            ->flatMap(fn (Task $task) => $task->requisitiEffettivi())
             ->filter(fn (DocumentRequirement $requirement): bool => $this->appliesToBank($requirement, $bankId))
             ->values();
     }
@@ -177,8 +173,7 @@ class PracticeTaskDocuments
         return Task::query()
             ->where('taskable', 'pratica')
             ->where('is_active', true)
-            ->where('trigger_field', 'tipo_prodotto')
-            ->where('trigger_value', $productName)
+            ->delProdotto($productName)
             ->where('trigger_subfield', 'stato_pratica')
             ->where('trigger_subvalue', $statusCode)
             ->first();

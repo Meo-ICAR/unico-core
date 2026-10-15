@@ -66,8 +66,7 @@ class BankDocumentRequirements
         return Task::query()
             ->where('taskable', 'pratica')
             ->where('is_active', true)
-            ->where('trigger_field', 'tipo_prodotto')
-            ->where('trigger_value', $prodotto)
+            ->delProdotto($prodotto)
             ->when(
                 $fase === self::FASCICOLO,
                 fn ($query) => $query->where('trigger_subfield', 'stato_pratica')->where('trigger_subvalue', 'FASCICOLO COMPLETO'),

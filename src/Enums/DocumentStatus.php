@@ -21,6 +21,8 @@ enum DocumentStatus: string implements HasColor, HasIcon, HasLabel
     case EXPIRED = 'scaduto';
     case UNREADABLE = 'illegibile';
     case REVOKED = 'revocato';
+    case ANOMALY = 'anomalo';
+    case SUPPLEMENTARY = 'integrativo';
 
     public function getLabel(): ?string
     {
@@ -28,12 +30,14 @@ enum DocumentStatus: string implements HasColor, HasIcon, HasLabel
             self::NA => 'N/A',
             self::PENDING => 'Richiesto',
             self::UPLOADED => 'Caricato',
-            self::APPROVED => 'Approvato',
+            self::APPROVED => 'OK',
             self::REJECTED => 'Respinto',
             self::PROVISIONAL => 'Provvisorio',
             self::EXPIRED => 'Scaduto',
             self::UNREADABLE => 'Illegibile',
             self::REVOKED => 'Revocato',
+            self::ANOMALY => 'Anomalo',
+            self::SUPPLEMENTARY => 'Integrativo',
         };
     }
 
@@ -41,8 +45,8 @@ enum DocumentStatus: string implements HasColor, HasIcon, HasLabel
     {
         return match ($this) {
             self::NA, self::REVOKED => 'gray',
-            self::PENDING => 'info',
-            self::UPLOADED, self::PROVISIONAL => 'warning',
+            self::PENDING, self::SUPPLEMENTARY => 'info',
+            self::UPLOADED, self::PROVISIONAL, self::ANOMALY => 'warning',
             self::APPROVED => 'success',
             self::REJECTED, self::EXPIRED, self::UNREADABLE => 'danger',
         };
@@ -56,9 +60,26 @@ enum DocumentStatus: string implements HasColor, HasIcon, HasLabel
             self::UPLOADED => 'heroicon-m-arrow-up-tray',
             self::APPROVED => 'heroicon-m-check-badge',
             self::PROVISIONAL => 'heroicon-m-clock',
-            self::EXPIRED => 'heroicon-m-exclamation-triangle',
+            self::EXPIRED, self::ANOMALY => 'heroicon-m-exclamation-triangle',
+            self::SUPPLEMENTARY => 'heroicon-m-plus-circle',
             self::REJECTED, self::UNREADABLE, self::REVOKED => 'heroicon-m-x-circle',
         };
+    }
+
+    /**
+     * Esiti che l'istruttoria assegna a un documento caricato: OK, Respinto, Anomalo, N/A, Integrativo (richiesto in più dalla banca).
+     *
+     * @return array<string, string>
+     */
+    public static function istruttoria(): array
+    {
+        return collect([self::APPROVED, self::REJECTED, self::ANOMALY, self::NA, self::SUPPLEMENTARY])->mapWithKeys(fn (self $s): array => [$s->value => $s->getLabel()])->all();
+    }
+
+    /** Documento che soddisfa la richiesta: caricato o provvisorio, già OK, o non applicabile. */
+    public function soddisfa(): bool
+    {
+        return in_array($this, [self::UPLOADED, self::PROVISIONAL, self::APPROVED, self::NA], true);
     }
 
     /**

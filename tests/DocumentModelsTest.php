@@ -50,7 +50,7 @@ class DocumentModelsTest extends TestCase
             $this->assertNotEmpty($status->getColor());
             $this->assertStringStartsWith('heroicon-', $status->getIcon());
         }
-        $this->assertSame(9, count(DocumentStatus::cases()));
+        $this->assertSame(11, count(DocumentStatus::cases()));
     }
 
     public function test_duration_units(): void

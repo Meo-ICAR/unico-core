@@ -8,6 +8,7 @@ use Unico\Core\Models\DocumentRequirement;
 use Unico\Core\Models\DocumentType;
 use Unico\Core\Models\Pratica;
 use Unico\Core\Models\Task;
+use Unico\Core\Models\TipoProdotto;
 
 /**
  * Check list documentali per fasi della pratica.
@@ -62,9 +63,9 @@ class ChecklistPerfezionamentoSeeder extends Seeder
         'Cedolino pensione 3' => ['/cedolino|pension/i', 'CEDOLINO_PENSIONE'],
         'IBAN (coordinate bancarie)' => ['/iban|coordinate/i'],
         'Estratto conto fondo pensione' => ['/fondo.?pension/i'],
-        'Bilancio 2024 depositato' => ['/bilancio.*2024|2024.*bilancio/i'],
-        'Bilancio 2025 depositato' => ['/bilancio.*2025|2025.*bilancio/i'],
-        'Bilancio provvisorio 2026' => ['/provvisori|bilancio.*2026/i'],
+        'Bilancio anno precedente depositato' => ['/bilancio/i', 'BILANCIO'],
+        'Bilancio anno corrente depositato' => ['/bilancio/i', 'BILANCIO'],
+        'Bilancio in corso provvisorio' => ['/provvisori|situazione/i'],
         'Ricevuta di invio telematico del bilancio' => ['/ricevuta.*(invio|telematic)|telematic/i'],
         'Verbale di approvazione del bilancio' => ['/verbale/i'],
         'Centrale Rischi ultimi 36 mesi' => ['/centrale.?rischi|\bcr\b/i'],
@@ -99,6 +100,9 @@ class ChecklistPerfezionamentoSeeder extends Seeder
     private const RINOMINATI = [
         'Modello OBISM' => 'Modello OBIS/M',
         'Contratto di locazione' => 'Contratto di locazione o di acquisto',
+        'Bilancio 2024 depositato' => 'Bilancio anno precedente depositato',
+        'Bilancio 2025 depositato' => 'Bilancio anno corrente depositato',
+        'Bilancio provvisorio 2026' => 'Bilancio in corso provvisorio',
     ];
 
     /** Prodotti aziendali: i task di stato (Inserita, ...) ricalcano quelli del leasing, non quelli retail. */
@@ -190,15 +194,19 @@ class ChecklistPerfezionamentoSeeder extends Seeder
         }
     }
 
-    /** Task del mutuo per ristrutturazione: copia di quelli del mutuo, con in più i preventivi dei lavori nelle check list. */
+    /**
+     * Task del mutuo per ristrutturazione: figli di quelli del mutuo (`parent_id`), quindi ne ereditano i documenti; le check list
+     * aggiungono solo i preventivi dei lavori.
+     */
     private function mutuoRistrutturazione(): void
     {
         $preventivi = DocumentType::query()->where('name', 'Preventivi dei lavori di ristrutturazione')->value('id');
+        $prodotto = TipoProdotto::query()->where('name', self::MUTUO_RISTRUTTURAZIONE)->value('id');
 
-        Task::query()->where('taskable', 'pratica')->where('trigger_field', 'tipo_prodotto')->where('trigger_value', 'Mutuo')->get()->each(function (Task $origine) use ($preventivi): void {
+        Task::query()->where('taskable', 'pratica')->delProdotto('Mutuo')->get()->each(function (Task $origine) use ($preventivi, $prodotto): void {
             $name = str_replace(['Mutuo ·', 'Mutui ·'], [self::MUTUO_RISTRUTTURAZIONE.' ·', 'Mutui ristrutturazione ·'], $origine->name);
 
-            $destinazione = Task::query()->firstOrCreate(['name' => $name], [
+            $figlio = Task::query()->firstOrCreate(['name' => $name], [
                 'description' => $origine->description,
                 'taskable' => 'pratica',
                 'trigger_field' => 'tipo_prodotto',
@@ -208,13 +216,16 @@ class ChecklistPerfezionamentoSeeder extends Seeder
                 'trigger_subvalue' => $origine->trigger_subvalue,
                 'is_active' => true,
             ]);
+            $figlio->forceFill(['parent_id' => $origine->getKey(), 'tipoprodotto_id' => $prodotto])->save();
 
-            $this->copiaRequisiti($origine, $destinazione);
+            // Eredita tutto dal mutuo: restano propri solo i documenti in più.
+            $propri = $origine->trigger_subfield === 'employment_document_group' && $preventivi !== null ? [$preventivi] : [];
+            DocumentRequirement::query()->where('task_id', $figlio->getKey())->whereNotIn('document_type_id', $propri)->delete();
 
-            if ($preventivi !== null && $origine->trigger_subfield === 'employment_document_group') {
+            foreach ($propri as $tipo) {
                 DocumentRequirement::query()->updateOrCreate(
-                    ['task_id' => $destinazione->getKey(), 'document_type_id' => $preventivi],
-                    ['is_required' => true, 'sort_order' => (int) $destinazione->documentRequirements()->max('sort_order') + 1],
+                    ['task_id' => $figlio->getKey(), 'document_type_id' => $tipo],
+                    ['is_required' => true, 'sort_order' => 100],
                 );
             }
         });
@@ -246,7 +257,8 @@ class ChecklistPerfezionamentoSeeder extends Seeder
                 'is_client' => true,
                 'nature' => 'incoming',
             ]);
-            $type->forceFill(['regex' => $type->regex ?: $regex, 'is_ai_check' => true, 'codegroup' => $codegroup ?? $type->codegroup])->save();
+            $rigenera = str_starts_with($name, 'Bilancio ');
+            $type->forceFill(['regex' => $rigenera ? $regex : ($type->regex ?: $regex), 'is_ai_check' => true, 'codegroup' => $codegroup ?? $type->codegroup])->save();
         }
 
         foreach (self::RICONOSCIMENTO as $name => $regex) {
@@ -333,9 +345,9 @@ class ChecklistPerfezionamentoSeeder extends Seeder
         // Corporate
         $corporate = fn (string $affidamenti): array => [
             ['Visura camerale', true], [self::ID, true], [self::CF, true],
-            ['Bilancio 2024 depositato', true], ['Bilancio 2025 depositato', true],
+            ['Bilancio anno precedente depositato', true], ['Bilancio anno corrente depositato', true],
             ['Ricevuta di invio telematico del bilancio', true], ['Verbale di approvazione del bilancio', true],
-            ['Bilancio provvisorio 2026', true], ['Centrale Rischi ultimi 36 mesi', true], [$affidamenti, true],
+            ['Bilancio in corso provvisorio', true], ['Centrale Rischi ultimi 36 mesi', true], [$affidamenti, true],
             ['Company profile / presentazione', true], ['Preventivi di spesa per investimenti', false],
             ['Elenco principali clienti e fornitori', true],
         ];
@@ -362,7 +374,7 @@ class ChecklistPerfezionamentoSeeder extends Seeder
             ['Check list Corporate · Microcredito', 'Microcredito', null, [
                 ['Visura camerale', true], [self::ID, true], ['Secondo documento di riconoscimento (patente o passaporto)', true], [self::CF, true],
                 ['Modello DM10', true], ['Centrale Rischi di società, soci e garanti', true],
-                ['Bilancio 2024 depositato', true], ['Bilancio 2025 depositato', true], ['Ricevuta di invio telematico del bilancio', true],
+                ['Bilancio anno precedente depositato', true], ['Bilancio anno corrente depositato', true], ['Ricevuta di invio telematico del bilancio', true],
                 ['Situazione contabile provvisoria', true],
                 ['Dichiarazione dei redditi (ditte individuali e società di persone)', false],
                 ['Registro dei corrispettivi o delle fatture attive', true],
@@ -403,6 +415,7 @@ class ChecklistPerfezionamentoSeeder extends Seeder
             'taskable' => 'pratica',
             'trigger_field' => 'tipo_prodotto',
             'trigger_value' => $prodotto,
+            'tipoprodotto_id' => TipoProdotto::query()->where('name', $prodotto)->value('id'),
             'trigger_subfield' => $subfield,
             'trigger_subvalue' => $subvalue,
             'is_active' => true,
