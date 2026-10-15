@@ -2,6 +2,7 @@
 
 namespace Unico\Core\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -26,6 +27,17 @@ class Task extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Task::class, 'parent_id');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class, 'company_id');
+    }
+
+    /** I task validi per una company: quelli senza company e quelli riservati a lei. */
+    public function scopeForCompany(Builder $query, ?int $companyId): Builder
+    {
+        return $query->where(fn (Builder $q) => $q->whereNull('company_id')->when($companyId, fn (Builder $q) => $q->orWhere('company_id', $companyId)));
     }
 
     public function children(): HasMany
