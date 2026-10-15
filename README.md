@@ -82,6 +82,23 @@ Il file si legge sempre da Spatie Media Library (`MediaDocumentFileSource`): Dri
 - `ScheduleSynchronizer` riscrive `document_schedules`; `expiryStatus()` e `expiredStatus()` danno conteggio e grado (`ok`, `regular`, `warning`, `alert`) per i controlli periodici di unicobpm.
 - Comandi: `unico-core:documents-schedule-sync`, `unico-core:documents-remind [--force] [--sync]`.
 
+## Pratiche: check list, documenti e stati
+
+- **Check list.** I documenti da chiedere per una pratica stanno nei `tasks` con `taskable = pratica` e trigger `tipo_prodotto` = nome del prodotto; i tipi richiesti sono in `document_requirements`.
+  - Fase 1, documenti da chiedere al cliente: un task «Check list …» per gruppo di tipologia lavorativa (`trigger_subfield = employment_document_group`) o, per i prodotti aziendali, un task unico.
+  - Fase 2, modulistica da stampare e firmare con OTP: il task di stato «… · FASCICOLO COMPLETO».
+- **Documenti numerati.** I documenti multipli sono numerati (Busta paga 1-3, CU 1-2, Dichiarazione dei redditi 1-2) e condividono un `codegroup`: un file si assegna al primo numero libero.
+- **Generazione.** `Seeders\ChecklistPerfezionamentoSeeder` le genera e si può rieseguire. I task di stato di chirografario e microcredito copiano quelli del leasing, e il mutuo ristrutturazione copia il mutuo con in più i preventivi dei lavori.
+- **Lettura.** `Documents\PracticeTaskDocuments` legge check list e fasi per prodotto, gruppo e banca.
+- **Documenti di una banca.** Un tipo con `document_types.clienti_id` vale solo per le pratiche di quell'istituto (`DocumentType::appliesToBank`). `Documents\BankDocumentRequirements` lo collega ai task di uno o più prodotti per la fase scelta, e ricava dai trigger per quali prodotti vale.
+- **Flag degli stati** (`pratica_stati`):
+  - `is_rejected`, `is_sended`, `is_approved` e `is_erogated` dicono quale data della pratica valorizzare al cambio di stato: `rejected_at`, `sended_at`, `approved_at` ed `erogated_at`;
+  - `is_suspended` segna le sospese.
+  - Gli storici vanno in `pratica_status_history`.
+- **Immobili dei mutui.** Stanno in `pratica_immobili` (`PraticaImmobile`, relazione `Pratica::immobili()`), con l'indirizzo in un `Address` di tipo «Località» e l'LTV calcolato con `ltv()`.
+- **Codice della banca.** `pratiches.codice_pratica_banca` è il codice assegnato dalla banca sul suo portale. `clientis.portal_url` è il portale dell'istituto.
+- **Credit score.** `Clients\OpenApiCreditScoreService` prepara `GET /IT-creditscore-top/{CF}` (`openapi.creditscore_url`). Per ora la chiamata è solo simulata; con `openapi.creditscore_live` attivo lancia un'eccezione finché la chiamata reale non c'è.
+
 ## Test
 
 `composer install && vendor/bin/phpunit`. I test usano un database MySQL/MariaDB vuoto (variabili `CORE_TEST_DB_HOST`, `CORE_TEST_DB_PORT`, `CORE_TEST_DB_DATABASE`, `CORE_TEST_DB_USERNAME`, `CORE_TEST_DB_PASSWORD`; default `unico_core_phpunit`, utente `unico`) e ne ricreano le tabelle a ogni avvio: non puntarli a un database con dati (la suite rifiuta di partire su `unico_core_test`, il database condiviso fra le app).
