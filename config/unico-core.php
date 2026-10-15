@@ -378,4 +378,18 @@ return [
         'keep_runs_days' => 30,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Openapi.it: anagrafica società da partita IVA
+    |--------------------------------------------------------------------------
+    | GET {company_url}/IT-advanced/{partitaIva} con Accept: application/json e Authorization: Bearer {token}.
+    | Il token sta in OPENAPI_TOKEN e non va scritto nel codice.
+    |
+    */
+    'openapi' => [
+        'token' => env('OPENAPI_TOKEN'),
+        'company_url' => env('OPENAPI_COMPANY_URL', 'https://company.openapi.com'),
+        'timeout' => (int) env('OPENAPI_TIMEOUT', 30),
+    ],
+
 ];
