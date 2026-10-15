@@ -20,6 +20,7 @@ class PraticaStato extends Model
     {
         return [
             'is_rejected' => 'boolean',
+            'is_suspended' => 'boolean',
             'is_sended' => 'boolean',
             'is_approved' => 'boolean',
             'is_erogated' => 'boolean',
