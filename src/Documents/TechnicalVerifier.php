@@ -59,12 +59,6 @@ class TechnicalVerifier
             $anomalies[] = DocumentAnomaly::Expired;
         }
 
-        $maxAge = $document->documentType?->max_age_days;
-
-        if ($maxAge !== null && $document->emitted_at !== null && $document->emitted_at->lt(now()->subDays($maxAge))) {
-            $anomalies[] = DocumentAnomaly::TooOld;
-        }
-
         $request = SignatureRequest::query()->where('document_id', $document->getKey())->latest('id')->first();
         $signature = $this->signature($document, $request, $usable ? $file : null);
 

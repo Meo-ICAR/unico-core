@@ -44,16 +44,21 @@ class DocumentWorkflowTest extends TestCase
         }
     }
 
-    public function test_un_documento_emesso_oltre_l_eta_massima_del_tipo_e_un_anomalia(): void
+    public function test_la_scadenza_si_calcola_dalla_durata_del_tipo_e_un_documento_scaduto_e_un_anomalia(): void
     {
-        $tipo = DocumentType::create(['name' => 'Visura camerale', 'code' => 'VC', 'max_age_days' => 90]);
+        $tipo = DocumentType::create(['name' => 'Visura camerale', 'code' => 'VC', 'duration' => 3, 'duration_unit' => 'months', 'is_monitored' => true]);
         $verifier = new TechnicalVerifier;
 
-        $vecchio = new Document(['document_type_id' => $tipo->id, 'emitted_at' => now()->subDays(120)]);
-        $recente = new Document(['document_type_id' => $tipo->id, 'emitted_at' => now()->subDays(30)]);
+        $vecchio = new Document(['document_type_id' => $tipo->id, 'emitted_at' => now()->subMonths(4)]);
+        $recente = new Document(['document_type_id' => $tipo->id, 'emitted_at' => now()->subMonth()]);
+        $vecchio->setRelation('documentType', $tipo);
+        $recente->setRelation('documentType', $tipo);
 
-        $this->assertContains(DocumentAnomaly::TooOld->value, $verifier->check($vecchio, null)['anomalies']);
-        $this->assertNotContains(DocumentAnomaly::TooOld->value, $verifier->check($recente, null)['anomalies']);
+        $vecchio->expires_at = $tipo->durationCalculate($vecchio->emitted_at);
+        $recente->expires_at = $tipo->durationCalculate($recente->emitted_at);
+
+        $this->assertContains(DocumentAnomaly::Expired->value, $verifier->check($vecchio, null)['anomalies']);
+        $this->assertNotContains(DocumentAnomaly::Expired->value, $verifier->check($recente, null)['anomalies']);
     }
 
     public function test_un_task_figlio_eredita_i_documenti_del_padre_e_aggiunge_i_propri(): void

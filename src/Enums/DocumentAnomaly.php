@@ -11,7 +11,6 @@ enum DocumentAnomaly: string
     case Expired = 'expired';
     case SignatureMissing = 'signature_missing';
     case SignatureInvalid = 'signature_invalid';
-    case TooOld = 'too_old';
 
     public function label(): string
     {
@@ -22,7 +21,6 @@ enum DocumentAnomaly: string
             self::Expired => 'Documento scaduto',
             self::SignatureMissing => 'Firma mancante o in attesa',
             self::SignatureInvalid => 'Firma non completata da tutti i firmatari',
-            self::TooOld => 'Documento emesso troppo tempo fa',
         };
     }
 }
