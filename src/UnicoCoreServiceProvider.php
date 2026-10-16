@@ -67,6 +67,13 @@ class UnicoCoreServiceProvider extends ServiceProvider
 
         // Analisi documenti: ogni pezzo è sostituibile dall'app con un proprio bind.
         $this->app->bind(\Unico\Core\Pdf\PracticeModuleData::class, fn ($app) => new \Unico\Core\Pdf\PracticeModuleData($app->tagged('unico-core.module-data-providers')));
+        // Documenti richiesti via API: i servizi di base sono qui, le app ne aggiungono o sostituiscono con il tag.
+        $this->app->singleton(\Unico\Core\Documents\Api\DocumentApiService::class, fn ($app) => new \Unico\Core\Documents\Api\DocumentApiService([
+            $app->make(\Unico\Core\Documents\Api\CompanyDataFetcher::class),
+            $app->make(\Unico\Core\Documents\Api\CreditScoreFetcher::class),
+            $app->make(\Unico\Core\Documents\Api\CadastreFetcher::class),
+            ...iterator_to_array($app->tagged('unico-core.document-api-fetchers'), false),
+        ]));
         $this->app->singleton(CheckRegistry::class);
         $this->app->singleton(\Unico\Core\Access\AccessChecker::class);
         $this->app->bindIf(DocumentFileSource::class, MediaDocumentFileSource::class);

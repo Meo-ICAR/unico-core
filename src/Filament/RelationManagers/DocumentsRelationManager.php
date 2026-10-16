@@ -35,6 +35,7 @@ use Illuminate\Support\Str;
 use Unico\Core\Enums\DocumentStatus;
 use Unico\Core\Enums\SignatureRequestStatus;
 use Unico\Core\Documents\PlicoArchive;
+use Unico\Core\Documents\Api\DocumentApiService;
 use Unico\Core\Filament\Actions\DocumentOutcomeAction;
 use Unico\Core\Filament\Actions\RetrySharePointUploadAction;
 use Unico\Core\Filament\Actions\SendForSignatureAction;
@@ -499,6 +500,22 @@ class DocumentsRelationManager extends RelationManager
                         }
 
                         Notification::make()->success()->title('Richiesta di firma annullata')->send();
+                    }),
+                Action::make('richiediApi')
+                    ->label('Richiedi via API')
+                    ->icon('heroicon-o-cloud-arrow-down')
+                    ->color('info')
+                    ->visible(fn (Document $record): bool => app(DocumentApiService::class)->supports($record->documentType))
+                    ->requiresConfirmation()
+                    ->modalHeading('Richiedi il documento via API')
+                    ->modalDescription(fn (Document $record): string => 'Il documento viene richiesto al servizio «'.(app(DocumentApiService::class)->services()[$record->documentType?->api_service] ?? '').'». Alcuni servizi sono a pagamento.')
+                    ->action(function (Document $record): void {
+                        $result = app(DocumentApiService::class)->request($record);
+                        $done = $result->ok && ! $result->simulated;
+                        $notification = Notification::make()->title($result->ok ? 'Richiesta API' : 'Richiesta API non riuscita')->body($result->message);
+
+                        $done ? $notification->success() : $notification->warning();
+                        $notification->send();
                     }),
                 Action::make('downloadDocument')
                     ->label('Scarica')
