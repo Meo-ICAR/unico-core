@@ -56,4 +56,24 @@ class TaskConditionsTest extends TestCase
 
         $this->assertSame([$ok->id], Task::applicabiliA($this->pratica([]))->pluck('id')->all());
     }
+
+    public function test_popola_il_task_con_i_documenti_del_subtask_senza_duplicare(): void
+    {
+        $comuni = Task::create(['name' => 'Documenti comuni', 'taskable' => 'pratica']);
+        $task = Task::create(['name' => 'Mutuo', 'taskable' => 'pratica']);
+        $informativa = \Unico\Core\Models\DocumentType::create(['name' => 'Informativa', 'code' => 'INF']);
+        $tegm = \Unico\Core\Models\DocumentType::create(['name' => 'TEGM', 'code' => 'TEGM']);
+        \Unico\Core\Models\DocumentRequirement::create(['task_id' => $comuni->id, 'document_type_id' => $informativa->id, 'sort_order' => 1, 'documentable' => 'client', 'client_roles' => ['richiedente']]);
+        \Unico\Core\Models\DocumentRequirement::create(['task_id' => $comuni->id, 'document_type_id' => $tegm->id, 'sort_order' => 2, 'is_required' => false]);
+        \Unico\Core\Models\DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $tegm->id, 'sort_order' => 1]);
+
+        $this->assertSame(1, $task->importRequirementsFrom($comuni));
+        $this->assertSame(0, $task->importRequirementsFrom($comuni));
+        $this->assertSame(0, $task->importRequirementsFrom($task));
+
+        $copiato = $task->documentRequirements()->where('document_type_id', $informativa->id)->firstOrFail();
+        $this->assertSame('client', $copiato->documentable);
+        $this->assertSame(['richiedente'], $copiato->client_roles);
+        $this->assertSame(2, $copiato->sort_order);
+    }
 }

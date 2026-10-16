@@ -178,6 +178,42 @@ class Task extends Model
         return is_numeric($companyId) ? (int) $companyId : null;
     }
 
+    /**
+     * Popola il task con i documenti richiesti di un altro task (tipicamente un subtask di documenti comuni): copia i suoi
+     * requisiti propri, con destinazione e ruoli, saltando i tipi documento già richiesti da questo task.
+     *
+     * @return int numero di requisiti aggiunti
+     */
+    public function importRequirementsFrom(self $source): int
+    {
+        if ($source->is($this)) {
+            return 0;
+        }
+
+        $present = $this->documentRequirements()->pluck('document_type_id')->all();
+        $order = (int) $this->documentRequirements()->max('sort_order');
+        $added = 0;
+
+        foreach ($source->documentRequirements()->orderBy('sort_order')->get() as $requirement) {
+            if (in_array($requirement->document_type_id, $present, true)) {
+                continue;
+            }
+
+            $this->documentRequirements()->create([
+                'document_type_id' => $requirement->document_type_id,
+                'is_required' => $requirement->is_required,
+                'sort_order' => ++$order,
+                'documentable' => $requirement->documentable,
+                'client_roles' => $requirement->client_roles,
+            ]);
+
+            $present[] = $requirement->document_type_id;
+            $added++;
+        }
+
+        return $added;
+    }
+
     public function tipoprodotto(): BelongsTo
     {
         return $this->belongsTo(TipoProdotto::class, 'tipoprodotto_id');
