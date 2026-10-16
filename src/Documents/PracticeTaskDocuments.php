@@ -144,28 +144,50 @@ class PracticeTaskDocuments
                 continue;
             }
 
-            $document = Document::query()->firstOrCreate(
-                [
-                    'documentable_type' => 'pratica',
-                    'documentable_id' => (string) $pratica->getKey(),
-                    'document_type_id' => $type->getKey(),
-                ],
-                [
-                    'company_id' => is_numeric($pratica->company_id) ? (int) $pratica->company_id : null,
-                    'name' => $type->name,
-                    'is_template' => (bool) $type->is_template,
-                    'is_monitored' => (bool) $type->is_monitored,
-                    'doctype' => $type->doctype,
-                    'status' => DocumentStatus::PENDING,
-                ],
-            );
+            foreach ($this->owners($requirement, $pratica) as [$documentableType, $documentableId]) {
+                $document = Document::query()->firstOrCreate(
+                    [
+                        'documentable_type' => $documentableType,
+                        'documentable_id' => $documentableId,
+                        'document_type_id' => $type->getKey(),
+                    ],
+                    [
+                        'company_id' => is_numeric($pratica->company_id) ? (int) $pratica->company_id : null,
+                        'name' => $type->name,
+                        'is_template' => (bool) $type->is_template,
+                        'is_monitored' => (bool) $type->is_monitored,
+                        'doctype' => $type->doctype,
+                        'status' => DocumentStatus::PENDING,
+                    ],
+                );
 
-            if ($document->wasRecentlyCreated) {
-                $created++;
+                if ($document->wasRecentlyCreated) {
+                    $created++;
+                }
             }
         }
 
         return $created;
+    }
+
+    /**
+     * I model su cui nasce il documento richiesto: la pratica, oppure i client della pratica (per `documentable` = client),
+     * tutti o solo quelli del ruolo indicato in `client_role`.
+     *
+     * @return array<int, array{0: string, 1: string}>
+     */
+    private function owners(DocumentRequirement $requirement, Pratica $pratica): array
+    {
+        if ($requirement->documentable !== 'client') {
+            return [['pratica', (string) $pratica->getKey()]];
+        }
+
+        return $pratica->praticaClients()
+            ->when($requirement->client_role !== null, fn ($query) => $query->where('role', $requirement->client_role))
+            ->pluck('client_id')
+            ->unique()
+            ->map(fn ($clientId): array => ['client', (string) $clientId])
+            ->all();
     }
 
     private function task(string $productName, string $statusCode): ?Task
