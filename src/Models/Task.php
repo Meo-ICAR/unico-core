@@ -243,16 +243,22 @@ class Task extends Model
         });
     }
 
+    /** Task da cui questo eredita i requisiti documentali (`inherits_task_id`); diverso dal padre (`parent_id`), che è la sequenza dei plichi. */
+    public function eredita(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'inherits_task_id');
+    }
+
     /**
-     * Requisiti del task con quelli ereditati dal task padre (`parent_id`): il figlio aggiunge o sostituisce i documenti
-     * (stesso tipo) del padre. Così il mutuo per ristrutturazione eredita la check list del mutuo senza copiarla.
+     * Requisiti del task con quelli ereditati dal task base (`inherits_task_id`): questo aggiunge o sostituisce i documenti
+     * (stesso tipo) del base. Così il mutuo per ristrutturazione eredita la check list del mutuo senza copiarla.
      *
      * @return Collection<int, DocumentRequirement>
      */
     public function requisitiEffettivi(): Collection
     {
         $propri = $this->documentRequirements()->with('documentType')->orderBy('sort_order')->get();
-        $ereditati = $this->parent?->requisitiEffettivi() ?? collect();
+        $ereditati = $this->eredita?->requisitiEffettivi() ?? collect();
 
         $ids = $propri->pluck('document_type_id');
 

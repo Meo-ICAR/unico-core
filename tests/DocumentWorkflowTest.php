@@ -70,7 +70,7 @@ class DocumentWorkflowTest extends TestCase
         $preventivi = DocumentType::create(['name' => 'Preventivi lavori', 'code' => 'PL']);
 
         $padre = Task::create(['name' => 'Check list Mutui', 'taskable' => 'pratica', 'trigger_field' => 'tipo_prodotto', 'trigger_value' => 'Mutuo', 'tipoprodotto_id' => $mutuo->id, 'is_active' => true]);
-        $figlio = Task::create(['name' => 'Check list Mutui ristrutturazione', 'taskable' => 'pratica', 'trigger_field' => 'tipo_prodotto', 'trigger_value' => 'Mutuo ristrutturazione', 'tipoprodotto_id' => $ristrutturazione->id, 'parent_id' => $padre->id, 'is_active' => true]);
+        $figlio = Task::create(['name' => 'Check list Mutui ristrutturazione', 'taskable' => 'pratica', 'trigger_field' => 'tipo_prodotto', 'trigger_value' => 'Mutuo ristrutturazione', 'tipoprodotto_id' => $ristrutturazione->id, 'inherits_task_id' => $padre->id, 'is_active' => true]);
 
         DocumentRequirement::create(['task_id' => $padre->id, 'document_type_id' => $identita->id, 'is_required' => true, 'sort_order' => 1]);
         DocumentRequirement::create(['task_id' => $padre->id, 'document_type_id' => $buste->id, 'is_required' => true, 'sort_order' => 2]);

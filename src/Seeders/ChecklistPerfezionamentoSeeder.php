@@ -195,7 +195,7 @@ class ChecklistPerfezionamentoSeeder extends Seeder
     }
 
     /**
-     * Task del mutuo per ristrutturazione: figli di quelli del mutuo (`parent_id`), quindi ne ereditano i documenti; le check list
+     * Task del mutuo per ristrutturazione: eredi di quelli del mutuo (`inherits_task_id`), quindi ne ereditano i documenti; le check list
      * aggiungono solo i preventivi dei lavori.
      */
     private function mutuoRistrutturazione(): void
@@ -216,7 +216,7 @@ class ChecklistPerfezionamentoSeeder extends Seeder
                 'trigger_subvalue' => $origine->trigger_subvalue,
                 'is_active' => true,
             ]);
-            $figlio->forceFill(['parent_id' => $origine->getKey(), 'tipoprodotto_id' => $prodotto])->save();
+            $figlio->forceFill(['inherits_task_id' => $origine->getKey(), 'tipoprodotto_id' => $prodotto])->save();
 
             // Eredita tutto dal mutuo: restano propri solo i documenti in più.
             $propri = $origine->trigger_subfield === 'employment_document_group' && $preventivi !== null ? [$preventivi] : [];
