@@ -2,6 +2,7 @@
 
 namespace Unico\Core\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -95,6 +96,12 @@ class Pratica extends Model
     public function praticaClients(): HasMany
     {
         return $this->hasMany(PraticaClient::class, 'pratica_id');
+    }
+
+    /** Pratiche con cambi di stato non fatti dall'istruttore e di cui non ha ancora preso visione. */
+    public function scopeConStatiDaVisionare(Builder $query): Builder
+    {
+        return $query->whereExists(PraticaStatusHistory::query()->daVisionare()->whereColumn('pratica_status_history.pratica_id', 'pratiches.id'));
     }
 
     public function praticaStatusHistory(): HasMany
