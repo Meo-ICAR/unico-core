@@ -19,6 +19,7 @@ class DocumentRequirement extends Model
     {
         return [
             'is_required' => 'boolean',
+            'client_roles' => 'array',
         ];
     }
 
@@ -44,15 +45,21 @@ class DocumentRequirement extends Model
 
     /**
      * I model su cui nasce il documento richiesto per il record: il record stesso, oppure — per `documentable` = client su una
-     * pratica — i client della pratica, tutti o solo quelli del ruolo indicato in `client_role`.
+     * pratica — i client della pratica con uno dei ruoli in `client_roles` (nullo = tutti) che sono del tipo del documento:
+     * persona fisica o giuridica secondo `document_types.is_person`.
      *
      * @return array<int, array{0: string, 1: string}> coppie alias/id del proprietario
      */
     public function ownersFor(Model $record, string $recordAlias): array
     {
         if ($this->documentable === 'client' && $record instanceof Pratica) {
+            $isPerson = $this->documentType?->is_person;
+
             return $record->praticaClients()
-                ->when($this->client_role !== null, fn ($query) => $query->where('role', $this->client_role))
+                ->when(filled($this->client_roles), fn ($query) => $query->whereIn('role', $this->client_roles))
+                ->with('client')
+                ->get()
+                ->filter(fn (PraticaClient $link): bool => $link->client !== null && ($isPerson === null || (bool) $link->client->is_person === (bool) $isPerson))
                 ->pluck('client_id')
                 ->unique()
                 ->map(fn ($clientId): array => ['client', (string) $clientId])
