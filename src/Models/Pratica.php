@@ -22,6 +22,8 @@ class Pratica extends Model
             'data_inserimento_pratica' => 'date',
             'rata' => 'decimal:2',
             'erogato' => 'decimal:2',
+            'presa_in_carico_at' => 'date',
+            'lavorazione_at' => 'date',
             'sended_at' => 'date',
             'approved_at' => 'date',
             'erogated_at' => 'date',
