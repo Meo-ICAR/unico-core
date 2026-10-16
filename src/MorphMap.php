@@ -47,4 +47,25 @@ final class MorphMap
             'website' => Models\Website::class,
         ];
     }
+
+    /**
+     * L'alias di un modello anche quando è una sottoclasse di quella registrata (es. `App\Models\Pratica` che estende la classe
+     * del core): `Relation::getMorphAlias()` conosce solo la classe esatta.
+     */
+    public static function aliasOf(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        $alias = \Illuminate\Database\Eloquent\Relations\Relation::getMorphAlias($record::class);
+
+        if ($alias !== $record::class) {
+            return $alias;
+        }
+
+        foreach (array_merge(self::all(), \Illuminate\Database\Eloquent\Relations\Relation::morphMap()) as $name => $class) {
+            if ($record instanceof $class) {
+                return $name;
+            }
+        }
+
+        return $record->getMorphClass();
+    }
 }

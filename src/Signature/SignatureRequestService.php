@@ -355,7 +355,7 @@ class SignatureRequestService
 
         $this->storeSigned($document, $pdf, (Str::slug((string) $document->name) ?: 'documento').'-firmato.pdf');
 
-        $document->forceFill(['is_signed' => true, 'signed_at' => $signedAt]);
+        $document->forceFill(['is_signed' => true, 'signed_at' => $signedAt] + $this->signedBy($request, $document));
         // Il firmato sostituisce l'originale anche sul cloud: un documento già sincronizzato torna da caricare.
         if ($document->sync_status === SyncStatus::SYNCED->value) {
             $document->sync_status = SyncStatus::LOCAL->value;
@@ -364,6 +364,25 @@ class SignatureRequestService
         $request->forceFill(['status' => SignatureRequestStatus::Signed, 'signed_at' => $signedAt, 'failure_reason' => null])->save();
 
         event(new SignatureCompleted($request, $document));
+    }
+
+    /**
+     * Chi ha firmato, come alias MorphMap: il firmatario della richiesta (client, agent → fornitore, user), preferendo quello
+     * previsto dal tipo documento (`signer_model`). Vuoto se i firmatari sono inseriti a mano.
+     *
+     * @return array{signed_by_type?: string, signed_by_id?: string}
+     */
+    private function signedBy(SignatureRequest $request, Document $document): array
+    {
+        $aliases = ['client' => 'client', 'agent' => 'fornitore', 'user' => 'user'];
+        $expected = $document->documentType?->signer_model;
+
+        $signer = $request->signatureRequestSigners
+            ->filter(fn ($signer): bool => isset($aliases[$signer->signer_type]) && filled($signer->signer_ref))
+            ->sortBy(fn ($signer): int => ($aliases[$signer->signer_type] ?? null) === $expected ? 0 : 1)
+            ->first();
+
+        return $signer === null ? [] : ['signed_by_type' => $aliases[$signer->signer_type], 'signed_by_id' => (string) $signer->signer_ref];
     }
 
     /** Il PDF originale del documento (collection `documents`), o null se manca o non è un PDF. */

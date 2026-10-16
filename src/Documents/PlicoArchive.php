@@ -3,11 +3,11 @@
 namespace Unico\Core\Documents;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use RuntimeException;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\Task;
+use Unico\Core\MorphMap;
 use ZipArchive;
 
 /**
@@ -23,7 +23,7 @@ class PlicoArchive
      */
     public function documenti(Task $task, Model $record): Collection
     {
-        $alias = $task->taskable ?: Relation::getMorphAlias($record::class);
+        $alias = $task->taskable ?: MorphMap::aliasOf($record);
         $documenti = collect();
 
         foreach ($task->requisitiEffettivi() as $requirement) {

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\MorphMap;
 use Unico\Core\Enums\DocumentStatus;
 
 /** Plico documentale: definizione dei documenti richiesti (tabella `tasks`). Le attività di processo BPM stanno su `process_task`. */
@@ -96,13 +97,19 @@ class Task extends Model
     public static function applicabiliA(Model $record, ?int $companyId = null): Collection
     {
         return static::query()
-            ->where('taskable', Relation::getMorphAlias($record::class))
+            ->where('taskable', MorphMap::aliasOf($record))
             ->where('is_active', true)
             ->whereNull('parent_id')
             ->forCompany($companyId)
             ->get()
             ->filter(fn (self $task): bool => $task->matchesConditions($record))
             ->values();
+    }
+
+    /** I plichi attivi applicabili al record: nome atteso dal relation manager dei documenti. */
+    public static function getAvailableFor($record)
+    {
+        return static::applicabiliA($record);
     }
 
     /** Applica una condizione (`filled`, `empty`, `equals`) al campo del record. */
@@ -136,7 +143,7 @@ class Task extends Model
     public function generateDocumentsFor(Model $record, ?int $companyId = null, bool $debug = false): array
     {
         $companyId ??= $this->companyIdOf($record);
-        $alias = $this->taskable ?: Relation::getMorphAlias($record::class);
+        $alias = $this->taskable ?: MorphMap::aliasOf($record);
         $created = 0;
         $existing = 0;
 
@@ -161,8 +168,12 @@ class Task extends Model
             foreach ($requirement->ownersFor($record, $alias) as [$ownerType, $ownerId]) {
                 $document = Document::query()->firstOrCreate(
                     ['company_id' => $companyId, 'documentable_type' => $ownerType, 'documentable_id' => $ownerId, 'document_type_id' => $type->getKey()],
-                    $attributes + ['status' => DocumentStatus::PENDING->value],
+                    $attributes + ['status' => DocumentStatus::PENDING->value, 'document_requirement_id' => $requirement->getKey()],
                 );
+
+                if (! $document->wasRecentlyCreated && $document->document_requirement_id === null) {
+                    $document->forceFill(['document_requirement_id' => $requirement->getKey()])->save();
+                }
 
                 $document->wasRecentlyCreated ? $created++ : $existing++;
             }

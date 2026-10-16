@@ -5,6 +5,7 @@ namespace Unico\Core\Tests;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use PHPUnit\Framework\TestCase;
 use Unico\Core\Documents\PracticeTaskDocuments;
+use Unico\Core\Enums\DocumentStatus;
 use Unico\Core\Models\Client;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\DocumentRequirement;
@@ -121,5 +122,47 @@ class PracticeClientDocumentsTest extends TestCase
         $this->assertSame(0, (new PracticeTaskDocuments)->attachChecklist($pratica, 'privati'));
         $this->assertSame([$busta->id], Document::query()->where('documentable_type', 'pratica')->pluck('document_type_id')->all());
         $this->assertSame([$identita->id], Document::query()->where('documentable_type', 'client')->where('documentable_id', (string) $richiedente->id)->pluck('document_type_id')->all());
+    }
+
+    public function test_i_documenti_ricordano_il_requisito_del_plico_da_cui_nascono(): void
+    {
+        $task = Task::create(['name' => 'Plico pratica', 'taskable' => 'pratica']);
+        $tipo = DocumentType::create(['name' => 'Contratto', 'code' => 'CT']);
+        $requisito = DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $tipo->id, 'phase' => 'invio_banca']);
+        $pratica = Pratica::create(['codice_pratica' => 'P-C5', 'upload_at' => now()]);
+
+        $task->generateDocumentsFor($pratica);
+
+        $documento = Document::query()->where('documentable_id', (string) $pratica->getKey())->firstOrFail();
+        $this->assertSame($requisito->id, $documento->document_requirement_id);
+        $this->assertSame('invio_banca', $documento->documentRequirement->phase);
+    }
+
+    public function test_l_approvazione_con_firma_la_da_solo_chi_e_indicato_dal_tipo_e_il_rinnovo_punta_alla_nuova_versione(): void
+    {
+        $tipo = DocumentType::create(['name' => 'Mandato', 'code' => 'MN', 'is_signed' => true, 'approver_model' => 'fornitore']);
+        $documento = Document::create(['documentable_type' => 'client', 'documentable_id' => '1', 'document_type_id' => $tipo->id, 'name' => 'Mandato', 'status' => DocumentStatus::PENDING, 'is_signed' => true]);
+        $agente = \Unico\Core\Models\Fornitore::create(['name' => 'Agente']);
+
+        $this->assertTrue($documento->fresh('documentType')->awaitsApproval());
+
+        try {
+            $documento->approve(Client::create(['name' => 'Rossi', 'is_person' => true]));
+            $this->fail('Un cliente non può approvare al posto dell\'agente.');
+        } catch (\InvalidArgumentException) {
+            $this->assertNull($documento->refresh()->approved_at);
+        }
+
+        $documento->approve($agente);
+        $documento->refresh();
+
+        $this->assertSame('fornitore', $documento->approved_by_type);
+        $this->assertSame((string) $agente->id, $documento->approved_by_id);
+        $this->assertNotNull($documento->approved_at);
+        $this->assertFalse($documento->awaitsApproval());
+
+        $nuovo = $documento->renew();
+        $this->assertSame($nuovo->id, $documento->refresh()->renewed_by);
+        $this->assertSame($nuovo->id, $documento->replaced_by_id);
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -58,6 +59,7 @@ class Document extends Model implements HasMedia
             'delivered_at' => 'datetime',
             'signed_at' => 'datetime',
             'verified_at' => 'datetime',
+            'approved_at' => 'datetime',
             'last_sent_at' => 'datetime',
             'ai_confidence_score' => 'integer',
             'reminders_count' => 'integer',
@@ -237,6 +239,60 @@ class Document extends Model implements HasMedia
         return $this->belongsTo(static::class, 'replaced_by_id');
     }
 
+    /** La nuova versione del documento (rinnovo). */
+    public function newVersion(): BelongsTo
+    {
+        return $this->belongsTo(static::class, 'renewed_by');
+    }
+
+    /** Il requisito del plico da cui nasce il documento: task, fase, ruoli, chi firma. */
+    public function documentRequirement(): BelongsTo
+    {
+        return $this->belongsTo(DocumentRequirement::class, 'document_requirement_id');
+    }
+
+    /** Chi ha firmato il documento. */
+    public function signedBy(): MorphTo
+    {
+        return $this->morphTo('signed_by', 'signed_by_type', 'signed_by_id');
+    }
+
+    /** Chi lo ha approvato con la sua firma (vedi `document_types.approver_model`). */
+    public function approvedBy(): MorphTo
+    {
+        return $this->morphTo('approved_by', 'approved_by_type', 'approved_by_id');
+    }
+
+    /** Il tipo prevede l'approvazione con firma e non è ancora stata data. */
+    public function awaitsApproval(): bool
+    {
+        return filled($this->documentType?->approver_model) && $this->is_signed && $this->approved_at === null;
+    }
+
+    /**
+     * Approvazione con firma di chi è indicato in `document_types.approver_model` (es. l'agente).
+     *
+     * @throws \InvalidArgumentException se l'approvatore non è del tipo previsto
+     */
+    public function approve(Model $approver): self
+    {
+        $expected = $this->documentType?->approver_model;
+
+        if (blank($expected)) {
+            throw new \InvalidArgumentException('Il tipo di documento non prevede un\'approvazione con firma.');
+        }
+
+        $alias = $approver->getMorphClass();
+
+        if ($alias !== $expected && ! ($approver instanceof (Relation::getMorphedModel($expected) ?? \stdClass::class))) {
+            throw new \InvalidArgumentException("Il documento va approvato da «{$expected}», non da «{$alias}».");
+        }
+
+        $this->forceFill(['approved_by_type' => $expected, 'approved_by_id' => (string) $approver->getKey(), 'approved_at' => now()])->save();
+
+        return $this;
+    }
+
     /** Il documento che questo ha sostituito. */
     public function replaces(): HasOne
     {
@@ -333,6 +389,7 @@ class Document extends Model implements HasMedia
                 'documentable_id' => $this->documentable_id,
                 'document_type_id' => $this->document_type_id,
                 'user_id' => $this->user_id,
+                'document_requirement_id' => $this->document_requirement_id,
                 'name' => $this->name,
                 'doctype' => $this->doctype,
                 'spatie_collection' => $this->spatie_collection ?? 'default',
@@ -351,7 +408,7 @@ class Document extends Model implements HasMedia
             $this->update([
                 'status' => DocumentStatus::EXPIRED,
                 'replaced_by_id' => $new->id,
-                'renewed_by' => Auth::id(),
+                'renewed_by' => $new->id,
                 'metadata' => array_merge($this->metadata ?? [], [
                     'replaced_at' => now()->toIso8601String(),
                 ]),

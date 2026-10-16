@@ -76,6 +76,8 @@ class DocumentApiService
         $document->forceFill([
             'status' => DocumentStatus::UPLOADED,
             'emitted_at' => today(),
+            'channel' => 'api',
+            'channel_ref' => $service,
             'metadata' => [...($document->metadata ?? []), 'api' => ['service' => $service, 'at' => now()->toIso8601String()] + $result->meta],
         ])->save();
     }

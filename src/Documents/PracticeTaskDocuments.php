@@ -170,8 +170,13 @@ class PracticeTaskDocuments
                         'is_monitored' => (bool) $type->is_monitored,
                         'doctype' => $type->doctype,
                         'status' => DocumentStatus::PENDING,
+                        'document_requirement_id' => $requirement->getKey(),
                     ],
                 );
+
+                if (! $document->wasRecentlyCreated && $document->document_requirement_id === null) {
+                    $document->forceFill(['document_requirement_id' => $requirement->getKey()])->save();
+                }
 
                 if ($document->wasRecentlyCreated) {
                     $created++;

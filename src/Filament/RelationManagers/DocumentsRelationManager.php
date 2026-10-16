@@ -89,6 +89,7 @@ class DocumentsRelationManager extends RelationManager
         foreach (array_filter([
             config('unico-core.documents.task_model'),
             class_exists(\App\Models\Task::class) ? \App\Models\Task::class : null,
+            \Unico\Core\Models\Task::class,
         ]) as $class) {
             if (is_string($class) && class_exists($class) && method_exists($class, 'getAvailableFor')) {
                 return $class;
@@ -96,6 +97,46 @@ class DocumentsRelationManager extends RelationManager
         }
 
         return null;
+    }
+
+    /**
+     * Sulla pratica si vedono anche i documenti dei suoi client nati dai requisiti dei plichi della pratica (es. identità del coobbligato):
+     * il query della relazione, che arriva solo ai documenti della pratica, viene sostituito.
+     *
+     * @return Builder<Document>|null
+     */
+    private function praticaQuery(Builder $query): ?Builder
+    {
+        $pratica = $this->getOwnerRecord();
+
+        if (! $pratica instanceof Pratica) {
+            return null;
+        }
+
+        $clients = $pratica->praticaClients()->pluck('client_id')->map(fn (mixed $id): string => (string) $id)->all();
+        $clientRequirements = DocumentRequirement::query()->toBase()
+            ->select('id')
+            ->where('documentable', 'client')
+            ->whereIn('task_id', \Unico\Core\Models\Task::query()->toBase()->select('id')->where('taskable', 'pratica'));
+
+        return $query->getModel()->newQuery()->where(fn (Builder $query) => $query
+            ->where(fn (Builder $own) => $own->where('documentable_type', 'pratica')->where('documentable_id', (string) $pratica->getKey()))
+            ->orWhere(fn (Builder $theirs) => $theirs->where('documentable_type', 'client')->whereIn('documentable_id', $clients)->whereIn('document_requirement_id', $clientRequirements)));
+    }
+
+    /** Di chi è il documento: la pratica oppure il client (con il ruolo che ha nella pratica). */
+    private function ownerLabel(Document $document): string
+    {
+        $pratica = $this->getOwnerRecord();
+
+        if ($document->documentable_type !== 'client' || ! $pratica instanceof Pratica) {
+            return 'Pratica';
+        }
+
+        $link = $pratica->praticaClients()->with('client')->where('client_id', $document->documentable_id)->first();
+        $name = trim(($link?->client?->first_name ?? '').' '.($link?->client?->name ?? ''));
+
+        return ($name !== '' ? $name : 'Cliente').($link?->role ? ' · '.$link->role : '');
     }
 
     /** L'azienda (tenant) ha anche i documenti aziendali interni: organigramma, verbali CdA. */
@@ -113,7 +154,7 @@ class DocumentsRelationManager extends RelationManager
     private function taskDocumentTypeIds(): \Illuminate\Database\Query\Builder
     {
         $owner = $this->getOwnerRecord();
-        $alias = method_exists($owner, 'getMorphClass') ? $owner->getMorphClass() : strtolower(class_basename($owner));
+        $alias = $owner instanceof Model ? \Unico\Core\MorphMap::aliasOf($owner) : strtolower(class_basename($owner));
 
         return DocumentRequirement::query()->toBase()
             ->select('document_type_id')
@@ -394,12 +435,18 @@ class DocumentsRelationManager extends RelationManager
         }
 
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->withoutGlobalScopes([
+            ->modifyQueryUsing(fn (Builder $query) => ($this->praticaQuery($query) ?? $query)->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ])->with(['signatureRequests', 'media', 'documentType.pdfModule']))
             ->defaultSort('expires_at', 'desc')
             ->recordTitleAttribute('name')
             ->columns([
+                TextColumn::make('intestatario')
+                    ->label('Intestatario')
+                    ->state(fn (Document $record): string => $this->ownerLabel($record))
+                    ->badge()
+                    ->color(fn (Document $record): string => $record->documentable_type === 'client' ? 'info' : 'gray')
+                    ->visible(fn (): bool => $this->getOwnerRecord() instanceof Pratica),
                 TextColumn::make('name')
                     ->label('Documento')
                     ->searchable()
@@ -508,6 +555,19 @@ class DocumentsRelationManager extends RelationManager
                         }
 
                         Notification::make()->success()->title('Richiesta di firma annullata')->send();
+                    }),
+                Action::make('approvaConFirma')
+                    ->label('Approva con firma')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->visible(fn (Document $record): bool => $record->awaitsApproval() && self::approverFor($record) !== null)
+                    ->requiresConfirmation()
+                    ->modalHeading('Approva il documento firmato')
+                    ->modalDescription('Confermi l\'approvazione con la tua firma? Resta registrata con data e ora.')
+                    ->action(function (Document $record): void {
+                        $record->approve(self::approverFor($record));
+
+                        Notification::make()->title('Documento approvato')->success()->send();
                     }),
                 Action::make('richiediApi')
                     ->label('Richiedi via API')
@@ -671,6 +731,24 @@ class DocumentsRelationManager extends RelationManager
         }
 
         return $owner instanceof Pratica ? app(PracticeModuleData::class)->for($owner) : null;
+    }
+
+    /** Chi può approvare il documento col proprio utente: l'agente, il dipendente o l'utente indicati da `approver_model`. */
+    private static function approverFor(Document $document): ?Model
+    {
+        $user = auth()->user();
+        $alias = $document->documentType?->approver_model;
+
+        if ($user === null || blank($alias)) {
+            return null;
+        }
+
+        return match ($alias) {
+            'fornitore' => \Unico\Core\Models\Fornitore::query()->where('user_id', $user->getAuthIdentifier())->first(),
+            'employee' => \Unico\Core\Models\Employee::query()->where('user_id', $user->getAuthIdentifier())->first(),
+            'user' => $user instanceof Model ? $user : null,
+            default => null,
+        };
     }
 
     /** Il tipo documento è richiesto da un plico del modello (taskable) o nasce su di lui da un plico di un altro modello. */
