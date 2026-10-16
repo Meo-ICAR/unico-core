@@ -23,6 +23,29 @@ class DocumentType extends Model
 {
     use SoftDeletes, UsesCoreConnection;
 
+    public const SOURCE_CLIENTE = 'cliente';
+
+    public const SOURCE_API = 'api';
+
+    public const SOURCE_TEMPLATE = 'template';
+
+    public const SOURCE_STAMPA = 'stampa';
+
+    /** @var array<string, string> come si ottiene il documento */
+    public const SOURCES = [
+        self::SOURCE_CLIENTE => 'Lo fornisce il cliente',
+        self::SOURCE_API => 'Richiesto via API',
+        self::SOURCE_TEMPLATE => 'Template inviato al cliente',
+        self::SOURCE_STAMPA => 'Stampato con i nostri dati',
+    ];
+
+    /** @var array<string, string> a quale cliente si applica */
+    public const CLIENT_SCOPES = [
+        'persona_fisica' => 'Persona fisica',
+        'persona_giuridica' => 'Persona giuridica',
+        'entrambi' => 'Entrambi',
+    ];
+
     protected $table = 'document_types';
 
     protected $guarded = ['id'];
@@ -38,11 +61,33 @@ class DocumentType extends Model
                 }
             }
 
-            // Chi firma implica che il documento va firmato.
+            // Chi firma implica che il documento va firmato; se va firmato e non si dice chi, firma il cliente.
             if (filled($type->signer_model)) {
                 $type->is_signed = true;
+            } elseif ($type->is_signed) {
+                $type->signer_model = 'client';
+            }
+
+            // Un servizio API rende il documento richiedibile via API; i vecchi flag seguono la fonte.
+            if (filled($type->api_service) && blank($type->source)) {
+                $type->source = self::SOURCE_API;
+            }
+
+            if (filled($type->source)) {
+                $type->is_template = in_array($type->source, [self::SOURCE_TEMPLATE, self::SOURCE_STAMPA], true);
+                $type->nature = $type->source === self::SOURCE_STAMPA ? 'template_fillable' : ($type->nature === 'compliance' ? 'compliance' : 'incoming');
             }
         });
+    }
+
+    /** Il documento si applica a un cliente persona fisica (true) o giuridica (false). */
+    public function appliesToPerson(bool $isPerson): bool
+    {
+        return match ($this->client_scope) {
+            'persona_fisica' => $isPerson,
+            'persona_giuridica' => ! $isPerson,
+            default => true,
+        };
     }
 
     protected function casts(): array
@@ -143,6 +188,12 @@ class DocumentType extends Model
     }
 
     /** Tipo che rinnova questo (es. il certificato nuovo che sostituisce quello in scadenza). */
+    /** Istituto a cui è legato il documento: se valorizzato serve solo sulle pratiche di quella banca. */
+    public function clienti(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class, 'clienti_id');
+    }
+
     public function renewedBy(): BelongsTo
     {
         return $this->belongsTo(self::class, 'renewed_by_id');

@@ -81,8 +81,8 @@ class PracticeClientDocumentsTest extends TestCase
     public function test_i_documenti_seguono_i_ruoli_indicati_e_il_tipo_persona_fisica_o_giuridica(): void
     {
         $task = Task::create(['name' => 'Mutuo', 'taskable' => 'pratica']);
-        $identita = DocumentType::create(['name' => 'Carta identità', 'code' => 'CI', 'is_person' => true]);
-        $visura = DocumentType::create(['name' => 'Visura', 'code' => 'VI', 'is_person' => false]);
+        $identita = DocumentType::create(['name' => 'Carta identità', 'code' => 'CI', 'client_scope' => 'persona_fisica']);
+        $visura = DocumentType::create(['name' => 'Visura', 'code' => 'VI', 'client_scope' => 'persona_giuridica']);
         DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $identita->id, 'documentable' => 'client', 'client_roles' => ['richiedente', 'coobbligato']]);
         DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $visura->id, 'documentable' => 'client']);
 
@@ -106,7 +106,7 @@ class PracticeClientDocumentsTest extends TestCase
     {
         $mutuo = TipoProdotto::create(['name' => 'Mutuo']);
         $task = Task::create(['name' => 'Check list Mutui · privati', 'taskable' => 'pratica', 'trigger_field' => 'tipo_prodotto', 'trigger_value' => 'Mutuo', 'tipoprodotto_id' => $mutuo->id, 'trigger_subfield' => 'employment_document_group', 'trigger_subvalue' => 'privati']);
-        $identita = DocumentType::create(['name' => 'Carta identità', 'code' => 'CI', 'is_person' => true]);
+        $identita = DocumentType::create(['name' => 'Carta identità', 'code' => 'CI', 'client_scope' => 'persona_fisica']);
         $busta = DocumentType::create(['name' => 'Busta paga', 'code' => 'BP']);
         DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $identita->id, 'documentable' => 'client', 'client_roles' => ['richiedente', 'coobbligato']]);
         DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $busta->id]);

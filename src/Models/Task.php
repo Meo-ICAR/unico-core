@@ -205,6 +205,7 @@ class Task extends Model
                 'sort_order' => ++$order,
                 'documentable' => $requirement->documentable,
                 'client_roles' => $requirement->client_roles,
+                'signer_model' => $requirement->signer_model,
             ]);
 
             $present[] = $requirement->document_type_id;

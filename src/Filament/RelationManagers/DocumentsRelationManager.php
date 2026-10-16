@@ -42,6 +42,7 @@ use Unico\Core\Filament\Actions\SendForSignatureAction;
 use Unico\Core\Filament\Concerns\HasRelationPlanAccess;
 use Unico\Core\Models\Client;
 use Unico\Core\Models\Document;
+use Unico\Core\Models\DocumentRequirement;
 use Unico\Core\Models\DocumentType;
 use Unico\Core\Models\Pratica;
 use Unico\Core\Models\SignatureRequest;
@@ -118,6 +119,22 @@ class DocumentsRelationManager extends RelationManager
     }
 
     /**
+     * Tipi documento dei plichi che arrivano a questo record: quelli dei task del suo modello (`tasks.taskable`) e quelli che i task
+     * di altri modelli fanno nascere su di lui (`document_requirements.documentable`, es. i documenti del cliente della pratica).
+     */
+    private function taskDocumentTypeIds(): \Illuminate\Database\Query\Builder
+    {
+        $owner = $this->getOwnerRecord();
+        $alias = method_exists($owner, 'getMorphClass') ? $owner->getMorphClass() : strtolower(class_basename($owner));
+
+        return DocumentRequirement::query()->toBase()
+            ->select('document_type_id')
+            ->where(fn ($query) => $query
+                ->whereIn('task_id', \Unico\Core\Models\Task::query()->toBase()->select('id')->where('taskable', $alias))
+                ->orWhere('documentable', $alias));
+    }
+
+    /**
      * @return array<int|string, string>
      */
     private function documentTypeOptions(bool $includeUsed = false, mixed $currentId = null, bool $excludeUsed = false): array
@@ -127,6 +144,7 @@ class DocumentsRelationManager extends RelationManager
         return DocumentType::query()
             ->when($flag !== null, fn (Builder $query) => $query->where(function (Builder $query) use ($flag, $includeUsed, $currentId): void {
                 $query->where($flag, true)
+                    ->orWhereIn('id', $this->taskDocumentTypeIds())
                     ->when($currentId, fn (Builder $query) => $query->orWhereKey($currentId))
                     ->when($includeUsed, fn (Builder $query) => $query->orWhereIn('id', $this->getOwnerRecord()->documents()->withTrashed()->select('document_type_id')));
             }))

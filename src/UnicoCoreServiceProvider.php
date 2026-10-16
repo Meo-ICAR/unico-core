@@ -130,7 +130,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
                 __DIR__.'/../config/unico-core.php' => config_path('unico-core.php'),
             ], 'unico-core-config');
 
-            $this->commands([MigrateCoreCommand::class, SeedExportCommand::class, MailAccountFromEnvCommand::class, PdfSignatureSlotsCommand::class, ImportAnagraficheCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class]);
+            $this->commands([MigrateCoreCommand::class, SeedExportCommand::class, MailAccountFromEnvCommand::class, PdfSignatureSlotsCommand::class, ImportAnagraficheCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class, \Unico\Core\Console\DocumentTypesCheckCommand::class]);
         }
     }
 
