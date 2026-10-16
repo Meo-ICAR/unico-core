@@ -144,7 +144,7 @@ class PracticeTaskDocuments
                 continue;
             }
 
-            foreach ($this->owners($requirement, $pratica) as [$documentableType, $documentableId]) {
+            foreach ($requirement->ownersFor($pratica, 'pratica') as [$documentableType, $documentableId]) {
                 $document = Document::query()->firstOrCreate(
                     [
                         'documentable_type' => $documentableType,
@@ -168,26 +168,6 @@ class PracticeTaskDocuments
         }
 
         return $created;
-    }
-
-    /**
-     * I model su cui nasce il documento richiesto: la pratica, oppure i client della pratica (per `documentable` = client),
-     * tutti o solo quelli del ruolo indicato in `client_role`.
-     *
-     * @return array<int, array{0: string, 1: string}>
-     */
-    private function owners(DocumentRequirement $requirement, Pratica $pratica): array
-    {
-        if ($requirement->documentable !== 'client') {
-            return [['pratica', (string) $pratica->getKey()]];
-        }
-
-        return $pratica->praticaClients()
-            ->when($requirement->client_role !== null, fn ($query) => $query->where('role', $requirement->client_role))
-            ->pluck('client_id')
-            ->unique()
-            ->map(fn ($clientId): array => ['client', (string) $clientId])
-            ->all();
     }
 
     private function task(string $productName, string $statusCode): ?Task

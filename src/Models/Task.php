@@ -5,10 +5,12 @@ namespace Unico\Core\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Enums\DocumentStatus;
 
 /** Plico documentale: definizione dei documenti richiesti (tabella `tasks`). Le attività di processo BPM stanno su `process_task`. */
 class Task extends Model
@@ -117,6 +119,63 @@ class Task extends Model
             'equals' => (string) $fieldValue === (string) $value,
             default => ! empty($fieldValue),
         };
+    }
+
+    /** I tipi documento richiesti dal task (solo i propri, senza quelli ereditati dal padre). */
+    public function documentTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(DocumentType::class, 'document_requirements', 'task_id', 'document_type_id')->withPivot('is_required')->withTimestamps();
+    }
+
+    /**
+     * Crea in stato «richiesto» i documenti del plico per il record (quelli già presenti restano): i requisiti effettivi del task,
+     * ciascuno sul proprio model (vedi {@see DocumentRequirement::ownersFor()}).
+     *
+     * @return array{created: int, existing: int}
+     */
+    public function generateDocumentsFor(Model $record, ?int $companyId = null, bool $debug = false): array
+    {
+        $companyId ??= $this->companyIdOf($record);
+        $alias = $this->taskable ?: Relation::getMorphAlias($record::class);
+        $created = 0;
+        $existing = 0;
+
+        foreach ($this->requisitiEffettivi() as $requirement) {
+            $type = $requirement->documentType;
+
+            if ($type === null) {
+                continue;
+            }
+
+            $attributes = $type->only(['name', 'description', 'emitted_by', 'is_template', 'is_signed', 'is_monitored', 'doctype']);
+
+            if ($debug) {
+                $emittedAt = now()->subDays(random_int(3, 400));
+                $attributes['emitted_at'] = $emittedAt;
+
+                if ($type->is_monitored) {
+                    $attributes['expires_at'] = $type->durationCalculate($emittedAt);
+                }
+            }
+
+            foreach ($requirement->ownersFor($record, $alias) as [$ownerType, $ownerId]) {
+                $document = Document::query()->firstOrCreate(
+                    ['company_id' => $companyId, 'documentable_type' => $ownerType, 'documentable_id' => $ownerId, 'document_type_id' => $type->getKey()],
+                    $attributes + ['status' => DocumentStatus::PENDING->value],
+                );
+
+                $document->wasRecentlyCreated ? $created++ : $existing++;
+            }
+        }
+
+        return ['created' => $created, 'existing' => $existing];
+    }
+
+    private function companyIdOf(Model $record): ?int
+    {
+        $companyId = $record instanceof Company ? $record->getKey() : $record->company_id;
+
+        return is_numeric($companyId) ? (int) $companyId : null;
     }
 
     public function tipoprodotto(): BelongsTo

@@ -54,4 +54,27 @@ class PracticeClientDocumentsTest extends TestCase
         $this->assertSame([$identita->id], $sul('client', $richiedente->id));
         $this->assertSame([$identita->id, $privacy->id], $sul('client', $garante->id));
     }
+
+    public function test_genera_documenti_crea_quelli_del_plico_sul_model_giusto_e_non_duplica(): void
+    {
+        $task = Task::create(['name' => 'Plico pratica', 'taskable' => 'pratica']);
+        $contratto = DocumentType::create(['name' => 'Contratto', 'code' => 'CT']);
+        $identita = DocumentType::create(['name' => 'Carta identità', 'code' => 'CI']);
+        DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $contratto->id]);
+        DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $identita->id, 'documentable' => 'client', 'client_role' => 'richiedente']);
+
+        $pratica = Pratica::create(['codice_pratica' => 'P-C2', 'upload_at' => now()]);
+        $richiedente = Client::create(['name' => 'Rossi', 'is_person' => true]);
+        $garante = Client::create(['name' => 'Bianchi', 'is_person' => true]);
+        PraticaClient::create(['pratica_id' => $pratica->getKey(), 'client_id' => $richiedente->id, 'role' => 'richiedente']);
+        PraticaClient::create(['pratica_id' => $pratica->getKey(), 'client_id' => $garante->id, 'role' => 'garante']);
+
+        $this->assertSame(['created' => 2, 'existing' => 0], $task->generateDocumentsFor($pratica));
+        $this->assertSame(['created' => 0, 'existing' => 2], $task->generateDocumentsFor($pratica));
+        $this->assertSame(0, Document::query()->where('documentable_type', 'client')->where('documentable_id', (string) $garante->id)->count());
+        $this->assertSame(
+            [$contratto->id, $identita->id],
+            (new \Unico\Core\Documents\PlicoArchive)->documenti($task, $pratica)->pluck('document_type_id')->sort()->values()->all(),
+        );
+    }
 }

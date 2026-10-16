@@ -34,6 +34,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Unico\Core\Enums\DocumentStatus;
 use Unico\Core\Enums\SignatureRequestStatus;
+use Unico\Core\Documents\PlicoArchive;
 use Unico\Core\Filament\Actions\DocumentOutcomeAction;
 use Unico\Core\Filament\Actions\RetrySharePointUploadAction;
 use Unico\Core\Filament\Actions\SendForSignatureAction;
@@ -280,6 +281,38 @@ class DocumentsRelationManager extends RelationManager
                         ->body($existing > 0 ? $existing.' erano già presenti.' : null)
                         ->success()
                         ->send();
+                }),
+            $this->plicoTaskClass() === null ? null : Action::make('scaricaPlico')
+                ->label('Scarica plico')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->modalHeading('Scarica i documenti del plico')
+                ->modalDescription('Un archivio ZIP con i file dei documenti dei plichi scelti, con un indice.')
+                ->modalSubmitActionLabel('Scarica')
+                ->mountUsing(function (Action $action): void {
+                    if ($this->applicablePlichi()->isEmpty()) {
+                        Notification::make()->title('Nessun plico applicabile')->body('Per lo stato attuale di questo record non ci sono plichi documentali.')->warning()->send();
+                        $action->cancel();
+                    }
+                })
+                ->schema(fn (): array => [
+                    CheckboxList::make('plichi')
+                        ->label('Plichi')
+                        ->options(fn (): array => $this->applicablePlichi()->mapWithKeys(fn (Model $task): array => [$task->getKey() => $task->name])->all())
+                        ->default(fn (): array => $this->applicablePlichi()->pluck('id')->all())
+                        ->required()
+                        ->columns(1),
+                ])
+                ->action(function (array $data) {
+                    try {
+                        $percorso = app(PlicoArchive::class)->zip($this->applicablePlichi()->whereIn('id', $data['plichi'] ?? []), $this->getOwnerRecord());
+                    } catch (\RuntimeException $e) {
+                        Notification::make()->title('Nessun file da scaricare')->body($e->getMessage())->warning()->send();
+
+                        return null;
+                    }
+
+                    return response()->download($percorso, 'plico-'.Str::slug((string) $this->getOwnerRecord()->getKey()).'.zip')->deleteFileAfterSend();
                 }),
             CreateAction::make()
                 ->mutateFormDataUsing(function (array $data): array {

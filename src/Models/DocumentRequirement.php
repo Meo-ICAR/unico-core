@@ -41,4 +41,25 @@ class DocumentRequirement extends Model
     {
         return $this->belongsTo(TipoProdottoSub::class, 'tipoprodotto_sub_id');
     }
+
+    /**
+     * I model su cui nasce il documento richiesto per il record: il record stesso, oppure — per `documentable` = client su una
+     * pratica — i client della pratica, tutti o solo quelli del ruolo indicato in `client_role`.
+     *
+     * @return array<int, array{0: string, 1: string}> coppie alias/id del proprietario
+     */
+    public function ownersFor(Model $record, string $recordAlias): array
+    {
+        if ($this->documentable === 'client' && $record instanceof Pratica) {
+            return $record->praticaClients()
+                ->when($this->client_role !== null, fn ($query) => $query->where('role', $this->client_role))
+                ->pluck('client_id')
+                ->unique()
+                ->map(fn ($clientId): array => ['client', (string) $clientId])
+                ->values()
+                ->all();
+        }
+
+        return [[$recordAlias, (string) $record->getKey()]];
+    }
 }
