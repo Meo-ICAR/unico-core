@@ -46,6 +46,7 @@ use Unico\Core\Filament\Actions\RetrySharePointUploadAction;
 use Unico\Core\Filament\Actions\SendForSignatureAction;
 use Unico\Core\Filament\Concerns\HasRelationPlanAccess;
 use Unico\Core\Models\Client;
+use Unico\Core\Models\Company;
 use Unico\Core\MorphMap;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\DocumentRequirement;
@@ -315,8 +316,13 @@ class DocumentsRelationManager extends RelationManager
                         ->visible(fn ($get) => $get('is_monitored'))
                         ->afterOrEqual('emitted_at'),
                     TextInput::make('docnumber')
-                        ->label('Protocollo documento')
+                        ->label('Numero / protocollo documento')
                         ->placeholder('es. CI-2024-001'),
+                    TextInput::make('emitted_by')
+                        ->label('Rilasciato da')
+                        ->default(fn ($get) => $get('document_type_id') ? DocumentType::find($get('document_type_id'))?->emitted_by : null)
+                        ->placeholder('es. Comune di Napoli')
+                        ->maxLength(255),
                 ]),
             Section::make('File Allegato')
                 ->columnSpanFull()
@@ -454,7 +460,7 @@ class DocumentsRelationManager extends RelationManager
                     $owner = $this->getOwnerRecord();
                     $data['company_id'] = is_numeric($owner->company_id ?? null)
                         ? (int) $owner->company_id
-                        : ($owner->getKey());
+                        : ($owner instanceof Company ? $owner->getKey() : null);
 
                     return $data;
                 })
