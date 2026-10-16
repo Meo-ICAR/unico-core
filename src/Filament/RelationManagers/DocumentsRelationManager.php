@@ -147,6 +147,10 @@ class DocumentsRelationManager extends RelationManager
             if ($task !== null) {
                 return collect([$task->load('documentTypes')]);
             }
+
+            if ($prodotto !== null) {
+                return collect();
+            }
         }
 
         return $taskClass::getAvailableFor($owner)->load('documentTypes')->values();
@@ -366,11 +370,15 @@ class DocumentsRelationManager extends RelationManager
                 ->modalHeading('Genera plico documentale')
                 ->modalDescription('Vengono creati, in stato "richiesto", i documenti dei plichi applicabili che non sono ancora presenti.')
                 ->modalSubmitActionLabel('Genera')
-                ->mountUsing(function (Action $action): void {
+                ->mountUsing(function (Action $action, Schema $schema): void {
                     if ($this->applicablePlichi()->isEmpty() && ! $this->getOwnerRecord() instanceof Pratica) {
                         Notification::make()->title('Nessun plico applicabile')->body('Per lo stato attuale di questo record non ci sono plichi documentali.')->warning()->send();
                         $action->cancel();
+
+                        return;
                     }
+
+                    $schema->fill(['plichi' => $this->applicablePlichi()->pluck('id')->all()]);
                 })
                 ->schema(fn (): array => [
                     CheckboxList::make('plichi')
@@ -412,11 +420,15 @@ class DocumentsRelationManager extends RelationManager
                 ->modalHeading('Scarica i documenti del plico')
                 ->modalDescription('Un archivio ZIP con i file dei documenti dei plichi scelti, con un indice.')
                 ->modalSubmitActionLabel('Scarica')
-                ->mountUsing(function (Action $action): void {
+                ->mountUsing(function (Action $action, Schema $schema): void {
                     if ($this->applicablePlichi()->isEmpty()) {
                         Notification::make()->title('Nessun plico applicabile')->body('Per lo stato attuale di questo record non ci sono plichi documentali.')->warning()->send();
                         $action->cancel();
+
+                        return;
                     }
+
+                    $schema->fill(['plichi' => $this->applicablePlichi()->pluck('id')->all()]);
                 })
                 ->schema(fn (): array => [
                     CheckboxList::make('plichi')
