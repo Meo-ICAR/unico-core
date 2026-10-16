@@ -17,6 +17,20 @@ class Client extends Model
 
     protected $guarded = ['id'];
 
+    /** Ogni nuova persona fisica nasce con i due indirizzi da compilare: residenza e domicilio. */
+    protected static function booted(): void
+    {
+        static::created(function (self $client): void {
+            if (! $client->is_person) {
+                return;
+            }
+
+            foreach (AddressType::query()->whereIn('name', ['Residenza', 'Domicilio'])->orderBy('id')->get() as $tipo) {
+                $client->addresses()->firstOrCreate(['address_type_id' => $tipo->getKey()]);
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [

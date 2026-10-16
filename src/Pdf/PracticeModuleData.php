@@ -193,7 +193,7 @@ class PracticeModuleData
     }
 
     /** Ultimo documento d'identità non scaduto del cliente (per data di rilascio); il certificato di residenza non vale. */
-    private function identityDocument(Client $client): ?Document
+    public function identityDocument(Client $client): ?Document
     {
         return $client->documents
             ->filter(function (Document $document): bool {
