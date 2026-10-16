@@ -367,7 +367,7 @@ class DocumentsRelationManager extends RelationManager
                 ->modalDescription('Vengono creati, in stato "richiesto", i documenti dei plichi applicabili che non sono ancora presenti.')
                 ->modalSubmitActionLabel('Genera')
                 ->mountUsing(function (Action $action): void {
-                    if ($this->applicablePlichi()->isEmpty()) {
+                    if ($this->applicablePlichi()->isEmpty() && ! $this->getOwnerRecord() instanceof Pratica) {
                         Notification::make()->title('Nessun plico applicabile')->body('Per lo stato attuale di questo record non ci sono plichi documentali.')->warning()->send();
                         $action->cancel();
                     }
@@ -380,7 +380,8 @@ class DocumentsRelationManager extends RelationManager
                             $task->getKey() => $task->documentTypes->count().' documenti ('.$task->documentTypes->filter(fn ($type) => $type->pivot->is_required)->count().' obbligatori)',
                         ])->all())
                         ->default(fn (): array => $this->applicablePlichi()->pluck('id')->all())
-                        ->required()
+                        ->required(fn (): bool => ! $this->getOwnerRecord() instanceof Pratica)
+                        ->hidden(fn (): bool => $this->getOwnerRecord() instanceof Pratica && $this->applicablePlichi()->isEmpty())
                         ->columns(1),
                 ])
                 ->action(function (array $data): void {
@@ -392,6 +393,10 @@ class DocumentsRelationManager extends RelationManager
                         $result = $task->generateDocumentsFor($owner);
                         $created += $result['created'];
                         $existing += $result['existing'];
+                    }
+
+                    if ($owner instanceof Pratica) {
+                        $created += app(PracticeTaskDocuments::class)->attachChecklist($owner, $this->gruppoChecklist($owner), $owner->clienti_id);
                     }
 
                     Notification::make()
@@ -981,9 +986,7 @@ class DocumentsRelationManager extends RelationManager
         }
 
         $documenti = app(PracticeTaskDocuments::class);
-        $cliente = app(PracticeModuleData::class)->findClient($owner);
-        $gruppo = blank($cliente?->employment_typology) ? null : TipoProdottoSub::query()->where('name', $cliente->employment_typology)->value('employment_document_group');
-        $gruppo = $gruppo instanceof \BackedEnum ? $gruppo->value : ($gruppo === null ? null : (string) $gruppo);
+        $gruppo = $this->gruppoChecklist($owner);
         $converti = fn (Collection $requisiti): Collection => $requisiti->map(fn (DocumentRequirement $requisito): array => ['tipo' => $requisito->documentType, 'obbligatorio' => (bool) $requisito->is_required]);
 
         $task = [['nome' => 'Check list'.($gruppo ? ' · '.$gruppo : ''), 'requisiti' => $converti($documenti->forProduct($prodotto, $gruppo, $owner->clienti_id))]];
@@ -994,6 +997,15 @@ class DocumentsRelationManager extends RelationManager
         }
 
         return array_values(array_filter($task, fn (array $blocco): bool => $blocco['requisiti']->isNotEmpty()));
+    }
+
+    /** Il gruppo di documenti della tipologia lavorativa del richiedente, che sceglie la check list della pratica. */
+    private function gruppoChecklist(Pratica $pratica): ?string
+    {
+        $cliente = app(PracticeModuleData::class)->findClient($pratica);
+        $gruppo = blank($cliente?->employment_typology) ? null : TipoProdottoSub::query()->where('name', $cliente->employment_typology)->value('employment_document_group');
+
+        return $gruppo instanceof \BackedEnum ? $gruppo->value : ($gruppo === null ? null : (string) $gruppo);
     }
 
     /** @param  Collection<int, Document>  $documenti */
