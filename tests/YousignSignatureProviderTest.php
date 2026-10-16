@@ -149,6 +149,51 @@ class YousignSignatureProviderTest extends TestCase
         Http::assertNotSent(fn (HttpRequest $r) => $r->method() === 'DELETE');
     }
 
+    public function test_a_bundle_uploads_every_document_and_places_the_signatures_on_the_right_one(): void
+    {
+        $docs = 0;
+        $this->useFake(function (HttpRequest $request) use (&$docs) {
+            $path = substr(parse_url($request->url(), PHP_URL_PATH), strlen('/v3'));
+
+            return match (true) {
+                $request->method() === 'POST' && $path === '/signature_requests' => Http::response(['id' => 'sr-1'], 201),
+                $request->method() === 'POST' && $path === '/signature_requests/sr-1/documents' => Http::response(['id' => 'doc-'.(++$docs)], 201),
+                $request->method() === 'POST' && $path === '/signature_requests/sr-1/signers' => Http::response(['id' => 'sg-1'], 201),
+                $request->method() === 'POST' && $path === '/signature_requests/sr-1/activate' => Http::response(['id' => 'sr-1'], 200),
+                default => Http::response([], 404),
+            };
+        });
+        $pdf = (string) file_get_contents(__DIR__.'/Fixtures/pdf/modulo-prova.pdf');
+        $envelope = new \Unico\Core\Signature\Dto\EnvelopeData(
+            'Plico', 'uno.pdf', $pdf,
+            [new \Unico\Core\Signature\Dto\EnvelopeSigner(
+                1, 'cliente', \Unico\Core\Enums\SignerRole::Client, 'Mario', 'Rossi', 'mario@example.test', '+393381234567', null,
+                new \Unico\Core\Signature\Dto\SignaturePlacement(1, 50, 700, 150, 40),
+                [new \Unico\Core\Signature\Dto\SignaturePlacement(2, 60, 600, 150, 40, 1)],
+            )],
+            now()->addDays(7), 'bundle-1',
+            extraDocuments: [new \Unico\Core\Signature\Dto\EnvelopeDocument('Due', 'due.pdf', $pdf)],
+        );
+
+        $ref = $this->provider()->createEnvelope($envelope);
+
+        $this->assertSame(['doc-1', 'doc-2'], $ref->documentRefs);
+        Http::assertSentCount(5);
+        Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/signers')
+            && $r['fields'][0]['document_id'] === 'doc-1' && $r['fields'][0]['page'] === 1
+            && $r['fields'][1]['document_id'] === 'doc-2' && $r['fields'][1]['page'] === 2);
+    }
+
+    public function test_the_signed_pdf_of_one_document_of_the_bundle_is_downloaded_by_its_id(): void
+    {
+        $pdf = (string) file_get_contents(__DIR__.'/Fixtures/pdf/modulo-prova.pdf');
+        $this->useFake(fn (HttpRequest $r) => str_ends_with($r->url(), '/signature_requests/sr-1/documents/doc-2/download')
+            ? Http::response($pdf, 200, ['Content-Type' => 'application/pdf'])
+            : Http::response([], 404));
+
+        $this->assertSame($pdf, $this->provider()->downloadSigned('sr-1', 'doc-2'));
+    }
+
     public function test_email_subject_is_sent_as_custom_text_only_when_given(): void
     {
         $this->fakeHappyPath();

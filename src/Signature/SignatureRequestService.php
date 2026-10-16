@@ -13,6 +13,7 @@ use Unico\Core\Events\SignatureSent;
 use Unico\Core\Pdf\PdfFormException;
 use Unico\Core\Pdf\PdfFormFiller;
 use Unico\Core\Signature\Dto\EnvelopeData;
+use Unico\Core\Signature\Dto\EnvelopeDocument;
 use Unico\Core\Signature\Dto\EnvelopeSigner;
 use Unico\Core\Signature\Dto\EnvelopeStatus;
 use Unico\Core\Signature\Dto\SignatureEvent;
@@ -39,20 +40,53 @@ class SignatureRequestService
      */
     public function send(Document $document, array $signers, ?Authenticatable $user = null): SignatureRequest
     {
-        $original = $this->readOriginalPdf($document);
+        return $this->sendBundle([$document], $signers, $user)[0];
+    }
 
-        if ($original === null) {
-            throw new SignatureRequestException('Il documento non ha un PDF da firmare.');
+    /**
+     * Invia più documenti in un'unica busta (plico): il firmatario riceve una sola richiesta e un solo codice OTP per firmarli
+     * tutti. Ogni documento ha la sua richiesta locale (stato, firmatari, PDF firmato); le richieste condividono `provider_ref`.
+     *
+     * @param  array<int, Document>  $documents
+     * @param  array<int, SignerInput>  $signers  uno per firmatario (slot) tra tutti i moduli del plico
+     * @return array<int, SignatureRequest> nello stesso ordine dei documenti
+     *
+     * @throws SignatureRequestException
+     */
+    public function sendBundle(array $documents, array $signers, ?Authenticatable $user = null): array
+    {
+        $documents = array_values($documents);
+
+        if ($documents === []) {
+            throw new SignatureRequestException('Nessun documento da inviare per la firma.');
         }
 
-        $slots = $document->documentType?->pdfModule?->signature_slots ?? [];
+        $bundle = count($documents) > 1;
+        $originals = [];
+        $slotRows = [];
 
-        if ($slots === []) {
-            throw new SignatureRequestException('Il modulo non ha slot di firma configurati.');
+        foreach ($documents as $index => $document) {
+            $original = $this->readOriginalPdf($document);
+
+            if ($original === null) {
+                throw new SignatureRequestException($bundle ? "Il documento «{$document->name}» non ha un PDF da firmare." : 'Il documento non ha un PDF da firmare.');
+            }
+
+            $slots = $document->documentType?->pdfModule?->signature_slots ?? [];
+
+            if ($slots === []) {
+                throw new SignatureRequestException($bundle ? "Il modulo «{$document->name}» non ha slot di firma configurati." : 'Il modulo non ha slot di firma configurati.');
+            }
+
+            $originals[$index] = $original;
+
+            foreach ($slots as $slot) {
+                $slotRows[] = $slot + ['document' => $index];
+            }
         }
 
         // Uno stesso firmatario può avere più punti di firma (più righe con lo stesso slot).
-        $moduleSlots = array_values(array_unique(array_column($slots, 'slot')));
+        $moduleSlots = array_values(array_unique(array_column($slotRows, 'slot')));
         $bySlot = [];
         foreach ($signers as $signer) {
             $bySlot[$signer->slot] = $signer;
@@ -67,94 +101,118 @@ class SignatureRequestService
             throw new SignatureRequestException('I firmatari non corrispondono agli slot di firma del modulo.');
         }
 
-        $this->assertNoOpenRequest($document);
+        foreach ($documents as $document) {
+            $this->assertNoOpenRequest($document);
+        }
 
         $provider = $this->providers->provider();
-        $envelopeSigners = $this->buildEnvelopeSigners($slots, $bySlot, $provider->requiredContactFields());
+        $envelopeSigners = $this->buildEnvelopeSigners($slotRows, $bySlot, $provider->requiredContactFields());
 
         try {
-            $pdf = $this->pdfFiller->flattenContent($original);
+            $pdfs = array_map(fn (string $original): string => $this->pdfFiller->flattenContent($original), $originals);
         } catch (PdfFormException) {
             throw new SignatureRequestException('Preparazione del PDF per la firma non riuscita.');
         }
 
-        $request = $document->getConnection()->transaction(function () use ($document, $envelopeSigners, $provider, $user): SignatureRequest {
-            Document::query()->whereKey($document->getKey())->lockForUpdate()->first();
-            $this->assertNoOpenRequest($document);
+        $requests = $documents[0]->getConnection()->transaction(function () use ($documents, $slotRows, $envelopeSigners, $provider, $user): array {
+            Document::query()->whereKey(array_map(fn (Document $document) => $document->getKey(), $documents))->orderBy('id')->lockForUpdate()->get();
+            $expiresAt = now()->addDays((int) config('unico-core.signature.ttl_days'));
+            $created = [];
 
-            $request = SignatureRequest::create([
-                'document_id' => $document->getKey(),
-                'provider' => $provider->name(),
-                'status' => SignatureRequestStatus::Pending,
-                'expires_at' => now()->addDays((int) config('unico-core.signature.ttl_days')),
-                'requested_by' => $user?->getAuthIdentifier(),
-            ]);
+            foreach ($documents as $index => $document) {
+                $this->assertNoOpenRequest($document);
 
-            foreach ($envelopeSigners as $signer) {
-                $input = $signer['input'];
-                $request->signatureRequestSigners()->create([
-                    'position' => $signer['envelope']->position,
-                    'slot' => $input->slot,
-                    'role' => $input->role,
-                    'name' => trim($input->firstName.' '.$input->lastName),
-                    'first_name' => $input->firstName,
-                    'last_name' => $input->lastName,
-                    'tax_code' => $input->taxCode,
-                    'email' => $input->email,
-                    'phone' => $signer['envelope']->phone,
-                    'signer_type' => $input->signerType,
-                    'signer_ref' => $input->signerRef,
-                    'status' => SignerStatus::Waiting,
+                $request = SignatureRequest::create([
+                    'document_id' => $document->getKey(),
+                    'provider' => $provider->name(),
+                    'status' => SignatureRequestStatus::Pending,
+                    'expires_at' => $expiresAt,
+                    'requested_by' => $user?->getAuthIdentifier(),
                 ]);
+
+                $ownSlots = array_column(array_filter($slotRows, fn (array $row): bool => $row['document'] === $index), 'slot');
+
+                foreach ($envelopeSigners as $signer) {
+                    $input = $signer['input'];
+
+                    if (! in_array($input->slot, $ownSlots, true)) {
+                        continue;
+                    }
+
+                    $request->signatureRequestSigners()->create([
+                        'position' => $signer['envelope']->position,
+                        'slot' => $input->slot,
+                        'role' => $input->role,
+                        'name' => trim($input->firstName.' '.$input->lastName),
+                        'first_name' => $input->firstName,
+                        'last_name' => $input->lastName,
+                        'tax_code' => $input->taxCode,
+                        'email' => $input->email,
+                        'phone' => $signer['envelope']->phone,
+                        'signer_type' => $input->signerType,
+                        'signer_ref' => $input->signerRef,
+                        'status' => SignerStatus::Waiting,
+                    ]);
+                }
+
+                $created[] = $request;
             }
 
-            return $request;
+            return $created;
         });
 
+        $first = $documents[0];
         $envelope = new EnvelopeData(
-            name: (string) $document->name,
-            fileName: (Str::slug((string) $document->name) ?: 'documento').'.pdf',
-            pdf: $pdf,
+            name: $bundle ? 'Plico di firma: '.Str::limit(implode(', ', array_map(fn (Document $document): string => (string) $document->name, $documents)), 120, '') : (string) $first->name,
+            fileName: (Str::slug((string) $first->name) ?: 'documento').'.pdf',
+            pdf: $pdfs[0],
             signers: array_map(fn (array $signer): EnvelopeSigner => $signer['envelope'], $envelopeSigners),
-            expiresAt: $request->expires_at,
-            externalId: (string) $request->id,
-            emailSubject: $this->emailSubject($document),
+            expiresAt: $requests[0]->expires_at,
+            externalId: (string) $requests[0]->id,
+            emailSubject: $bundle ? $this->bundleEmailSubject($first) : $this->emailSubject($first),
+            extraDocuments: array_map(
+                fn (int $index): EnvelopeDocument => new EnvelopeDocument((string) $documents[$index]->name, (Str::slug((string) $documents[$index]->name) ?: 'documento').'.pdf', $pdfs[$index]),
+                array_slice(array_keys($documents), 1),
+            ),
         );
 
         try {
             $ref = $provider->createEnvelope($envelope);
         } catch (SignatureException $e) {
             $reason = $this->safeReason($e->getMessage());
-            $request->update(['status' => SignatureRequestStatus::Failed, 'failure_reason' => $reason]);
+            $this->failRequests($requests, $reason);
 
             throw new SignatureRequestException('Invio per la firma non riuscito: '.$reason, 0, $e);
         } catch (\Throwable $e) {
             $reason = 'Errore imprevisto del provider';
-            $request->update(['status' => SignatureRequestStatus::Failed, 'failure_reason' => $reason]);
+            $this->failRequests($requests, $reason);
 
             throw new SignatureRequestException('Invio per la firma non riuscito: '.$reason, 0, $e);
         }
 
         try {
-            $request->getConnection()->transaction(function () use ($request, $ref, $user): void {
-                $request->update([
-                    'provider_ref' => $ref->providerRef,
-                    'status' => SignatureRequestStatus::Sent,
-                    'sent_at' => now(),
-                ]);
-
-                foreach ($request->signatureRequestSigners as $signer) {
-                    $signer->update([
-                        'provider_signer_ref' => $ref->signerRefs[$signer->slot] ?? null,
-                        'status' => SignerStatus::Notified,
+            $requests[0]->getConnection()->transaction(function () use ($requests, $ref, $user): void {
+                foreach ($requests as $index => $request) {
+                    $request->update([
+                        'provider_ref' => $ref->providerRef,
+                        'provider_document_ref' => $ref->documentRefs[$index] ?? null,
+                        'status' => SignatureRequestStatus::Sent,
+                        'sent_at' => now(),
                     ]);
-                }
 
-                event(new SignatureSent($request, $user));
+                    foreach ($request->signatureRequestSigners as $signer) {
+                        $signer->update([
+                            'provider_signer_ref' => $ref->signerRefs[$signer->slot] ?? null,
+                            'status' => SignerStatus::Notified,
+                        ]);
+                    }
+
+                    event(new SignatureSent($request, $user));
+                }
             });
         } catch (\Throwable $e) {
             $reason = 'Errore nel salvataggio della richiesta di firma';
-            $request->forceFill(['status' => SignatureRequestStatus::Failed, 'failure_reason' => $reason, 'provider_ref' => null])->save();
+            $this->failRequests($requests, $reason, clearRef: true);
 
             try {
                 $provider->cancelEnvelope($ref->providerRef);
@@ -165,7 +223,22 @@ class SignatureRequestService
             throw new SignatureRequestException('Invio per la firma non riuscito: '.$reason, 0, $e);
         }
 
-        return $request->refresh();
+        return array_map(fn (SignatureRequest $request): SignatureRequest => $request->refresh(), $requests);
+    }
+
+    /** @param  array<int, SignatureRequest>  $requests */
+    private function failRequests(array $requests, string $reason, bool $clearRef = false): void
+    {
+        foreach ($requests as $request) {
+            $request->forceFill(['status' => SignatureRequestStatus::Failed, 'failure_reason' => $reason] + ($clearRef ? ['provider_ref' => null] : []))->save();
+        }
+    }
+
+    private function bundleEmailSubject(Document $document): string
+    {
+        $owner = trim((string) ($document->documentable?->name ?? ''));
+
+        return trim(sprintf('Firma documenti - ore %s %s', now()->format('H:i'), $owner));
     }
 
     /**
@@ -197,7 +270,7 @@ class SignatureRequestService
             $envelope = $provider->envelopeStatus($request->provider_ref);
 
             if ($envelope->status === SignatureRequestStatus::Signed) {
-                $pdf = $provider->downloadSigned($request->provider_ref);
+                $pdf = $provider->downloadSigned($request->provider_ref, $request->provider_document_ref);
             }
         } catch (\Throwable $e) {
             SignatureRequest::query()->whereKey($request->getKey())->update(['last_synced_at' => now()]);
@@ -247,15 +320,21 @@ class SignatureRequestService
         }
 
         $request->getConnection()->transaction(function () use ($request, $user): void {
-            $locked = SignatureRequest::query()->whereKey($request->getKey())->lockForUpdate()->first();
+            // Le richieste dello stesso plico condividono la busta: si annullano insieme.
+            $locked = SignatureRequest::query()
+                ->where(fn ($query) => $query->whereKey($request->getKey())->orWhere(fn ($same) => $same->where('provider', $request->provider)->whereNotNull('provider_ref')->where('provider_ref', $request->provider_ref)))
+                ->lockForUpdate()
+                ->get();
 
-            if ($locked === null || ! $locked->isOpen()) {
-                return;
+            foreach ($locked as $sibling) {
+                if (! $sibling->isOpen()) {
+                    continue;
+                }
+
+                $sibling->forceFill(['status' => SignatureRequestStatus::Cancelled])->save();
+
+                event(new SignatureCancelled($sibling, $user));
             }
-
-            $locked->forceFill(['status' => SignatureRequestStatus::Cancelled])->save();
-
-            event(new SignatureCancelled($locked, $user));
         });
 
         return $request->refresh();
@@ -324,7 +403,10 @@ class SignatureRequestService
             ->where('provider_ref', $event->providerRef)
             ->first();
 
-        $request?->forceFill(['last_event_at' => now()])->save();
+        if ($request !== null) {
+            SignatureRequest::query()->where('provider', $provider)->where('provider_ref', $event->providerRef)->update(['last_event_at' => now()]);
+            $request->refresh();
+        }
 
         return $request;
     }
@@ -462,8 +544,8 @@ class SignatureRequestService
                     filled($input->email) ? $input->email : null,
                     $phone,
                     $input->taxCode,
-                    new SignaturePlacement((int) $slot['page'], (float) $slot['x'], (float) $slot['y'], (float) $slot['width'], (float) $slot['height']),
-                    array_map(fn (array $extra): SignaturePlacement => new SignaturePlacement((int) $extra['page'], (float) $extra['x'], (float) $extra['y'], (float) $extra['width'], (float) $extra['height']), array_slice($placements, 1)),
+                    new SignaturePlacement((int) $slot['page'], (float) $slot['x'], (float) $slot['y'], (float) $slot['width'], (float) $slot['height'], (int) ($slot['document'] ?? 0)),
+                    array_map(fn (array $extra): SignaturePlacement => new SignaturePlacement((int) $extra['page'], (float) $extra['x'], (float) $extra['y'], (float) $extra['width'], (float) $extra['height'], (int) ($extra['document'] ?? 0)), array_slice($placements, 1)),
                 ),
             ];
         }

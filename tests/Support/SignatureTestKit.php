@@ -45,7 +45,7 @@ trait SignatureTestKit
             'name' => 'QAV', 'code' => 'QAV'.uniqid(), 'is_monitored' => true, 'duration' => 12, 'duration_unit' => 'months',
         ]);
         PdfModule::create([
-            'name' => 'QAV', 'file_path' => 'module/qav.pdf', 'document_type_id' => $type->id,
+            'name' => 'QAV', 'file_path' => 'module/qav-'.uniqid().'.pdf', 'document_type_id' => $type->id,
             'signature_slots' => $slots ?? $this->slots(),
         ]);
 

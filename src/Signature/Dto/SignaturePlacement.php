@@ -10,5 +10,7 @@ final readonly class SignaturePlacement
         public float $y,
         public float $width,
         public float $height,
+        /** Documento della busta su cui sta il punto di firma (0 = principale). */
+        public int $document = 0,
     ) {}
 }

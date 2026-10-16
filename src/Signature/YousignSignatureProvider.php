@@ -47,6 +47,8 @@ class YousignSignatureProvider implements SignatureProvider
 
     private const PATH_DOWNLOAD = '/signature_requests/%s/documents/download'; // (*) da verificare sul sandbox
 
+    private const PATH_DOWNLOAD_DOCUMENT = '/signature_requests/%s/documents/%s/download'; // (*) da verificare sul sandbox
+
     private const SIGNATURE_HEADER = 'X-Yousign-Signature-256';
 
     /**
@@ -93,17 +95,21 @@ class YousignSignatureProvider implements SignatureProvider
         $requestId = $this->requireId($created, 'richiesta');
 
         try {
-            $document = $this->send('POST', sprintf(self::PATH_DOCUMENTS, $requestId), [
-                'nature' => 'signable_document',
-            ], attachment: [$envelope->pdf, $envelope->fileName]);
-            $documentId = $this->requireId($document, 'documento');
+            $documentIds = [];
+
+            foreach ($envelope->documents() as $envelopeDocument) {
+                $document = $this->send('POST', sprintf(self::PATH_DOCUMENTS, $requestId), [
+                    'nature' => 'signable_document',
+                ], attachment: [$envelopeDocument->pdf, $envelopeDocument->fileName]);
+                $documentIds[] = $this->requireId($document, 'documento');
+            }
 
             $signers = collect($envelope->signers)->sortBy('position')->values();
             $signerRefs = [];
 
             // (*) da verificare sul sandbox: con ordered_signers l'ordine di firma e' l'ordine di creazione
             foreach ($signers as $signer) {
-                $response = $this->send('POST', sprintf(self::PATH_SIGNERS, $requestId), $this->signerPayload($signer, $documentId));
+                $response = $this->send('POST', sprintf(self::PATH_SIGNERS, $requestId), $this->signerPayload($signer, $documentIds));
                 $signerRefs[$signer->slot] = $this->requireId($response, 'firmatario');
             }
 
@@ -115,7 +121,7 @@ class YousignSignatureProvider implements SignatureProvider
             throw $e;
         }
 
-        return new EnvelopeRef($requestId, $signerRefs);
+        return new EnvelopeRef($requestId, $signerRefs, $documentIds);
     }
 
     public function envelopeStatus(string $providerRef): EnvelopeStatus
@@ -136,10 +142,12 @@ class YousignSignatureProvider implements SignatureProvider
         return new EnvelopeStatus($this->mapEnvelopeStatus((string) $request->json('status')), $states);
     }
 
-    public function downloadSigned(string $providerRef): string
+    public function downloadSigned(string $providerRef, ?string $documentRef = null): string
     {
+        $path = $documentRef === null ? sprintf(self::PATH_DOWNLOAD, $providerRef) : sprintf(self::PATH_DOWNLOAD_DOCUMENT, $providerRef, $documentRef);
+
         // (*) da verificare sul sandbox: header Accept per lo scarico
-        $response = $this->send('GET', sprintf(self::PATH_DOWNLOAD, $providerRef), accept: 'application/pdf, application/zip');
+        $response = $this->send('GET', $path, accept: 'application/pdf, application/zip');
         $contentType = strtolower((string) $response->header('Content-Type'));
 
         if (str_contains($contentType, 'application/pdf')) {
@@ -262,9 +270,10 @@ class YousignSignatureProvider implements SignatureProvider
     }
 
     /**
+     * @param  list<string>  $documentIds  id dei documenti della busta, per indice
      * @return array<string, mixed>
      */
-    private function signerPayload(EnvelopeSigner $signer, string $documentId): array
+    private function signerPayload(EnvelopeSigner $signer, array $documentIds): array
     {
         return [
             'info' => [
@@ -278,7 +287,7 @@ class YousignSignatureProvider implements SignatureProvider
             'signature_authentication_mode' => 'otp_sms',
             'fields' => array_map(fn ($placement): array => [
                 'type' => 'signature',
-                'document_id' => $documentId,
+                'document_id' => $documentIds[$placement->document] ?? $documentIds[0],
                 'page' => $placement->page,
                 'x' => $placement->x,
                 'y' => $placement->y,

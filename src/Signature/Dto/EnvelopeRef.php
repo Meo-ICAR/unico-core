@@ -10,5 +10,7 @@ final readonly class EnvelopeRef
     public function __construct(
         public string $providerRef,
         public array $signerRefs,
+        /** @var list<string> id dei documenti presso il provider, nello stesso ordine di `EnvelopeData::documents()` */
+        public array $documentRefs = [],
     ) {}
 }

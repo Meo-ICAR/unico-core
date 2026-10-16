@@ -19,8 +19,11 @@ interface SignatureProvider
 
     public function envelopeStatus(string $providerRef): EnvelopeStatus;
 
-    /** @return string contenuto binario del PDF firmato */
-    public function downloadSigned(string $providerRef): string;
+    /**
+     * @param  ?string  $documentRef  documento della busta (plico); senza, il primo
+     * @return string contenuto binario del PDF firmato
+     */
+    public function downloadSigned(string $providerRef, ?string $documentRef = null): string;
 
     public function cancelEnvelope(string $providerRef): void;
 

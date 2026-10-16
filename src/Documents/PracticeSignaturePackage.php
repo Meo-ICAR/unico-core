@@ -21,6 +21,7 @@ use Unico\Core\Signature\Exceptions\SignatureRequestException;
 use Unico\Core\Signature\SignatureProviderManager;
 use Unico\Core\Signature\SignatureRequestService;
 use Unico\Core\Signature\SignerDefaults;
+use Unico\Core\Signature\SignerInput;
 
 /**
  * Modulistica di una pratica da stampare e far firmare con OTP: per ogni tipo documento con un modulo PDF controlla che i dati
@@ -88,6 +89,7 @@ class PracticeSignaturePackage
     public function send(Pratica $pratica, Collection $types, ?Authenticatable $user = null): array
     {
         $results = [];
+        $bundle = [];
 
         foreach ($this->status($pratica, $types) as $typeId => $entry) {
             $type = $types->firstWhere('id', $typeId);
@@ -129,14 +131,42 @@ class PracticeSignaturePackage
                     throw new SignatureRequestException('Firmatario non disponibile: '.implode(', ', $absent).'.');
                 }
 
-                $this->signatures->send($document, array_values($signers), $user);
-                $results[] = ['name' => $name, 'ok' => true, 'message' => 'inviato per la firma con OTP'];
+                $bundle[] = ['name' => $name, 'document' => $document, 'signers' => $signers];
             } catch (PdfFormException|SignatureRequestException $e) {
                 $results[] = ['name' => $name, 'ok' => false, 'message' => $e->getMessage()];
             }
         }
 
-        return $results;
+        return [...$results, ...$this->sendBundle($bundle, $user)];
+    }
+
+    /**
+     * I moduli pronti vanno al provider in un'unica busta: il cliente riceve una sola richiesta e firma tutto con un solo codice OTP.
+     *
+     * @param  list<array{name: string, document: Document, signers: array<string, SignerInput>}>  $bundle
+     * @return list<array{name: string, ok: bool, message: string}>
+     */
+    private function sendBundle(array $bundle, ?Authenticatable $user): array
+    {
+        if ($bundle === []) {
+            return [];
+        }
+
+        $signers = [];
+
+        foreach ($bundle as $row) {
+            $signers += $row['signers'];
+        }
+
+        try {
+            $this->signatures->sendBundle(array_column($bundle, 'document'), array_values($signers), $user);
+        } catch (SignatureRequestException $e) {
+            return array_map(fn (array $row): array => ['name' => $row['name'], 'ok' => false, 'message' => $e->getMessage()], $bundle);
+        }
+
+        $message = count($bundle) > 1 ? 'inviato per la firma con OTP, insieme agli altri moduli (un solo codice)' : 'inviato per la firma con OTP';
+
+        return array_map(fn (array $row): array => ['name' => $row['name'], 'ok' => true, 'message' => $message], $bundle);
     }
 
     /** Aggiorna lo stato delle richieste aperte dal provider (utile senza webhook). */

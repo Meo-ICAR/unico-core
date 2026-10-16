@@ -305,4 +305,77 @@ class SignatureRequestServiceTest extends TestCase
         $this->assertSame('signature_request', (new SignatureRequest)->getMorphClass());
         $this->assertSame('document', (new class extends Document {})->getMorphClass());
     }
+
+    public function test_a_bundle_goes_in_one_envelope_with_one_request_per_document(): void
+    {
+        $pdf = file_get_contents(__DIR__.'/Fixtures/pdf/modulo-prova.pdf');
+        $solo = $this->documentWithModule([['slot' => 'cliente', 'role' => 'client', 'page' => 1, 'x' => 50.0, 'y' => 700.0, 'width' => 150.0, 'height' => 40.0]]);
+        $coppia = $this->documentWithModule();
+        $provider = new FakeSignatureProvider;
+        $service = $this->service($provider);
+        $service->originals[$solo->id] = $pdf;
+        $service->originals[$coppia->id] = $pdf;
+
+        $requests = $service->sendBundle([$solo, $coppia], $this->signers());
+
+        $this->assertCount(2, $requests);
+        $this->assertSame($requests[0]->provider_ref, $requests[1]->provider_ref);
+        $this->assertSame(['fake-doc-0', 'fake-doc-1'], [$requests[0]->provider_document_ref, $requests[1]->provider_document_ref]);
+        $this->assertSame([$solo->id, $coppia->id], [$requests[0]->document_id, $requests[1]->document_id]);
+        $this->assertSame(['cliente'], $requests[0]->signatureRequestSigners->pluck('slot')->all());
+        $this->assertSame(['cliente', 'fornitore'], $requests[1]->signatureRequestSigners->pluck('slot')->all());
+        $this->assertCount(2, array_filter($this->events, fn (object $event): bool => $event instanceof SignatureSent));
+        $this->assertTrue($requests[0]->signatureRequestSigners[0]->provider_signer_ref === $requests[1]->signatureRequestSigners[0]->provider_signer_ref, 'un solo firmatario nella busta');
+    }
+
+    public function test_signing_the_bundle_completes_every_document_with_its_own_pdf(): void
+    {
+        $pdf = file_get_contents(__DIR__.'/Fixtures/pdf/modulo-prova.pdf');
+        $uno = $this->documentWithModule();
+        $due = $this->documentWithModule();
+        $provider = new FakeSignatureProvider;
+        $service = $this->service($provider);
+        $service->originals[$uno->id] = $pdf;
+        $service->originals[$due->id] = $pdf;
+
+        $requests = $service->sendBundle([$uno, $due], $this->signers());
+        $provider->completeAll($requests[0]->provider_ref);
+
+        foreach ($requests as $request) {
+            $this->assertSame(SignatureRequestStatus::Signed, $service->reconcile($request)->status);
+        }
+
+        $this->assertTrue($uno->fresh()->is_signed);
+        $this->assertTrue($due->fresh()->is_signed);
+        $this->assertCount(2, array_filter($this->events, fn (object $event): bool => $event instanceof SignatureCompleted));
+    }
+
+    public function test_cancelling_one_request_of_the_bundle_cancels_the_whole_envelope(): void
+    {
+        $pdf = file_get_contents(__DIR__.'/Fixtures/pdf/modulo-prova.pdf');
+        $uno = $this->documentWithModule();
+        $due = $this->documentWithModule();
+        $service = $this->service(new FakeSignatureProvider);
+        $service->originals[$uno->id] = $pdf;
+        $service->originals[$due->id] = $pdf;
+
+        $requests = $service->sendBundle([$uno, $due], $this->signers());
+        $service->cancel($requests[0]);
+
+        $this->assertSame(SignatureRequestStatus::Cancelled, $requests[1]->refresh()->status);
+    }
+
+    public function test_a_bundle_is_refused_if_a_document_already_has_an_open_request(): void
+    {
+        $pdf = file_get_contents(__DIR__.'/Fixtures/pdf/modulo-prova.pdf');
+        $uno = $this->documentWithModule();
+        $due = $this->documentWithModule();
+        $service = $this->service(new FakeSignatureProvider);
+        $service->originals[$uno->id] = $pdf;
+        $service->originals[$due->id] = $pdf;
+        $service->send($due, $this->signers());
+
+        $this->expectException(SignatureRequestException::class);
+        $service->sendBundle([$uno, $due], $this->signers());
+    }
 }

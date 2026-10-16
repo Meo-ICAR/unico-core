@@ -53,6 +53,7 @@ use Unico\Core\Models\DocumentRequirement;
 use Unico\Core\Models\DocumentType;
 use Unico\Core\Models\Pratica;
 use Unico\Core\Models\SignatureRequest;
+use Unico\Core\Signature\SignerDefaults;
 use Unico\Core\Pdf\ModulePrinter;
 use Unico\Core\Pdf\PdfFormException;
 use Unico\Core\Pdf\PracticeModuleData;
@@ -454,6 +455,51 @@ class DocumentsRelationManager extends RelationManager
                     }
 
                     return response()->download($percorso, 'plico-'.Str::slug((string) $this->getOwnerRecord()->getKey()).'.zip')->deleteFileAfterSend();
+                }),
+            Action::make('inviaPlicoOtp')
+                ->label('Invia plico per la firma OTP')
+                ->icon('heroicon-o-device-phone-mobile')
+                ->color('primary')
+                ->visible(fn (): bool => \checkPiano('firma', static::class, write: true) && $this->documentiDaFirmare()->isNotEmpty())
+                ->modalHeading('Invia in firma i documenti')
+                ->modalDescription('I documenti da firmare partono in un unico plico: il firmatario riceve una sola richiesta e firma tutto con un solo codice OTP.')
+                ->modalSubmitActionLabel('Invia')
+                ->schema(fn (): array => [
+                    CheckboxList::make('documenti')
+                        ->label('Documenti da firmare')
+                        ->options(fn (): array => $this->documentiDaFirmare()->mapWithKeys(fn (Document $documento): array => [$documento->getKey() => (string) $documento->name])->all())
+                        ->default(fn (): array => $this->documentiDaFirmare()->modelKeys())
+                        ->required()
+                        ->columns(1),
+                ])
+                ->mountUsing(function (Schema $schema): void {
+                    $schema->fill(['documenti' => $this->documentiDaFirmare()->modelKeys()]);
+                })
+                ->action(function (array $data): void {
+                    $scelti = $this->documentiDaFirmare()->whereIn('id', $data['documenti'] ?? []);
+
+                    foreach ($scelti->groupBy(fn (Document $documento): string => $documento->documentable_type.':'.$documento->documentable_id) as $gruppo) {
+                        $avviso = self::missingSignerContacts($gruppo->first());
+
+                        if ($avviso !== null) {
+                            Notification::make()->warning()->title('Firma OTP non possibile')->body($avviso)->send();
+
+                            continue;
+                        }
+
+                        $firmatari = [];
+
+                        foreach ($gruppo as $documento) {
+                            $firmatari += SignerDefaults::for($documento);
+                        }
+
+                        try {
+                            app(SignatureRequestService::class)->sendBundle($gruppo->values()->all(), array_values($firmatari), auth()->user());
+                            Notification::make()->success()->title($gruppo->count() > 1 ? 'Plico inviato per la firma' : 'Richiesta di firma inviata')->body($gruppo->count().' documenti, un solo codice OTP.')->send();
+                        } catch (SignatureRequestException $e) {
+                            Notification::make()->danger()->title('Invio per la firma non riuscito')->body($e->getMessage())->send();
+                        }
+                    }
                 }),
             CreateAction::make()
                 ->mutateFormDataUsing(function (array $data): array {
@@ -1024,6 +1070,23 @@ class DocumentsRelationManager extends RelationManager
         $gruppo = blank($cliente?->employment_typology) ? null : TipoProdottoSub::query()->where('name', $cliente->employment_typology)->value('employment_document_group');
 
         return $gruppo instanceof \BackedEnum ? $gruppo->value : ($gruppo === null ? null : (string) $gruppo);
+    }
+
+    /**
+     * I documenti del record che si possono mandare in firma: tipo da firmare, PDF presente, firmatari previsti dal modulo e nessuna
+     * richiesta già aperta.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Document>
+     */
+    private function documentiDaFirmare(): \Illuminate\Database\Eloquent\Collection
+    {
+        return $this->getTable()->getQuery()
+            ->with('documentType.pdfModule')
+            ->get()
+            ->filter(fn (Document $documento): bool => (bool) $documento->documentType?->is_signed
+                && $documento->getFirstMedia(Document::COLLECTION)?->mime_type === 'application/pdf'
+                && SendForSignatureAction::isSignable($documento))
+            ->values();
     }
 
     /** @param  Collection<int, Document>  $documenti */

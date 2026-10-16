@@ -45,13 +45,16 @@ class FakeSignatureProvider implements SignatureProvider
             $signers[$signer->slot] = ['ref' => $signerRef, 'status' => SignerStatus::Notified->value, 'signed_at' => null];
         }
 
+        $documents = array_map(fn ($document): string => base64_encode($document->pdf), $envelope->documents());
+
         $this->store($ref, [
             'status' => SignatureRequestStatus::Sent->value,
-            'pdf' => base64_encode($envelope->pdf),
+            'pdf' => $documents[0],
+            'documents' => $documents,
             'signers' => $signers,
         ]);
 
-        return new EnvelopeRef($ref, $signerRefs);
+        return new EnvelopeRef($ref, $signerRefs, array_map(fn (int $index): string => "fake-doc-{$index}", array_keys($documents)));
     }
 
     public function envelopeStatus(string $providerRef): EnvelopeStatus
@@ -71,11 +74,12 @@ class FakeSignatureProvider implements SignatureProvider
         );
     }
 
-    public function downloadSigned(string $providerRef): string
+    public function downloadSigned(string $providerRef, ?string $documentRef = null): string
     {
         $state = $this->load($providerRef);
+        $index = $documentRef !== null && str_starts_with($documentRef, 'fake-doc-') ? (int) substr($documentRef, 9) : 0;
 
-        return base64_decode($state['pdf'])."\n%FAKE-SIGNED\n";
+        return base64_decode($state['documents'][$index] ?? $state['pdf'])."\n%FAKE-SIGNED\n";
     }
 
     public function cancelEnvelope(string $providerRef): void
