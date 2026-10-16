@@ -119,7 +119,7 @@ class ModulePrinterTest extends TestCase
 
     public function test_i_dati_di_mandato_kyc_e_documento_escono_dalla_pratica(): void
     {
-        $type = new DocumentType(['code' => 'CARTA_IDENTITA', 'name' => 'Carta di Identità']);
+        $type = new DocumentType(['code' => 'CARTA_IDENTITA', 'name' => 'Carta di Identità', 'is_identity' => true]);
         $identity = new Document(['name' => 'Carta', 'docnumber' => 'AX123', 'emitted_by' => 'Comune di Roma', 'emitted_at' => '2024-01-10', 'expires_at' => '2099-01-10']);
         $identity->setRelation('documentType', $type);
         $scaduto = new Document(['name' => 'Vecchia', 'docnumber' => 'OLD', 'emitted_at' => '2010-01-01', 'expires_at' => '2020-01-01']);

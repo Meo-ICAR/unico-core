@@ -151,6 +151,7 @@ class DocumentType extends Model
         return [
             'is_company' => 'boolean',
             'is_signed' => 'boolean',
+            'is_identity' => 'boolean',
             'is_monitored' => 'boolean',
             'is_sensible' => 'boolean',
             'is_stored' => 'boolean',

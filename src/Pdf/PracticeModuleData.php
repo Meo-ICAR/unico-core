@@ -10,12 +10,6 @@ use Unico\Core\Models\Pratica;
 /** Dati della pratica e del cliente con cui compilare un modulo PDF da stampare. */
 class PracticeModuleData
 {
-    /** Codici di DocumentType che identificano un documento d'identità. */
-    public const IDENTITY_TYPE_CODES = ['CARTA_IDENTITA', 'DOCUMENTO_IDENTIFICATIVO'];
-
-    /** Nomi di DocumentType senza codice ma validi come documento d'identità. */
-    public const IDENTITY_TYPE_NAMES = ['Carta di Identità o Patente & cert. Residenza', 'Carta di Identità', 'Patente di Guida'];
-
     /** @param  iterable<ModuleDataProvider>  $providers */
     public function __construct(private iterable $providers = []) {}
 
@@ -192,23 +186,12 @@ class PracticeModuleData
         return $address === '' ? null : $address;
     }
 
-    /** Ultimo documento d'identità non scaduto del cliente (per data di rilascio); il certificato di residenza non vale. */
+    /** Il documento d'identità del cliente (tipo con `is_identity`): se ce ne sono più di uno, il più recente per data di rilascio. */
     public function identityDocument(Client $client): ?Document
     {
         return $client->documents
-            ->filter(function (Document $document): bool {
-                $type = $document->documentType;
-
-                if ($type === null) {
-                    return false;
-                }
-
-                $isIdentity = in_array($type->code, self::IDENTITY_TYPE_CODES, true) || in_array($type->name, self::IDENTITY_TYPE_NAMES, true);
-                $notExpired = $document->expires_at === null || $document->expires_at->greaterThanOrEqualTo(today());
-
-                return $isIdentity && $notExpired && ! str_contains(mb_strtolower((string) $document->name), 'residenza');
-            })
-            ->sortByDesc(fn (Document $document) => [$document->emitted_at?->getTimestamp() ?? 0, $document->created_at?->getTimestamp() ?? 0])
+            ->filter(fn (Document $document): bool => (bool) $document->documentType?->is_identity)
+            ->sortByDesc(fn (Document $document) => [$document->emitted_at?->getTimestamp() ?? 0, $document->created_at?->getTimestamp() ?? 0, $document->getKey()])
             ->first();
     }
 }

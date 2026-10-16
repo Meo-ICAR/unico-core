@@ -250,6 +250,8 @@ class DocumentsRelationManager extends RelationManager
             ->when($limited, fn (Builder $query) => $query->where(function (Builder $query) use ($taskTypes, $includeUsed, $currentId): void {
                 $query->whereIn('id', $taskTypes)
                     ->when($this->ownerIsCompany(), fn (Builder $query) => $query->orWhere('is_company', true))
+                    // Il documento d'identità si può sempre inserire sulla persona, anche se nessun plico lo chiede.
+                    ->when($this->getOwnerRecord() instanceof Client, fn (Builder $query) => $query->orWhere('is_identity', true))
                     ->when($currentId, fn (Builder $query) => $query->orWhereKey($currentId))
                     ->when($includeUsed, fn (Builder $query) => $query->orWhereIn('id', $this->getOwnerRecord()->documents()->withTrashed()->select('document_type_id')));
             }))
@@ -317,12 +319,15 @@ class DocumentsRelationManager extends RelationManager
                         ->visible(fn ($get) => $get('is_monitored'))
                         ->afterOrEqual('emitted_at'),
                     TextInput::make('docnumber')
-                        ->label('Numero / protocollo documento')
-                        ->placeholder('es. CI-2024-001'),
+                        ->label('Numero documento')
+                        ->placeholder('es. CA12345XX')
+                        ->visible(fn ($get): bool => self::isIdentityType($get('document_type_id')))
+                        ->required(fn ($get): bool => self::isIdentityType($get('document_type_id'))),
                     TextInput::make('emitted_by')
                         ->label('Rilasciato da')
                         ->default(fn ($get) => $get('document_type_id') ? DocumentType::find($get('document_type_id'))?->emitted_by : null)
                         ->placeholder('es. Comune di Napoli')
+                        ->visible(fn ($get): bool => self::isIdentityType($get('document_type_id')))
                         ->maxLength(255),
                 ]),
             Section::make('File Allegato')
@@ -914,6 +919,12 @@ class DocumentsRelationManager extends RelationManager
             'user' => $user instanceof Model ? $user : null,
             default => null,
         };
+    }
+
+    /** Solo i documenti d'identità (`document_types.is_identity`) portano numero e ente di rilascio. */
+    private static function isIdentityType(mixed $documentTypeId): bool
+    {
+        return filled($documentTypeId) && (bool) DocumentType::query()->whereKey($documentTypeId)->value('is_identity');
     }
 
     /** Il tipo documento è richiesto da un plico del modello (taskable) o nasce su di lui da un plico di un altro modello. */
