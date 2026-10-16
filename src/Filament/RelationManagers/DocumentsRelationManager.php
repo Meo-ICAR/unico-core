@@ -98,24 +98,12 @@ class DocumentsRelationManager extends RelationManager
         return null;
     }
 
-    private function ownerTypeFlag(): ?string
+    /** L'azienda (tenant) ha anche i documenti aziendali interni: organigramma, verbali CdA. */
+    private function ownerIsCompany(): bool
     {
         $owner = $this->getOwnerRecord();
-        $alias = method_exists($owner, 'getMorphClass') ? $owner->getMorphClass() : strtolower(class_basename($owner));
 
-        return match ($alias) {
-            'client' => 'is_client',
-            'pratica' => 'is_practice',
-            'cliente', 'clienti' => 'is_principal',
-            'fornitore' => 'is_agent',
-            'employee' => 'is_employee',
-            'company' => 'is_company',
-            default => match (true) {
-                $owner instanceof Client => 'is_client',
-                $owner instanceof Pratica => 'is_practice',
-                default => null,
-            },
-        };
+        return (method_exists($owner, 'getMorphClass') ? $owner->getMorphClass() : strtolower(class_basename($owner))) === 'company';
     }
 
     /**
@@ -139,12 +127,14 @@ class DocumentsRelationManager extends RelationManager
      */
     private function documentTypeOptions(bool $includeUsed = false, mixed $currentId = null, bool $excludeUsed = false): array
     {
-        $flag = $this->ownerTypeFlag();
+        $taskTypes = $this->taskDocumentTypeIds();
+        $limited = $taskTypes->exists() || $this->ownerIsCompany();
 
         return DocumentType::query()
-            ->when($flag !== null, fn (Builder $query) => $query->where(function (Builder $query) use ($flag, $includeUsed, $currentId): void {
-                $query->where($flag, true)
-                    ->orWhereIn('id', $this->taskDocumentTypeIds())
+            // Si propongono i tipi dei plichi che arrivano al record (e, per l'azienda, i documenti interni); senza plichi, tutti.
+            ->when($limited, fn (Builder $query) => $query->where(function (Builder $query) use ($taskTypes, $includeUsed, $currentId): void {
+                $query->whereIn('id', $taskTypes)
+                    ->when($this->ownerIsCompany(), fn (Builder $query) => $query->orWhere('is_company', true))
                     ->when($currentId, fn (Builder $query) => $query->orWhereKey($currentId))
                     ->when($includeUsed, fn (Builder $query) => $query->orWhereIn('id', $this->getOwnerRecord()->documents()->withTrashed()->select('document_type_id')));
             }))
@@ -683,14 +673,25 @@ class DocumentsRelationManager extends RelationManager
         return $owner instanceof Pratica ? app(PracticeModuleData::class)->for($owner) : null;
     }
 
+    /** Il tipo documento è richiesto da un plico del modello (taskable) o nasce su di lui da un plico di un altro modello. */
+    private static function requiredOn(string $alias, DocumentType $type): bool
+    {
+        return DocumentRequirement::query()
+            ->where('document_type_id', $type->getKey())
+            ->where(fn ($query) => $query
+                ->whereIn('task_id', \Unico\Core\Models\Task::query()->toBase()->select('id')->where('taskable', $alias))
+                ->orWhere('documentable', $alias))
+            ->exists();
+    }
+
     private static function canPrintModule(Document $document): bool
     {
         $owner = $document->documentable;
         $type = $document->documentType;
 
         return match (true) {
-            $owner instanceof Client => (bool) $type?->is_client,
-            $owner instanceof Pratica => (bool) $type?->is_practice && (
+            $owner instanceof Client => $type !== null && $type->appliesToPerson((bool) $owner->is_person) && self::requiredOn('client', $type),
+            $owner instanceof Pratica => (
                 class_exists(\App\Services\ModuleDataResolver::class)
                     ? app(\App\Services\ModuleDataResolver::class)->findClient($owner) !== null
                     : app(PracticeModuleData::class)->findClient($owner) !== null

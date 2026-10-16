@@ -206,6 +206,7 @@ class Task extends Model
                 'documentable' => $requirement->documentable,
                 'client_roles' => $requirement->client_roles,
                 'signer_model' => $requirement->signer_model,
+                'phase' => $requirement->phase,
             ]);
 
             $present[] = $requirement->document_type_id;

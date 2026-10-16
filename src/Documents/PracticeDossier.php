@@ -67,7 +67,7 @@ class PracticeDossier
         $zip->close();
 
         $tipo = DocumentType::query()->firstOrCreate(['code' => self::TYPE_CODE], [
-            'name' => 'Plico pratica', 'slug' => 'plico-pratica', 'is_practice' => true, 'is_client' => true, 'nature' => 'outgoing',
+            'name' => 'Plico pratica', 'slug' => 'plico-pratica', 'source' => 'stampa',
         ]);
 
         Document::query()->where('documentable_type', 'pratica')->where('documentable_id', (string) $pratica->getKey())->where('document_type_id', $tipo->getKey())->get()->each->delete();

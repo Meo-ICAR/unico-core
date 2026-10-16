@@ -25,6 +25,10 @@ class DocumentType extends Model
 
     public const SOURCE_CLIENTE = 'cliente';
 
+    public const SOURCE_FORNITORE = 'fornitore';
+
+    public const SOURCE_EMPLOYEE = 'employee';
+
     public const SOURCE_API = 'api';
 
     public const SOURCE_TEMPLATE = 'template';
@@ -34,12 +38,24 @@ class DocumentType extends Model
     /** @var array<string, string> come si ottiene il documento */
     public const SOURCES = [
         self::SOURCE_CLIENTE => 'Lo fornisce il cliente',
+        self::SOURCE_FORNITORE => 'Lo fornisce l\'agente / produttore',
+        self::SOURCE_EMPLOYEE => 'Lo fornisce il dipendente',
         self::SOURCE_API => 'Richiesto via API',
         self::SOURCE_TEMPLATE => 'Template inviato al cliente',
         self::SOURCE_STAMPA => 'Stampato con i nostri dati',
     ];
 
     /** @var array<string, string> a quale cliente si applica */
+    /**
+     * Colonne tolte (vedi migration drop_superseded_document_type_columns): se un'app o un seeder le passa ancora, si traducono
+     * nei campi nuovi e si scartano.
+     */
+    public const SUPERSEDED = [
+        'is_person', 'nature', 'is_template',
+        'is_client', 'is_agent', 'is_employee', 'is_principal', 'is_practice', 'document_typable',
+        'priority', 'phase', 'cellposition',
+    ];
+
     public const CLIENT_SCOPES = [
         'persona_fisica' => 'Persona fisica',
         'persona_giuridica' => 'Persona giuridica',
@@ -62,22 +78,62 @@ class DocumentType extends Model
             }
 
             // Chi firma implica che il documento va firmato; se va firmato e non si dice chi, firma il cliente.
-            if (filled($type->signer_model)) {
+            // Togliere la firma toglie anche chi firma e chi approva.
+            if ($type->isDirty('is_signed') && ! $type->is_signed) {
+                $type->signer_model = null;
+                $type->approver_model = null;
+            } elseif (filled($type->signer_model)) {
                 $type->is_signed = true;
             } elseif ($type->is_signed) {
                 $type->signer_model = 'client';
             }
 
-            // Un servizio API rende il documento richiedibile via API; i vecchi flag seguono la fonte.
+            // Assegnazioni dirette delle colonne superate: si traducono e si tolgono, altrimenti il salvataggio fallirebbe.
+            $type->setRawAttributes(self::translateSuperseded($type->getAttributes()));
+
+            // Un servizio API rende il documento richiedibile via API.
             if (filled($type->api_service) && blank($type->source)) {
                 $type->source = self::SOURCE_API;
             }
-
-            if (filled($type->source)) {
-                $type->is_template = in_array($type->source, [self::SOURCE_TEMPLATE, self::SOURCE_STAMPA], true);
-                $type->nature = $type->source === self::SOURCE_STAMPA ? 'template_fillable' : ($type->nature === 'compliance' ? 'compliance' : 'incoming');
-            }
         });
+    }
+
+    /**
+     * Le colonne superate passate in un mass assignment (vecchie app, seeder) diventano `client_scope` e `source` prima che
+     * Eloquent le scarti perché non esistono più.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function fill(array $attributes): static
+    {
+        return parent::fill(self::translateSuperseded($attributes));
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    public static function translateSuperseded(array $attributes): array
+    {
+        if (blank($attributes['client_scope'] ?? null) && array_key_exists('is_person', $attributes)) {
+            $attributes['client_scope'] = (bool) $attributes['is_person'] ? 'persona_fisica' : 'persona_giuridica';
+        }
+
+        if (blank($attributes['source'] ?? null) && (array_key_exists('is_template', $attributes) || array_key_exists('nature', $attributes))) {
+            $attributes['source'] = match (true) {
+                ($attributes['nature'] ?? null) === 'template_fillable' => self::SOURCE_STAMPA,
+                (bool) ($attributes['is_template'] ?? false) => self::SOURCE_TEMPLATE,
+                default => self::SOURCE_CLIENTE,
+            };
+        }
+
+        return array_diff_key($attributes, array_flip(self::SUPERSEDED));
+    }
+
+    /** Forniamo noi il documento: template inviato al cliente o modulo stampato con i nostri dati. */
+    public function getIsTemplateAttribute(): bool
+    {
+        return in_array($this->source, [self::SOURCE_TEMPLATE, self::SOURCE_STAMPA], true);
     }
 
     /** Il documento si applica a un cliente persona fisica (true) o giuridica (false). */
@@ -93,17 +149,10 @@ class DocumentType extends Model
     protected function casts(): array
     {
         return [
-            'is_person' => 'boolean',
             'is_company' => 'boolean',
-            'is_employee' => 'boolean',
-            'is_agent' => 'boolean',
-            'is_principal' => 'boolean',
-            'is_client' => 'boolean',
-            'is_practice' => 'boolean',
             'is_signed' => 'boolean',
             'is_monitored' => 'boolean',
             'is_sensible' => 'boolean',
-            'is_template' => 'boolean',
             'is_stored' => 'boolean',
             'is_versioned' => 'boolean',
             'is_end_month' => 'boolean',
@@ -112,7 +161,6 @@ class DocumentType extends Model
             'allow_auto_verification' => 'boolean',
             'notify_days_before' => 'array',
             'checks' => 'array',
-            'priority' => 'integer',
             'duration' => 'integer',
             'min_confidence' => 'integer',
             'retention_years' => 'integer',

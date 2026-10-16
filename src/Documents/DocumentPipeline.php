@@ -261,12 +261,11 @@ class DocumentPipeline
         return $all[$kind] ?? $all['*'] ?? [];
     }
 
-    /** Tipi che si possono riconoscere per questo documento: del tenant o globali, applicabili al suo soggetto, con regex o AI. */
+    /** Tipi che si possono riconoscere per questo documento: del tenant o globali, con regex o AI. */
     private function candidates(Document $document): Collection
     {
         return DocumentType::query()
             ->where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $document->company_id))
-            ->where(fn ($q) => $q->whereNull('document_typable')->orWhere('document_typable', $document->documentable_type))
             ->where(fn ($q) => $q->whereNotNull('regex')->orWhere('is_ai_check', true))
             ->get();
     }

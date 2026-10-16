@@ -82,7 +82,11 @@ class CoreDataSeeder extends Seeder
 
                 $rows = json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
 
-                foreach (array_chunk($rows, 200) as $chunk) {
+                // Le colonne tolte dopo l'esportazione dei dati non si caricano.
+                $columns = array_flip($db->getSchemaBuilder()->getColumnListing($table));
+                $rows = array_map(fn (array $row): array => array_intersect_key($row, $columns), $rows);
+
+                foreach (array_chunk(array_filter($rows), 200) as $chunk) {
                     $db->table($table)->upsert($chunk, ['id'], array_keys($chunk[0]));
                 }
 

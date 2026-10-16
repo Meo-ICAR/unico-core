@@ -43,7 +43,6 @@ class DocumentTypeConsistencyTest extends TestCase
 
         $stampa = $this->type(['source' => DocumentType::SOURCE_STAMPA]);
         $this->assertTrue($stampa->is_template);
-        $this->assertSame('template_fillable', $stampa->nature);
         $this->assertFalse($this->type(['source' => DocumentType::SOURCE_CLIENTE])->is_template);
     }
 
@@ -64,5 +63,19 @@ class DocumentTypeConsistencyTest extends TestCase
         $this->assertFalse($this->type(['client_scope' => 'persona_fisica'])->appliesToPerson(false));
         $this->assertTrue($this->type(['client_scope' => 'persona_giuridica'])->appliesToPerson(false));
         $this->assertTrue($this->type([])->appliesToPerson(false));
+    }
+
+    public function test_superseded_columns_passed_by_old_code_become_the_new_fields(): void
+    {
+        $stampa = $this->type(['nature' => 'template_fillable', 'is_person' => false, 'is_client' => true, 'priority' => 3]);
+        $this->assertSame(DocumentType::SOURCE_STAMPA, $stampa->source);
+        $this->assertSame('persona_giuridica', $stampa->client_scope);
+        $this->assertTrue($stampa->is_template);
+
+        $template = $this->type(['is_template' => true]);
+        $this->assertSame(DocumentType::SOURCE_TEMPLATE, $template->source);
+
+        $this->assertSame(DocumentType::SOURCE_FORNITORE, $this->type(['source' => DocumentType::SOURCE_FORNITORE])->source);
+        $this->assertArrayHasKey(DocumentType::SOURCE_EMPLOYEE, DocumentType::SOURCES);
     }
 }
