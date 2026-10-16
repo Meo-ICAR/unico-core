@@ -21,6 +21,8 @@ class ProvvigioniRule extends Model
             'coordinamento' => 'boolean',
             'iscliente' => 'boolean',
             'value' => 'decimal:4',
+            'ltv_min' => 'decimal:2',
+            'ltv_max' => 'decimal:2',
             'valid_from' => 'date',
             'valid_to' => 'date',
         ];
