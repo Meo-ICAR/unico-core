@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Unico\Core\Concerns\UsesCoreConnection;
 
@@ -49,6 +50,73 @@ class Task extends Model
     public function documentRequirements(): HasMany
     {
         return $this->hasMany(DocumentRequirement::class, 'task_id');
+    }
+
+    /**
+     * Classe del model a cui si aggancia il plico (`taskable` è l'alias del morph map).
+     *
+     * @return class-string<Model>|null
+     */
+    public function taskableClass(): ?string
+    {
+        return $this->taskable ? Relation::getMorphedModel($this->taskable) : null;
+    }
+
+    /**
+     * Verifica se il plico è applicabile al record: dev'essere del model collegato (`taskable`), passare le due condizioni
+     * di attivazione (`trigger_field`/`trigger_state`/`trigger_value` e `trigger_subfield` = `trigger_subvalue`) e non
+     * rientrare nella condizione di esclusione (`exclude_*`).
+     */
+    public function matchesConditions(Model $record): bool
+    {
+        $class = $this->taskableClass();
+
+        if ($class !== null && ! $record instanceof $class) {
+            return false;
+        }
+
+        if (! empty($this->exclude_field) && ! empty($this->exclude_state) && $this->fieldMatches($record, $this->exclude_field, $this->exclude_state, $this->exclude_value)) {
+            return false;
+        }
+
+        if (! empty($this->trigger_field) && ! empty($this->trigger_state) && ! $this->fieldMatches($record, $this->trigger_field, $this->trigger_state, $this->trigger_value)) {
+            return false;
+        }
+
+        return empty($this->trigger_subfield) || $this->fieldMatches($record, $this->trigger_subfield, 'equals', $this->trigger_subvalue);
+    }
+
+    /**
+     * I plichi radice attivi applicabili al record (i figli si attivano al completamento del padre), validi per la sua company.
+     *
+     * @return Collection<int, static>
+     */
+    public static function applicabiliA(Model $record, ?int $companyId = null): Collection
+    {
+        return static::query()
+            ->where('taskable', Relation::getMorphAlias($record::class))
+            ->where('is_active', true)
+            ->whereNull('parent_id')
+            ->forCompany($companyId)
+            ->get()
+            ->filter(fn (self $task): bool => $task->matchesConditions($record))
+            ->values();
+    }
+
+    /** Applica una condizione (`filled`, `empty`, `equals`) al campo del record. */
+    protected function fieldMatches(Model $record, string $field, ?string $state, ?string $value): bool
+    {
+        $fieldValue = $record->{$field};
+
+        if ($fieldValue instanceof \BackedEnum) {
+            $fieldValue = $fieldValue->value;
+        }
+
+        return match ($state) {
+            'empty' => empty($fieldValue),
+            'equals' => (string) $fieldValue === (string) $value,
+            default => ! empty($fieldValue),
+        };
     }
 
     public function tipoprodotto(): BelongsTo
