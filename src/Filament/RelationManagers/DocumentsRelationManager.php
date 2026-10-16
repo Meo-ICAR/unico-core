@@ -137,7 +137,19 @@ class DocumentsRelationManager extends RelationManager
             return collect();
         }
 
-        return $taskClass::getAvailableFor($this->getOwnerRecord())->load('documentTypes')->values();
+        $owner = $this->getOwnerRecord();
+
+        if ($owner instanceof Pratica) {
+            $prodotto = $owner->tipoprodotto?->name;
+            $stato = $owner->praticaStato?->codice;
+            $task = $prodotto === null || $stato === null ? null : app(PracticeTaskDocuments::class)->taskDelloStato($prodotto, $stato);
+
+            if ($task !== null) {
+                return collect([$task->load('documentTypes')]);
+            }
+        }
+
+        return $taskClass::getAvailableFor($owner)->load('documentTypes')->values();
     }
 
     private function plicoTaskClass(): ?string

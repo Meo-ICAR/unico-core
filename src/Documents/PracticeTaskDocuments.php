@@ -45,12 +45,7 @@ class PracticeTaskDocuments
      */
     public function forProductStatus(string $productName, string $statusCode, int|string|null $bankId = null): Collection
     {
-        $task = $this->task($productName, $statusCode);
-
-        // Il catalogo attuale chiama PERFEZIONATA il task dei documenti di perfezionamento.
-        if ($task === null && $statusCode === 'PERFEZIONARE') {
-            $task = $this->task($productName, 'PERFEZIONATA');
-        }
+        $task = $this->taskDelloStato($productName, $statusCode);
 
         if ($task === null) {
             return collect();
@@ -185,6 +180,18 @@ class PracticeTaskDocuments
         }
 
         return $created;
+    }
+
+    /** Il task dello stato della pratica per il prodotto; il catalogo attuale chiama PERFEZIONATA il task di PERFEZIONARE. */
+    public function taskDelloStato(string $productName, string $statusCode): ?Task
+    {
+        $task = $this->task($productName, $statusCode);
+
+        if ($task === null && $statusCode === 'PERFEZIONARE') {
+            $task = $this->task($productName, 'PERFEZIONATA');
+        }
+
+        return $task;
     }
 
     private function task(string $productName, string $statusCode): ?Task
