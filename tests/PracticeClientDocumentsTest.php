@@ -101,4 +101,25 @@ class PracticeClientDocumentsTest extends TestCase
         $this->assertSame([$identita->id], $sul($coobbligato));
         $this->assertSame([], $sul($garante), 'il garante non è fra i ruoli dell\'identità e non è una società');
     }
+
+    public function test_la_check_list_crea_i_documenti_sui_client_con_diritto(): void
+    {
+        $mutuo = TipoProdotto::create(['name' => 'Mutuo']);
+        $task = Task::create(['name' => 'Check list Mutui · privati', 'taskable' => 'pratica', 'trigger_field' => 'tipo_prodotto', 'trigger_value' => 'Mutuo', 'tipoprodotto_id' => $mutuo->id, 'trigger_subfield' => 'employment_document_group', 'trigger_subvalue' => 'privati']);
+        $identita = DocumentType::create(['name' => 'Carta identità', 'code' => 'CI', 'is_person' => true]);
+        $busta = DocumentType::create(['name' => 'Busta paga', 'code' => 'BP']);
+        DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $identita->id, 'documentable' => 'client', 'client_roles' => ['richiedente', 'coobbligato']]);
+        DocumentRequirement::create(['task_id' => $task->id, 'document_type_id' => $busta->id]);
+
+        $pratica = Pratica::create(['codice_pratica' => 'P-C4', 'upload_at' => now(), 'tipoprodotto_id' => $mutuo->id]);
+        $richiedente = Client::create(['name' => 'Rossi', 'is_person' => true]);
+        $garante = Client::create(['name' => 'Neri', 'is_person' => true]);
+        PraticaClient::create(['pratica_id' => $pratica->getKey(), 'client_id' => $richiedente->id, 'role' => 'richiedente']);
+        PraticaClient::create(['pratica_id' => $pratica->getKey(), 'client_id' => $garante->id, 'role' => 'garante']);
+
+        $this->assertSame(2, (new PracticeTaskDocuments)->attachChecklist($pratica, 'privati'));
+        $this->assertSame(0, (new PracticeTaskDocuments)->attachChecklist($pratica, 'privati'));
+        $this->assertSame([$busta->id], Document::query()->where('documentable_type', 'pratica')->pluck('document_type_id')->all());
+        $this->assertSame([$identita->id], Document::query()->where('documentable_type', 'client')->where('documentable_id', (string) $richiedente->id)->pluck('document_type_id')->all());
+    }
 }

@@ -126,18 +126,30 @@ class PracticeTaskDocuments
             ->values();
     }
 
-    /** Crea sulla pratica i documenti del task di perfezionamento del suo tipo prodotto. */
+    /** Crea i documenti del task di perfezionamento del tipo prodotto della pratica (sulla pratica o sui suoi client). */
     public function attachToPractice(Pratica $pratica): int
     {
         $productName = $pratica->tipoprodotto?->name;
 
-        if ($productName === null) {
-            return 0;
-        }
+        return $productName === null ? 0 : $this->createDocuments($pratica, $this->forProductStatus($productName, 'PERFEZIONARE'));
+    }
 
+    /** Crea i documenti della check list del prodotto (per gruppo di tipologia lavorativa) sulla pratica o sui suoi client. */
+    public function attachChecklist(Pratica $pratica, ?string $group, int|string|null $bankId = null): int
+    {
+        $productName = $pratica->tipoprodotto?->name;
+
+        return $productName === null ? 0 : $this->createDocuments($pratica, $this->forProduct($productName, $group, $bankId));
+    }
+
+    /**
+     * @param  Collection<int, DocumentRequirement>  $requirements
+     */
+    private function createDocuments(Pratica $pratica, Collection $requirements): int
+    {
         $created = 0;
 
-        foreach ($this->forProductStatus($productName, 'PERFEZIONARE') as $requirement) {
+        foreach ($requirements as $requirement) {
             $type = $requirement->documentType;
 
             if ($type === null) {
