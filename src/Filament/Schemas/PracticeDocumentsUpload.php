@@ -87,10 +87,11 @@ class PracticeDocumentsUpload
         $results = [];
 
         foreach ($files as $file) {
-            $result = $intake->intake($pratica, $file, $expected, auth()->user());
-            $results[] = $result;
+            foreach ($intake->intakeAll($pratica, $file, $expected, auth()->user()) as $result) {
+                $results[] = $result;
 
-            static::notify($result);
+                static::notify($result);
+            }
         }
 
         return $results;

@@ -253,6 +253,12 @@ return [
     ],
 
     'documents' => [
+        // Caricamento: uno ZIP si apre e ogni file è un documento; un PDF con più documenti si divide se l'AI li riconosce.
+        'upload' => [
+            'zip_max_files' => 100,
+            'zip_max_bytes' => 200 * 1024 * 1024,
+            'split_min_pages' => 2,
+        ],
         // Percorsi leggibili dei file (azienda / tipo proprietario / istanza) al posto delle cartelle numeriche di Spatie.
         'readable_paths' => env('UNICO_CORE_READABLE_PATHS', true),
         'analysis' => [

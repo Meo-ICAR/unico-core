@@ -19,6 +19,7 @@ class DocumentRequirement extends Model
     {
         return [
             'is_required' => 'boolean',
+            'request_to_issuer' => 'boolean',
             'client_roles' => 'array',
         ];
     }

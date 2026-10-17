@@ -13,9 +13,36 @@ class Website extends Model
 {
     use SoftDeletes, UsesCoreConnection;
 
+    /** Portali di un istituto: dove si caricano le pratiche, da dove si scaricano i moduli, collegamento via API. */
+    public const PORTAL_CARICAMENTO = 'caricamento';
+
+    public const PORTAL_MODULISTICA = 'modulistica';
+
+    public const PORTAL_API = 'api';
+
+    public const PORTALI = [
+        self::PORTAL_CARICAMENTO => 'Caricamento pratiche',
+        self::PORTAL_MODULISTICA => 'Modulistica',
+        self::PORTAL_API => 'API',
+    ];
+
     protected $table = 'websites';
 
     protected $guarded = ['id'];
+
+    protected static function booted(): void
+    {
+        // Il dominio è obbligatorio: se si indica solo l'indirizzo, si ricava da lì.
+        static::saving(function (Website $website): void {
+            if (blank($website->domain) && filled($website->url)) {
+                $website->domain = parse_url((string) $website->url, PHP_URL_HOST) ?: (string) $website->url;
+            }
+
+            if (blank($website->name) && filled($website->type)) {
+                $website->name = self::PORTALI[$website->type] ?? (string) $website->type;
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -24,6 +51,7 @@ class Website extends Model
             'is_typical' => 'boolean',
             'is_footercompilant' => 'boolean',
             'is_iso27001_certified' => 'boolean',
+            'api_secret' => 'encrypted',
             'privacy_date' => 'date',
             'transparency_date' => 'date',
             'privacy_prior_date' => 'date',

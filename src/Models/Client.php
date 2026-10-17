@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Enums\DocumentStatus;
 
 /** Clienti finali: persone fisiche e giuridiche, con dati KYC e consensi privacy. */
 class Client extends Model
@@ -17,18 +18,48 @@ class Client extends Model
 
     protected $guarded = ['id'];
 
-    /** Ogni nuova persona fisica nasce con i due indirizzi da compilare: residenza e domicilio. */
+    /** Tipi dei due documenti d'identità che ogni persona fisica ha da raccogliere (codice o nome del tipo). */
+    public const DOCUMENTI_INIZIALI = [['code', 'CARTA_IDENTITA'], ['name', 'Patente di Guida']];
+
+    /** Ogni nuova persona fisica nasce con i due indirizzi (residenza, domicilio) e i due documenti d'identità da compilare. */
     protected static function booted(): void
     {
-        static::created(function (self $client): void {
-            if (! $client->is_person) {
-                return;
+        static::created(fn (self $client) => $client->preparaAnagrafica());
+    }
+
+    /**
+     * Crea, se mancano, residenza e domicilio e i due documenti d'identità (richiesti, da caricare). Non tocca quello che c'è già.
+     *
+     * @return array{indirizzi: int, documenti: int} quanti ne ha creati
+     */
+    public function preparaAnagrafica(): array
+    {
+        $creati = ['indirizzi' => 0, 'documenti' => 0];
+
+        if (! $this->is_person) {
+            return $creati;
+        }
+
+        foreach (AddressType::query()->whereIn('name', ['Residenza', 'Domicilio'])->orderBy('id')->get() as $tipo) {
+            $indirizzo = $this->addresses()->firstOrCreate(['address_type_id' => $tipo->getKey()]);
+            $creati['indirizzi'] += $indirizzo->wasRecentlyCreated ? 1 : 0;
+        }
+
+        foreach (self::DOCUMENTI_INIZIALI as [$campo, $valore]) {
+            $tipo = DocumentType::query()->where($campo, $valore)->first();
+
+            if ($tipo === null) {
+                continue;
             }
 
-            foreach (AddressType::query()->whereIn('name', ['Residenza', 'Domicilio'])->orderBy('id')->get() as $tipo) {
-                $client->addresses()->firstOrCreate(['address_type_id' => $tipo->getKey()]);
-            }
-        });
+            $documento = Document::query()->firstOrCreate(
+                ['documentable_type' => 'client', 'documentable_id' => (string) $this->getKey(), 'document_type_id' => $tipo->getKey()],
+                ['name' => $tipo->name, 'company_id' => is_numeric($this->company_id) ? (int) $this->company_id : null, 'status' => DocumentStatus::PENDING->value],
+            );
+            $creati['documenti'] += $documento->wasRecentlyCreated ? 1 : 0;
+        }
+
+        return $creati;
     }
 
     protected function casts(): array

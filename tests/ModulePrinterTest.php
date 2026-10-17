@@ -2,18 +2,23 @@
 
 namespace Unico\Core\Tests;
 
+use Illuminate\Database\Eloquent\Collection;
 use PHPUnit\Framework\TestCase;
+use Unico\Core\Models\Address;
 use Unico\Core\Models\Branch;
 use Unico\Core\Models\Client;
-use Unico\Core\Models\Pratica;
-use Unico\Core\Models\PraticaClient;
-use Unico\Core\Pdf\PdfModuleClientScope;
-use Unico\Core\Pdf\PracticeModuleData;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\DocumentType;
+use Unico\Core\Models\Fornitore;
 use Unico\Core\Models\PdfModule;
 use Unico\Core\Models\PdfModuleField;
+use Unico\Core\Models\Pratica;
+use Unico\Core\Models\PraticaClient;
+use Unico\Core\Pdf\ModuleDataProvider;
+use Unico\Core\Pdf\PdfModuleClientScope;
+use Unico\Core\Pdf\PracticeModuleData;
 use Unico\Core\Pdf\PrintReadiness;
+use Unico\Core\Pdf\ResolvedModuleData;
 use Unico\Core\Tests\Support\CoreDatabase;
 
 class ModulePrinterTest extends TestCase
@@ -56,7 +61,7 @@ class ModulePrinterTest extends TestCase
             'cognome_cliente' => 'Rossi',
             'nome_cliente' => 'Mario',
         ]);
-        $pratica->setRelation('praticaClients', new \Illuminate\Database\Eloquent\Collection([$link]));
+        $pratica->setRelation('praticaClients', new Collection([$link]));
         $pratica->setRelation('fornitori', null);
 
         $data = (new PracticeModuleData)->for($pratica);
@@ -76,7 +81,7 @@ class ModulePrinterTest extends TestCase
         $type = new DocumentType(['is_signed' => $typeSigned]);
         $type->setRelation('pdfModule', $module);
 
-        $document = new Document(['is_signed' => $signed]);
+        $document = new Document(['signed_at' => $signed ? now() : null]);
         $document->setRelation('documentType', $type);
         $document->setRelation('documentable', $pratica);
 
@@ -86,7 +91,7 @@ class ModulePrinterTest extends TestCase
     private function pratica(array $attributes): Pratica
     {
         $pratica = new Pratica($attributes);
-        $pratica->setRelation('praticaClients', new \Illuminate\Database\Eloquent\Collection);
+        $pratica->setRelation('praticaClients', new Collection);
         $pratica->setRelation('fornitori', null);
 
         return $pratica;
@@ -119,7 +124,7 @@ class ModulePrinterTest extends TestCase
 
     public function test_i_dati_di_mandato_kyc_e_documento_escono_dalla_pratica(): void
     {
-        $type = new DocumentType(['code' => 'CARTA_IDENTITA', 'name' => 'Carta di Identità', 'is_identity' => true]);
+        $type = new DocumentType(['code' => 'CARTA_IDENTITA', 'name' => 'Carta di Identità', 'codegroup' => DocumentType::CODEGROUP_IDENTITA]);
         $identity = new Document(['name' => 'Carta', 'docnumber' => 'AX123', 'emitted_by' => 'Comune di Roma', 'emitted_at' => '2024-01-10', 'expires_at' => '2099-01-10']);
         $identity->setRelation('documentType', $type);
         $scaduto = new Document(['name' => 'Vecchia', 'docnumber' => 'OLD', 'emitted_at' => '2010-01-01', 'expires_at' => '2020-01-01']);
@@ -135,7 +140,7 @@ class ModulePrinterTest extends TestCase
         $link->setRelation('client', $client);
 
         $pratica = $this->pratica(['codice_pratica' => 'P-9', 'mediation_fee_percent' => 2.5, 'istruttoria_costs' => 150, 'withdrawal_terms' => '14 giorni']);
-        $pratica->setRelation('praticaClients', new \Illuminate\Database\Eloquent\Collection([$link]));
+        $pratica->setRelation('praticaClients', new Collection([$link]));
         $pratica->setRelation('company', null);
 
         $data = (new PracticeModuleData)->for($pratica);
@@ -158,11 +163,11 @@ class ModulePrinterTest extends TestCase
 
     public function test_la_persona_fisica_usa_gli_indirizzi_la_societa_la_sede_e_il_luogo_e_della_sede_dell_agente(): void
     {
-        $residenza = new \Unico\Core\Models\Address(['street' => 'Via Verdi', 'numero' => '7', 'city' => 'Roma', 'zip_code' => '00100', 'province' => 'RM', 'address_type_id' => 1]);
-        $domicilio = new \Unico\Core\Models\Address(['street' => 'Via Bianchi', 'numero' => '9', 'city' => 'Napoli', 'zip_code' => '80100', 'province' => 'NA', 'address_type_id' => 2]);
+        $residenza = new Address(['street' => 'Via Verdi', 'numero' => '7', 'city' => 'Roma', 'zip_code' => '00100', 'province' => 'RM', 'address_type_id' => 1]);
+        $domicilio = new Address(['street' => 'Via Bianchi', 'numero' => '9', 'city' => 'Napoli', 'zip_code' => '80100', 'province' => 'NA', 'address_type_id' => 2]);
         $sede = new Branch(['address' => 'Via Sede', 'street_number' => '3', 'city' => 'Torino', 'zip_code' => '10100', 'province' => 'TO', 'is_main_office' => true]);
 
-        $build = function (bool $isPerson) use ($residenza, $domicilio, $sede): PracticeModuleData|\Unico\Core\Pdf\ResolvedModuleData {
+        $build = function (bool $isPerson) use ($residenza, $domicilio, $sede): PracticeModuleData|ResolvedModuleData {
             $client = new Client(['name' => 'Rossi', 'first_name' => 'Mario', 'is_person' => $isPerson, 'consent_group_at' => now()]);
             $client->setRelation('employer', null);
             $client->setRelation('legalRepresentative', null);
@@ -174,9 +179,9 @@ class ModulePrinterTest extends TestCase
             $link->setRelation('client', $client);
 
             $pratica = $this->pratica([]);
-            $pratica->setRelation('praticaClients', new \Illuminate\Database\Eloquent\Collection([$link]));
+            $pratica->setRelation('praticaClients', new Collection([$link]));
             $pratica->setRelation('company', null);
-            $agente = new \Unico\Core\Models\Fornitore(['name' => 'Agente']);
+            $agente = new Fornitore(['name' => 'Agente']);
             $agente->setRelation('branch', new Branch(['city' => 'Foggia']));
             $pratica->setRelation('fornitori', $agente);
 
@@ -199,9 +204,9 @@ class ModulePrinterTest extends TestCase
     public function test_senza_branch_dell_agente_il_luogo_resta_vuoto(): void
     {
         $pratica = $this->pratica([]);
-        $pratica->setRelation('praticaClients', new \Illuminate\Database\Eloquent\Collection);
+        $pratica->setRelation('praticaClients', new Collection);
         $pratica->setRelation('company', null);
-        $agente = new \Unico\Core\Models\Fornitore(['name' => 'Agente']);
+        $agente = new Fornitore(['name' => 'Agente']);
         $agente->setRelation('branch', null);
         $pratica->setRelation('fornitori', $agente);
 
@@ -210,7 +215,7 @@ class ModulePrinterTest extends TestCase
 
     public function test_i_dati_delle_app_si_aggiungono_ma_non_sovrascrivono_quelli_del_pacchetto(): void
     {
-        $provider = new class implements \Unico\Core\Pdf\ModuleDataProvider
+        $provider = new class implements ModuleDataProvider
         {
             public function values(Pratica $pratica, ?Client $client): array
             {

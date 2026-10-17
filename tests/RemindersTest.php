@@ -384,6 +384,25 @@ class RemindersTest extends TestCase
 
     // --- Template per grado, casella per company e tipo, anteprima ---
 
+    public function test_a_manual_reminder_picks_the_template_from_the_minimum_reminders_and_goes_to_the_chosen_recipient(): void
+    {
+        $this->template(['name' => 'base']);
+        $this->template(['name' => 'warning', 'severity' => 'warning', 'subject' => 'URGENTE: {documento_nome}']);
+        $owner = $this->employee();
+        $responsabile = $this->employee('Luisa Verdi', 'luisa@example.com');
+        $uno = $this->doc($owner, null, ['expires_at' => null, 'reminders_count' => 2]);
+        $due = $this->doc($owner, null, ['expires_at' => null, 'reminders_count' => 3]);
+        $nuovo = $this->doc($owner, null, ['expires_at' => null, 'reminders_count' => 0]);
+
+        $bozza = $this->service->compose(collect([$uno, $due]), null, 2, $responsabile);
+        $this->assertSame('warning', $bozza->severity, 'Con almeno 2 solleciti ciascuno il grado è warning.');
+        $this->assertSame('warning', $bozza->template->name);
+        $this->assertSame('luisa@example.com', $bozza->recipientEmail);
+
+        $minimo = (int) collect([$uno, $due, $nuovo])->min('reminders_count');
+        $this->assertSame('ok', $this->service->compose(collect([$uno, $due, $nuovo]), null, $minimo, $responsabile)->severity, 'Un documento mai sollecitato porta il minimo a zero.');
+    }
+
     public function test_the_template_follows_the_escalation_by_expiry_and_reminders_already_sent(): void
     {
         $this->template(['name' => 'base']);

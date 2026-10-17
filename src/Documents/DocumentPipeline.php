@@ -6,6 +6,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use Unico\Core\Documents\Contracts\AiCallLog;
 use Unico\Core\Documents\Contracts\AnalysisGate;
 use Unico\Core\Documents\Contracts\DeclaredData;
 use Unico\Core\Documents\Contracts\DocumentFileSource;
@@ -44,6 +45,7 @@ class DocumentPipeline
         private CheckRegistry $registry,
         private DeclaredData $declared,
         private AnalysisGate $gate,
+        private ?AiCallLog $aiLog = null,
     ) {}
 
     public function run(Document $document, array $options = []): PipelineResult
@@ -118,6 +120,7 @@ class DocumentPipeline
     private function classify(Document $document, DocumentFile $file, Collection $candidates): array
     {
         $usage = null;
+        $apiLog = null;
 
         try {
             $found = $this->classifier->classify($candidates, $file);
@@ -128,6 +131,7 @@ class DocumentPipeline
             $found = new Classification(null);
             $usage = null;
             $error = $e::class;
+            $apiLog = $this->aiLog?->failed($document, 'classificazione', $e->getMessage());
         }
 
         if ($found->matched()) {
@@ -140,7 +144,7 @@ class DocumentPipeline
         $outcome = $found->matched() ? 'passed' : 'needs_review';
 
         $analysis = $this->record($document, 'classification', $outcome, [
-            'result' => ['document_type_id' => $found->type?->getKey(), 'code' => $found->type?->code, 'abstract' => $found->abstract, 'candidates' => $candidates->pluck('id')->all()],
+            'result' => ['document_type_id' => $found->type?->getKey(), 'code' => $found->type?->code, 'abstract' => $found->abstract, 'candidates' => $candidates->pluck('id')->all(), 'api_log' => $apiLog],
             'confidence' => $found->confidence,
             'operator_type' => $found->operator ?? 'procedural',
             'operator_label' => $found->label ?? 'classifier',
@@ -174,13 +178,15 @@ class DocumentPipeline
         }
 
         $error = null;
-        $context = new DocumentContext($document, $kind, function () use ($file, $kind, $document, &$error): ?array {
+        $apiLog = null;
+        $context = new DocumentContext($document, $kind, function () use ($file, $kind, $document, &$error, &$apiLog): ?array {
             try {
                 return $this->reader->read($kind, $file->mime, $file->bytes);
             } catch (Throwable $e) {
                 // Mai messaggi o contenuti nel log: possono contenere dati personali.
                 Log::error('Lettura documento non riuscita', ['document' => $document->getKey(), 'exception' => $e::class]);
                 $error = $e::class;
+                $apiLog = $this->aiLog?->failed($document, 'lettura', $e->getMessage());
 
                 return null;
             }
@@ -193,7 +199,7 @@ class DocumentPipeline
         if ($fields === null) {
             return [
                 'analysis' => $this->record($document, 'extraction', 'needs_review', [
-                    'result' => ['fields' => null],
+                    'result' => ['fields' => null, 'api_log' => $apiLog ?? $this->aiLog?->failed($document, 'lettura', $error ?? 'Documento non leggibile dal lettore AI')],
                     'operator_type' => 'ai',
                     'operator_label' => $label,
                     'error' => $error ?? 'Documento non leggibile dal lettore AI',

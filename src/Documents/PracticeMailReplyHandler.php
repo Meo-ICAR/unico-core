@@ -68,7 +68,7 @@ class PracticeMailReplyHandler
             $file = $this->uploadedFile($media);
 
             if ($file !== null) {
-                $results[] = $this->intake->intake($pratica, $file, $expected);
+                array_push($results, ...$this->intake->intakeAll($pratica, $file, $expected));
             }
         }
 

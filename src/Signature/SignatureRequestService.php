@@ -5,6 +5,7 @@ namespace Unico\Core\Signature;
 use Unico\Core\Enums\SignatureRequestStatus;
 use Unico\Core\Enums\SignerStatus;
 use Unico\Core\Enums\SyncStatus;
+use Unico\Core\Enums\DocumentStatus;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\SignatureRequest;
 use Unico\Core\Events\SignatureCancelled;
@@ -200,6 +201,8 @@ class SignatureRequestService
                         'sent_at' => now(),
                     ]);
 
+                    $this->moveDocument($request->document_id, DocumentStatus::SENT_OTP, [DocumentStatus::PENDING, DocumentStatus::MISSING_DATA, DocumentStatus::PRINT, DocumentStatus::DOWNLOAD, DocumentStatus::TO_SEND_OTP, DocumentStatus::UPLOADED]);
+
                     foreach ($request->signatureRequestSigners as $signer) {
                         $signer->update([
                             'provider_signer_ref' => $ref->signerRefs[$signer->slot] ?? null,
@@ -292,7 +295,7 @@ class SignatureRequestService
                 SignatureRequestStatus::Signed => $this->completeRequest($locked, (string) $pdf),
                 SignatureRequestStatus::Declined,
                 SignatureRequestStatus::Expired,
-                SignatureRequestStatus::Cancelled => $locked->forceFill(['status' => $envelope->status, 'failure_reason' => null])->save(),
+                SignatureRequestStatus::Cancelled => $this->closeRequest($locked, $envelope->status),
                 default => $locked->save(),
             };
         });
@@ -332,6 +335,7 @@ class SignatureRequestService
                 }
 
                 $sibling->forceFill(['status' => SignatureRequestStatus::Cancelled])->save();
+                $this->moveDocument($sibling->document_id, DocumentStatus::TO_SEND_OTP, [DocumentStatus::SENT_OTP]);
 
                 event(new SignatureCancelled($sibling, $user));
             }
@@ -378,10 +382,16 @@ class SignatureRequestService
                 }
             }
 
-            $changed += SignatureRequest::query()
+            $expired = SignatureRequest::query()
                 ->whereKey($request->getKey())
                 ->where('status', SignatureRequestStatus::Sent)
                 ->update(['status' => SignatureRequestStatus::Expired]);
+
+            if ($expired > 0) {
+                $this->moveDocument($request->document_id, DocumentStatus::TO_SEND_OTP, [DocumentStatus::SENT_OTP]);
+            }
+
+            $changed += $expired;
         }
 
         $changed += SignatureRequest::query()
@@ -411,6 +421,34 @@ class SignatureRequestService
         return $request;
     }
 
+    private function closeRequest(SignatureRequest $request, SignatureRequestStatus $status): bool
+    {
+        $request->forceFill(['status' => $status, 'failure_reason' => null])->save();
+        $this->moveDocument($request->document_id, DocumentStatus::TO_SEND_OTP, [DocumentStatus::SENT_OTP]);
+
+        return true;
+    }
+
+    /**
+     * Porta il documento alla fase indicata, ma solo se è in una delle fasi di partenza (una fase successiva non torna indietro).
+     *
+     * @param  array<int, DocumentStatus>  $from
+     */
+    private function moveDocument(int|string|null $documentId, DocumentStatus $to, array $from): void
+    {
+        if ($documentId === null) {
+            return;
+        }
+
+        $documents = Document::query()->whereKey($documentId)->whereIn('status', array_map(fn (DocumentStatus $status): string => $status->value, $from))->get();
+
+        foreach ($documents as $document) {
+            Document::query()->whereKey($document->getKey())->update(['status' => $to->value]);
+            $document->status = $to;
+            $document->syncResponsible();
+        }
+    }
+
     private function applySignerStates(SignatureRequest $request, EnvelopeStatus $envelope): void
     {
         $states = collect($envelope->signers)->keyBy('providerSignerRef');
@@ -437,7 +475,7 @@ class SignatureRequestService
 
         $this->storeSigned($document, $pdf, (Str::slug((string) $document->name) ?: 'documento').'-firmato.pdf');
 
-        $document->forceFill(['is_signed' => true, 'signed_at' => $signedAt] + $this->signedBy($request, $document));
+        $document->forceFill(['signed_at' => $signedAt, 'status' => filled($document->documentType?->approver_model) ? DocumentStatus::TO_APPROVE_OTP : DocumentStatus::SIGNED_OTP] + $this->signedBy($request, $document));
         // Il firmato sostituisce l'originale anche sul cloud: un documento già sincronizzato torna da caricare.
         if ($document->sync_status === SyncStatus::SYNCED->value) {
             $document->sync_status = SyncStatus::LOCAL->value;

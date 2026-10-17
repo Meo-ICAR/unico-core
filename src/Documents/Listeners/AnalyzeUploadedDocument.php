@@ -40,6 +40,16 @@ class AnalyzeUploadedDocument
 
         $document = $event->media->model;
 
+        // Il file corretto di un documento respinto è una nuova versione: il file va sul nuovo record e il vecchio resta com'è.
+        if ($document instanceof Document && $event->media->collection_name === Document::COLLECTION) {
+            $version = $document->versionForUpload($event->media->getKey());
+
+            if ($version->getKey() !== $document->getKey()) {
+                $event->media->move($version, Document::COLLECTION);
+                $document = $version;
+            }
+        }
+
         if ($document instanceof Document && in_array($event->media->collection_name, [Document::COLLECTION, Document::COLLECTION_SIGNED], true)) {
             config('unico-core.documents.analysis.sync')
                 ? AnalyzeDocument::dispatchSync($document->fresh())

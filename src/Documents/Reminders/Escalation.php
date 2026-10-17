@@ -22,14 +22,20 @@ class Escalation
             default => 'ok',
         };
 
-        $bySent = match (true) {
+        $bySent = self::severityBySent($remindersSent);
+
+        return array_search($byDays, self::ORDER, true) >= array_search($bySent, self::ORDER, true) ? $byDays : $bySent;
+    }
+
+    /** Grado dei soli solleciti già inviati (per i solleciti manuali, che non guardano la scadenza). */
+    public static function severityBySent(int $remindersSent): string
+    {
+        return match (true) {
             $remindersSent >= (int) self::setting('sent.alert', 3) => 'alert',
             $remindersSent >= (int) self::setting('sent.warning', 2) => 'warning',
             $remindersSent >= (int) self::setting('sent.regular', 1) => 'regular',
             default => 'ok',
         };
-
-        return array_search($byDays, self::ORDER, true) >= array_search($bySent, self::ORDER, true) ? $byDays : $bySent;
     }
 
     private static function setting(string $key, int $default): int

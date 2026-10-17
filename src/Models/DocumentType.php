@@ -6,10 +6,10 @@ use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use InvalidArgumentException;
 use Unico\Core\Concerns\UsesCoreConnection;
@@ -61,6 +61,9 @@ class DocumentType extends Model
         'persona_giuridica' => 'Persona giuridica',
         'entrambi' => 'Entrambi',
     ];
+
+    /** Gruppo (`codegroup`) dei documenti d'identità: carta d'identità, patente, passaporto... */
+    public const CODEGROUP_IDENTITA = 'IDENTITA';
 
     protected $table = 'document_types';
 
@@ -151,7 +154,6 @@ class DocumentType extends Model
         return [
             'is_company' => 'boolean',
             'is_signed' => 'boolean',
-            'is_identity' => 'boolean',
             'is_monitored' => 'boolean',
             'is_sensible' => 'boolean',
             'is_stored' => 'boolean',

@@ -23,7 +23,22 @@ class PracticeDocumentIntake
     public function __construct(
         private DocumentPipeline $pipeline,
         private PracticeClientPopulator $populator,
+        private UploadExpander $expander,
     ) {}
+
+    /**
+     * Come `intake()`, ma un file può essere uno ZIP (ogni documento che contiene si carica a sé) o un PDF con più documenti, che
+     * l'AI riconosce e divide: l'esito è uno per documento caricato.
+     *
+     * @param  Collection<int, DocumentType>  $expected
+     * @return list<IntakeResult>
+     */
+    public function intakeAll(Pratica $pratica, UploadedFile $file, Collection $expected, ?Authenticatable $user = null): array
+    {
+        $files = $this->expander->expand($file);
+
+        return array_map(fn (UploadedFile $part): IntakeResult => $this->intake($pratica, $part, $expected, $user), $files);
+    }
 
     /**
      * @param  Collection<int, DocumentType>  $expected  tipi documento attesi (es. quelli del task)
@@ -104,7 +119,7 @@ class PracticeDocumentIntake
      */
     public function storeTyped(Pratica $pratica, UploadedFile $file, int $documentTypeId, Collection $candidates, ?Authenticatable $user = null): Document
     {
-        $document = $this->placeholderFor($pratica, $documentTypeId);
+        $document = $this->placeholderFor($pratica, $documentTypeId)?->versionForUpload();
 
         if ($document === null) {
             $document = Document::query()->create([

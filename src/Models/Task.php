@@ -154,7 +154,7 @@ class Task extends Model
                 continue;
             }
 
-            $attributes = $type->only(['name', 'description', 'emitted_by', 'is_template', 'is_signed', 'is_monitored', 'doctype']);
+            $attributes = $type->only(['name', 'description', 'emitted_by', 'is_template', 'is_monitored', 'doctype']);
 
             if ($debug) {
                 $emittedAt = now()->subDays(random_int(3, 400));

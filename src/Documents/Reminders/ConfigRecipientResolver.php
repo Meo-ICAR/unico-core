@@ -37,7 +37,8 @@ class ConfigRecipientResolver implements RecipientResolver
             return ['name' => 'Destinatario non disponibile', 'email' => $this->fallbackEmail()];
         }
 
-        $recipient = $this->resolve($documentable);
+        // Il sollecito va a chi ha in carico il documento (`responsible`); senza, al soggetto del documento.
+        $recipient = $this->resolve($document->responsible ?? $documentable);
 
         if (blank($recipient['email'])) {
             $recipient['email'] = $this->fallbackEmail();
@@ -50,7 +51,9 @@ class ConfigRecipientResolver implements RecipientResolver
     {
         $documentable = $document->documentable;
 
-        return $documentable === null ? '-' : $this->resolve($documentable)['name'];
+        $soggetto = $document->responsible ?? $documentable;
+
+        return $soggetto === null ? '-' : $this->resolve($soggetto)['name'];
     }
 
     public function typeLabel(?string $alias): string

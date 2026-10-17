@@ -247,7 +247,8 @@ class PracticeSignaturePackage
                 ->toMediaCollection(Document::COLLECTION);
         });
 
-        $document->forceFill(['status' => DocumentStatus::UPLOADED, 'is_printable' => true])->saveQuietly();
+        $document->forceFill(['status' => DocumentStatus::TO_SEND_OTP])->saveQuietly();
+        $document->syncResponsible();
 
         return $document->fresh();
     }

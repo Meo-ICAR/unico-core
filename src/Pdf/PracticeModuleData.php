@@ -5,6 +5,7 @@ namespace Unico\Core\Pdf;
 use Unico\Core\Models\Branch;
 use Unico\Core\Models\Client;
 use Unico\Core\Models\Document;
+use Unico\Core\Models\DocumentType;
 use Unico\Core\Models\Pratica;
 
 /** Dati della pratica e del cliente con cui compilare un modulo PDF da stampare. */
@@ -186,11 +187,11 @@ class PracticeModuleData
         return $address === '' ? null : $address;
     }
 
-    /** Il documento d'identità del cliente (tipo con `is_identity`): se ce ne sono più di uno, il più recente per data di rilascio. */
+    /** Il documento d'identità del cliente (tipo del gruppo IDENTITA, con il numero indicato): se ce ne sono più di uno, il più recente per data di rilascio. */
     public function identityDocument(Client $client): ?Document
     {
         return $client->documents
-            ->filter(fn (Document $document): bool => (bool) $document->documentType?->is_identity)
+            ->filter(fn (Document $document): bool => $document->documentType?->codegroup === DocumentType::CODEGROUP_IDENTITA && filled($document->docnumber))
             ->sortByDesc(fn (Document $document) => [$document->emitted_at?->getTimestamp() ?? 0, $document->created_at?->getTimestamp() ?? 0, $document->getKey()])
             ->first();
     }

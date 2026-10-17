@@ -2,6 +2,9 @@
 
 namespace Unico\Core\Filament\RelationManagers;
 
+use App\Filament\Exports\DynamicGroupExport;
+use App\Models\Task;
+use App\Services\ModuleDataResolver;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -17,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
@@ -32,34 +36,46 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\HtmlString;
+use Filament\Support\Enums\IconSize;
+use Filament\Support\View\ComponentAttributeBag;
+use Filament\Tables\View\Components\Columns\IconColumnComponent\IconComponent;
+use function Filament\Support\generate_icon_html;
 use Illuminate\Support\Str;
-use Unico\Core\Enums\DocumentAnomaly;
-use Unico\Core\Enums\DocumentStatus;
-use Unico\Core\Enums\SignatureRequestStatus;
+use pxlrbt\FilamentExcel\Actions\ExportAction;
+use Unico\Core\Documents\Api\DocumentApiService;
 use Unico\Core\Documents\PlicoArchive;
 use Unico\Core\Documents\PracticeTaskDocuments;
-use Unico\Core\Models\TipoProdottoSub;
-use Unico\Core\Documents\Api\DocumentApiService;
+use Unico\Core\Enums\DocumentAnomaly;
+use Unico\Core\Documents\Contracts\AiCallLog;
+use Unico\Core\Documents\Listeners\AnalyzeUploadedDocument;
+use Unico\Core\Documents\Reminders\DocumentReminderService;
+use Unico\Core\Enums\DocumentStatus;
+use Unico\Core\Enums\SignatureRequestStatus;
 use Unico\Core\Filament\Actions\DocumentOutcomeAction;
 use Unico\Core\Filament\Actions\RetrySharePointUploadAction;
 use Unico\Core\Filament\Actions\SendForSignatureAction;
 use Unico\Core\Filament\Concerns\HasRelationPlanAccess;
 use Unico\Core\Models\Client;
 use Unico\Core\Models\Company;
-use Unico\Core\MorphMap;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\DocumentRequirement;
 use Unico\Core\Models\DocumentType;
+use Unico\Core\Models\Employee;
+use Unico\Core\Models\Fornitore;
 use Unico\Core\Models\Pratica;
 use Unico\Core\Models\SignatureRequest;
-use Unico\Core\Signature\SignerDefaults;
+use Unico\Core\Models\TipoProdottoSub;
+use Unico\Core\MorphMap;
 use Unico\Core\Pdf\ModulePrinter;
 use Unico\Core\Pdf\PdfFormException;
 use Unico\Core\Pdf\PracticeModuleData;
+use Unico\Core\Pdf\PrintReadiness;
 use Unico\Core\Pdf\ResolvedModuleData;
 use Unico\Core\Signature\Exceptions\SignatureRequestException;
 use Unico\Core\Signature\SignatureRequestService;
+use Unico\Core\Signature\SignerDefaults;
 use Unico\Core\ValueObjects\OamSemester;
 
 /**
@@ -162,7 +178,7 @@ class DocumentsRelationManager extends RelationManager
     {
         foreach (array_filter([
             config('unico-core.documents.task_model'),
-            class_exists(\App\Models\Task::class) ? \App\Models\Task::class : null,
+            class_exists(Task::class) ? Task::class : null,
             \Unico\Core\Models\Task::class,
         ]) as $class) {
             if (is_string($class) && class_exists($class) && method_exists($class, 'getAvailableFor')) {
@@ -199,6 +215,94 @@ class DocumentsRelationManager extends RelationManager
     }
 
     /** Di chi è il documento: la pratica oppure il client (con il ruolo che ha nella pratica). */
+    /** @var array<string, string> chi può far proseguire l'iter: alias MorphMap => etichetta */
+    private const RESPONSABILI = [
+        'client' => 'Cliente / datore di lavoro',
+        'fornitore' => 'Produttore',
+        'employee' => 'Istruttore / dipendente',
+        'cliente' => 'Istituto',
+    ];
+
+    /** La pratica a cui appartiene il documento: quella del record, o l'ultima del cliente proprietario. */
+    private function praticaDelRecord(?Document $document): ?Pratica
+    {
+        $owner = $this->getOwnerRecord();
+
+        if ($owner instanceof Pratica) {
+            return $owner;
+        }
+
+        $cliente = $document?->documentable ?? $owner;
+
+        return $cliente instanceof Client && filled($cliente->tax_code)
+            ? Pratica::query()->where('codice_fiscale', $cliente->tax_code)->orderByRaw('data_inserimento_pratica IS NULL')->orderByDesc('data_inserimento_pratica')->orderByDesc('id')->first()
+            : null;
+    }
+
+    /**
+     * Le persone e gli enti legati alla pratica per quel tipo: clienti (con il datore di lavoro del richiedente), produttore, istruttore, istituto.
+     *
+     * @return array<int|string, string>
+     */
+    private function opzioniResponsabile(?string $tipo, ?Document $record): array
+    {
+        $pratica = $this->praticaDelRecord($record)?->loadMissing(['fornitori', 'employee', 'clienti', 'praticaClients.client.employer']);
+
+        if ($pratica === null || blank($tipo)) {
+            return [];
+        }
+
+        return match ($tipo) {
+            'client' => $pratica->praticaClients->flatMap(fn ($link) => array_filter([
+                $link->client?->getKey() => trim(($link->client?->first_name ?? '').' '.($link->client?->name ?? '')).($link->role ? ' · '.$link->role : ''),
+                $link->client?->employer?->getKey() => ($link->client?->employer?->name).' · datore di lavoro',
+            ], fn ($nome, $id) => filled($id) && filled($nome), ARRAY_FILTER_USE_BOTH))->all(),
+            'fornitore' => $pratica->fornitori === null ? [] : [$pratica->fornitori->getKey() => (string) $pratica->fornitori->name],
+            'employee' => $pratica->employee === null ? [] : [$pratica->employee->getKey() => (string) $pratica->employee->name],
+            'cliente' => $pratica->clienti === null ? [] : [$pratica->clienti->getKey() => (string) $pratica->clienti->name],
+            default => [],
+        };
+    }
+
+    /** @return array<int|string, string> */
+    private function cercaResponsabile(?string $tipo, string $ricerca): array
+    {
+        $classe = filled($tipo) ? Relation::getMorphedModel($tipo) : null;
+
+        if ($classe === null) {
+            return [];
+        }
+
+        return $classe::query()->where('name', 'like', '%'.$ricerca.'%')->orderBy('name')->limit(50)->pluck('name', (new $classe)->getKeyName())->all();
+    }
+
+    private function nomeResponsabile(?string $tipo, mixed $id): ?string
+    {
+        $classe = filled($tipo) ? Relation::getMorphedModel($tipo) : null;
+
+        return $classe === null || blank($id) ? null : $classe::query()->whereKey($id)->value('name');
+    }
+
+    private function etichettaResponsabile(Document $document): ?string
+    {
+        if (blank($document->responsible_type)) {
+            return null;
+        }
+
+        $nome = $document->responsible?->name ?? '—';
+        $tipo = $document->responsible_type === 'client' && $document->documentable_type === 'client' && (string) $document->responsible_id !== (string) $document->documentable_id ? 'Datore di lavoro / cliente' : (self::RESPONSABILI[$document->responsible_type] ?? $document->responsible_type);
+
+        return $tipo.': '.$nome;
+    }
+
+    /** Se l'ultima richiesta di firma è fallita, il motivo è nel tooltip: lo stato torna a «da inviare». */
+    private static function notaFirma(Document $document): string
+    {
+        $stato = self::signatureState($document, true);
+
+        return in_array($stato, ['Rifiutata', 'Scaduta', 'Non riuscita'], true) ? ' — Ultima firma: '.$stato : '';
+    }
+
     private function ownerLabel(Document $document): string
     {
         $pratica = $this->getOwnerRecord();
@@ -228,7 +332,7 @@ class DocumentsRelationManager extends RelationManager
     private function taskDocumentTypeIds(): \Illuminate\Database\Query\Builder
     {
         $owner = $this->getOwnerRecord();
-        $alias = $owner instanceof Model ? \Unico\Core\MorphMap::aliasOf($owner) : strtolower(class_basename($owner));
+        $alias = $owner instanceof Model ? MorphMap::aliasOf($owner) : strtolower(class_basename($owner));
 
         return DocumentRequirement::query()->toBase()
             ->select('document_type_id')
@@ -251,7 +355,7 @@ class DocumentsRelationManager extends RelationManager
                 $query->whereIn('id', $taskTypes)
                     ->when($this->ownerIsCompany(), fn (Builder $query) => $query->orWhere('is_company', true))
                     // Il documento d'identità si può sempre inserire sulla persona, anche se nessun plico lo chiede.
-                    ->when($this->getOwnerRecord() instanceof Client, fn (Builder $query) => $query->orWhere('is_identity', true))
+                    ->when($this->getOwnerRecord() instanceof Client, fn (Builder $query) => $query->orWhere('codegroup', DocumentType::CODEGROUP_IDENTITA))
                     ->when($currentId, fn (Builder $query) => $query->orWhereKey($currentId))
                     ->when($includeUsed, fn (Builder $query) => $query->orWhereIn('id', $this->getOwnerRecord()->documents()->withTrashed()->select('document_type_id')));
             }))
@@ -266,13 +370,13 @@ class DocumentsRelationManager extends RelationManager
     private function exportAction(): ?Action
     {
         $exportClass = config('unico-core.documents.export_class')
-            ?: (class_exists(\App\Filament\Exports\DynamicGroupExport::class) ? \App\Filament\Exports\DynamicGroupExport::class : null);
+            ?: (class_exists(DynamicGroupExport::class) ? DynamicGroupExport::class : null);
 
-        if ($exportClass === null || ! class_exists(\pxlrbt\FilamentExcel\Actions\ExportAction::class)) {
+        if ($exportClass === null || ! class_exists(ExportAction::class)) {
             return null;
         }
 
-        return \pxlrbt\FilamentExcel\Actions\ExportAction::make()
+        return ExportAction::make()
             ->exports([$exportClass::make()])
             ->label('Esporta Excel')
             ->color('success');
@@ -281,15 +385,40 @@ class DocumentsRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return $schema->components([
+            Section::make('Istruzioni per l\'operatore')
+                ->icon('heroicon-o-information-circle')
+                ->columnSpanFull()
+                ->visible(fn ($get, ?Document $record): bool => filled(self::istruzioniDelTipo($get('document_type_id') ?? $record?->document_type_id)))
+                ->components([
+                    Placeholder::make('istruzioni_operatore')
+                        ->hiddenLabel()
+                        ->content(fn ($get, ?Document $record): string => (string) self::istruzioniDelTipo($get('document_type_id') ?? $record?->document_type_id)),
+                ]),
             Section::make('Dettagli Documento')
                 ->columnSpanFull()
                 ->columns(2)
                 ->components([
+                    Select::make('responsible_type')
+                        ->label('In carico a')
+                        ->helperText('Si compila da solo a ogni cambio di fase (istruttore, richiedente, produttore, datore di lavoro, banca); qui puoi cambiarlo a mano.')
+                        ->options(self::RESPONSABILI)
+                        ->placeholder('Nessuno')
+                        ->live()
+                        ->afterStateUpdated(fn (callable $set) => $set('responsible_id', null)),
+                    Select::make('responsible_id')
+                        ->label('Chi')
+                        ->options(fn ($get, ?Document $record): array => $this->opzioniResponsabile($get('responsible_type'), $record))
+                        ->getSearchResultsUsing(fn (string $search, $get): array => $this->cercaResponsabile($get('responsible_type'), $search))
+                        ->getOptionLabelUsing(fn ($value, $get): ?string => $this->nomeResponsabile($get('responsible_type'), $value))
+                        ->searchable()
+                        ->visible(fn ($get): bool => filled($get('responsible_type')))
+                        ->required(fn ($get): bool => filled($get('responsible_type'))),
                     Select::make('document_type_id')
                         ->label('Tipo documento')
                         ->options(fn (?Document $record): array => $this->documentTypeOptions(currentId: $record?->document_type_id, excludeUsed: true))
                         ->searchable()
                         ->live()
+                        ->helperText(fn ($get): ?string => filled($get('document_type_id')) ? DocumentType::query()->whereKey($get('document_type_id'))->value('instructions') : null)
                         ->afterStateUpdated(function ($state, callable $set, $get): void {
                             if (blank($get('name'))) {
                                 $documentType = DocumentType::find($state);
@@ -375,6 +504,15 @@ class DocumentsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         $headerActions = array_values(array_filter([
+            Action::make('legendaStati')
+                ->label('Legenda icone stati')
+                ->icon('heroicon-o-information-circle')
+                ->color('gray')
+                ->link()
+                ->modalHeading('Legenda icone degli stati')
+                ->modalContent(fn (): HtmlString => self::legendaStati())
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Chiudi'),
             $this->plicoTaskClass() === null ? null : Action::make('generaPlico')
                 ->label('Genera plico')
                 ->icon('heroicon-o-rectangle-stack')
@@ -481,30 +619,7 @@ class DocumentsRelationManager extends RelationManager
                     $schema->fill(['documenti' => $this->documentiDaFirmare()->modelKeys()]);
                 })
                 ->action(function (array $data): void {
-                    $scelti = $this->documentiDaFirmare()->whereIn('id', $data['documenti'] ?? []);
-
-                    foreach ($scelti->groupBy(fn (Document $documento): string => $documento->documentable_type.':'.$documento->documentable_id) as $gruppo) {
-                        $avviso = self::missingSignerContacts($gruppo->first());
-
-                        if ($avviso !== null) {
-                            Notification::make()->warning()->title('Firma OTP non possibile')->body($avviso)->send();
-
-                            continue;
-                        }
-
-                        $firmatari = [];
-
-                        foreach ($gruppo as $documento) {
-                            $firmatari += SignerDefaults::for($documento);
-                        }
-
-                        try {
-                            app(SignatureRequestService::class)->sendBundle($gruppo->values()->all(), array_values($firmatari), auth()->user());
-                            Notification::make()->success()->title($gruppo->count() > 1 ? 'Plico inviato per la firma' : 'Richiesta di firma inviata')->body($gruppo->count().' documenti, un solo codice OTP.')->send();
-                        } catch (SignatureRequestException $e) {
-                            Notification::make()->danger()->title('Invio per la firma non riuscito')->body($e->getMessage())->send();
-                        }
-                    }
+                    $this->inviaInFirma($this->documentiDaFirmare()->whereIn('id', $data['documenti'] ?? []));
                 }),
             CreateAction::make()
                 ->mutateFormDataUsing(function (array $data): array {
@@ -526,6 +641,34 @@ class DocumentsRelationManager extends RelationManager
         ]));
 
         $filters = [
+            Filter::make('responsible')
+                ->label('In carico a')
+                ->schema([
+                    Select::make('responsible_type')
+                        ->label('In carico a')
+                        ->options(self::RESPONSABILI)
+                        ->placeholder('Chiunque')
+                        ->live()
+                        ->afterStateUpdated(fn (callable $set) => $set('responsible_id', null)),
+                    Select::make('responsible_id')
+                        ->label('Chi')
+                        ->searchable()
+                        ->getSearchResultsUsing(fn (string $search, $get): array => $this->cercaResponsabile($get('responsible_type'), $search))
+                        ->getOptionLabelUsing(fn ($value, $get): ?string => $this->nomeResponsabile($get('responsible_type'), $value))
+                        ->visible(fn ($get): bool => filled($get('responsible_type'))),
+                ])
+                ->query(fn (Builder $query, array $data): Builder => $query
+                    ->when(filled($data['responsible_type'] ?? null), fn (Builder $q) => $q->where('responsible_type', $data['responsible_type']))
+                    ->when(filled($data['responsible_id'] ?? null), fn (Builder $q) => $q->where('responsible_id', (string) $data['responsible_id'])))
+                ->indicateUsing(function (array $data): array {
+                    if (blank($data['responsible_type'] ?? null)) {
+                        return [];
+                    }
+
+                    $chi = filled($data['responsible_id'] ?? null) ? ': '.$this->nomeResponsabile($data['responsible_type'], $data['responsible_id']) : '';
+
+                    return ['In carico a '.(self::RESPONSABILI[$data['responsible_type']] ?? $data['responsible_type']).$chi];
+                }),
             SelectFilter::make('document_type_id')
                 ->label('Tipo documento')
                 ->options(fn (): array => $this->documentTypeOptions(includeUsed: true))
@@ -579,10 +722,180 @@ class DocumentsRelationManager extends RelationManager
                     : $query));
         }
 
+        /** @var array<int, Action> $azioniDocumento */
+        $azioniDocumento = [
+            DocumentOutcomeAction::make(),
+            RetrySharePointUploadAction::make(),
+            Action::make('datiMancanti')
+                ->label('Dati mancanti')
+                ->icon('heroicon-o-pencil-square')
+                ->color('warning')
+                ->visible(fn (Document $record): bool => $record->status === DocumentStatus::MISSING_DATA)
+                ->modalHeading('Dati obbligatori mancanti per la stampa')
+                ->modalContent(function (Document $record): HtmlString {
+                    $mancanti = app(PrintReadiness::class)->missingLabels($record) ?? [];
+
+                    $istruzioni = $record->documentType?->instructions;
+                    $nota = filled($istruzioni) ? '<p class="mb-2 text-sm text-gray-600">'.e($istruzioni).'</p>' : '';
+
+                    return new HtmlString($nota.($mancanti === []
+                        ? '<p class="text-sm">Non manca più nessun dato: chiudi e ricarica per stampare.</p>'
+                        : '<ul class="list-disc ps-5 text-sm space-y-1">'.collect($mancanti)->map(fn (string $voce): string => '<li>'.e($voce).'</li>')->implode('').'</ul>'));
+                })
+                ->after(fn (Document $record) => app(PrintReadiness::class)->refresh($record))
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Chiudi'),
+            SendForSignatureAction::make(
+                onlyForSignedTypes: true,
+                preflight: fn (Document $document): ?string => self::missingSignerContacts($document),
+            )->label('Invia OTP')->icon('heroicon-o-device-phone-mobile'),
+            Action::make('refreshSignature')
+                ->label('Aggiorna stato')
+                ->icon('heroicon-o-arrow-path')
+                ->visible(fn (Document $record): bool => self::openSignatureRequest($record) !== null)
+                ->action(function (Document $record): void {
+                    $request = self::openSignatureRequest($record);
+
+                    if ($request === null) {
+                        return;
+                    }
+
+                    try {
+                        $request = app(SignatureRequestService::class)->reconcile($request);
+                    } catch (SignatureRequestException $e) {
+                        Notification::make()->danger()->title('Aggiornamento non riuscito')->body($e->getMessage())->send();
+
+                        return;
+                    }
+
+                    if ($request->status === SignatureRequestStatus::Signed) {
+                        Notification::make()->success()->title('Documento firmato')->send();
+                    } elseif ($request->status->isOpen()) {
+                        Notification::make()->info()->title('Ancora in attesa di firma')->send();
+                    } else {
+                        Notification::make()->warning()->title('Richiesta di firma: '.mb_strtolower($request->status->getLabel()))->send();
+                    }
+                }),
+            Action::make('cancelSignature')
+                ->label('Annulla richiesta di firma')
+                ->icon('heroicon-o-x-circle')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->visible(fn (Document $record): bool => self::openSignatureRequest($record) !== null)
+                ->action(function (Document $record): void {
+                    $request = self::openSignatureRequest($record);
+
+                    if ($request === null) {
+                        return;
+                    }
+
+                    try {
+                        app(SignatureRequestService::class)->cancel($request, auth()->user());
+                    } catch (SignatureRequestException $e) {
+                        Notification::make()->danger()->title('Annullamento non riuscito')->body($e->getMessage())->send();
+
+                        return;
+                    }
+
+                    Notification::make()->success()->title('Richiesta di firma annullata')->send();
+                }),
+            Action::make('approvaConFirma')
+                ->label('Approva con firma')
+                ->icon('heroicon-o-check-badge')
+                ->color('success')
+                ->visible(fn (Document $record): bool => $record->awaitsApproval() && self::approverFor($record) !== null)
+                ->requiresConfirmation()
+                ->modalHeading('Approva il documento firmato')
+                ->modalDescription('Confermi l\'approvazione con la tua firma? Resta registrata con data e ora.')
+                ->action(function (Document $record): void {
+                    $record->approve(self::approverFor($record));
+
+                    Notification::make()->title('Documento approvato')->success()->send();
+                }),
+            Action::make('richiediApi')
+                ->label('Richiedi via API')
+                ->icon('heroicon-o-cloud-arrow-down')
+                ->color('info')
+                ->visible(fn (Document $record): bool => app(DocumentApiService::class)->supports($record->documentType))
+                ->requiresConfirmation()
+                ->modalHeading('Richiedi il documento via API')
+                ->modalDescription(fn (Document $record): string => 'Il documento viene richiesto al servizio «'.(app(DocumentApiService::class)->services()[$record->documentType?->api_service] ?? '').'». Alcuni servizi sono a pagamento.')
+                ->action(function (Document $record): void {
+                    $result = app(DocumentApiService::class)->request($record);
+                    $done = $result->ok && ! $result->simulated;
+                    $notification = Notification::make()->title($result->ok ? 'Richiesta API' : 'Richiesta API non riuscita')->body($result->message);
+
+                    $done ? $notification->success() : $notification->warning();
+                    $notification->send();
+                }),
+            Action::make('downloadDocument')
+                ->label('Scarica')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->visible(fn (Document $record): bool => ! $record->is_signed && self::downloadKind($record) !== null)
+                ->action(fn (Document $record) => self::download($record)),
+            Action::make('downloadSigned')
+                ->label('Scarica firmato')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->visible(fn (Document $record): bool => $record->is_signed && $record->getFirstMedia(Document::COLLECTION) !== null)
+                ->action(function (Document $record) {
+                    $media = $record->getFirstMedia(Document::COLLECTION);
+
+                    return $media === null ? null : response()->download($media->getPath(), $media->file_name);
+                }),
+            Action::make('stampa')
+                ->label('Stampa')
+                ->icon('heroicon-o-printer')
+                ->visible(fn (Document $record): bool => self::downloadKind($record) === 'module')
+                ->action(fn (Document $record) => self::download($record)),
+            Action::make('scarica')
+                ->label('Scarica file')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->visible(fn (Document $record): bool => $record->getFirstMedia(Document::COLLECTION) !== null && self::downloadKind($record) === null && ! $record->is_signed)
+                ->action(function (Document $record) {
+                    $media = $record->getFirstMedia(Document::COLLECTION);
+
+                    return $media === null ? null : response()->download($media->getPath(), $media->file_name);
+                }),
+            Action::make('renew')
+                ->label('Rinnova')
+                ->icon('heroicon-o-arrow-path')
+                ->color('success')
+                ->modalHeading(fn (Document $record) => "Rinnova documento: {$record->name}")
+                ->form([
+                    DatePicker::make('emitted_at')
+                        ->label('Nuova data di emissione')
+                        ->default(now())
+                        ->maxDate(now())
+                        ->required(),
+                    FileUpload::make('new_attachment')
+                        ->label('Nuovo allegato (opzionale)')
+                        ->helperText('Se carichi un file, viene creata una nuova versione del documento con il nuovo allegato; il documento attuale viene conservato come versione precedente con stato "scaduto".')
+                        ->disk('public')
+                        ->directory('document-renewals')
+                        ->acceptedFileTypes(['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+                        ->maxSize(20480),
+                ])
+                ->action(function (Document $record, array $data): void {
+                    $newDocument = $record->renew($data['emitted_at']);
+
+                    if (filled($data['new_attachment'] ?? null)) {
+                        $newDocument->addMediaFromDisk($data['new_attachment'], 'public')
+                            ->toMediaCollection(Document::COLLECTION);
+                        Storage::disk('public')->delete($data['new_attachment']);
+                    }
+
+                    Notification::make()
+                        ->title('Documento rinnovato')
+                        ->body("Nuova versione generata con successo per \"{$record->name}\".")
+                        ->success()
+                        ->send();
+                }),
+        ];
+
         return $table
             ->modifyQueryUsing(fn (Builder $query) => ($this->praticaQuery($query) ?? $query)->withoutGlobalScopes([
                 SoftDeletingScope::class,
-            ])->with(['signatureRequests', 'media', 'documentType.pdfModule', 'analyses']))
+            ])->with(['signatureRequests', 'media', 'documentType.pdfModule', 'analyses', 'responsible']))
             ->description(fn (): ?HtmlString => $this->descrizioneFascicolo())
             ->defaultSort('expires_at', 'desc')
             ->recordTitleAttribute('name')
@@ -600,45 +913,47 @@ class DocumentsRelationManager extends RelationManager
                     ->default('Senza documento')
                     ->url(fn (Document $record): ?string => Route::has('documents.download') ? $record->download_url : null, shouldOpenInNewTab: true)
                     ->color(fn (Document $record): ?string => (Route::has('documents.download') && $record->download_url) ? 'info' : null),
-                IconColumn::make('fascicolo')
-                    ->label('Fascicolo')
-                    ->state(fn (Document $record): ?string => $this->requisito($record)['fase'] ?? null)
-                    ->icon(fn (?string $state): ?string => self::FASI_FASCICOLO[$state][0] ?? null)
-                    ->color(fn (?string $state): string => self::FASI_FASCICOLO[$state][1] ?? 'gray')
-                    ->tooltip(fn (Document $record): ?string => $this->requisito($record)['descrizione'] ?? null)
-                    ->visible(fn (): bool => $this->fascicolo()['task'] !== []),
                 IconColumn::make('status')
                     ->label('Stato')
                     ->icon(fn (Document $record): ?string => $record->status?->getIcon())
                     ->color(fn (Document $record): string|array|null => $record->status?->getColor())
-                    ->tooltip(fn (Document $record): ?string => $record->status?->getLabel().($record->rejection_note ? ': '.$record->rejection_note : ''))
+                    ->tooltip(fn (Document $record): ?string => $record->status?->getLabel().($record->rejection_note ? ': '.$record->rejection_note : '').$this->elencoDatiMancanti($record).self::istruzioni($record).self::notaFirma($record))
                     ->sortable(),
                 IconColumn::make('controlli')
-                    ->label('Controlli')
-                    ->state(fn (Document $record): ?string => $this->esitoControlli($record)['esito'])
-                    ->icon(fn (?string $state): ?string => self::ESITI_CONTROLLI[$state][0] ?? null)
-                    ->color(fn (?string $state): string => self::ESITI_CONTROLLI[$state][1] ?? 'gray')
-                    ->tooltip(fn (Document $record): ?string => $this->esitoControlli($record)['dettaglio']),
-                IconColumn::make('signature_state')
-                    ->label('Firma')
-                    ->state(fn (Document $record): ?string => self::signatureState($record, true))
-                    ->icon(fn (?string $state): ?string => self::STATI_FIRMA[$state][0] ?? null)
-                    ->color(fn (?string $state): string => self::STATI_FIRMA[$state][1] ?? 'gray')
-                    ->tooltip(fn (?string $state): ?string => $state),
-                IconColumn::make('otp')
-                    ->label('OTP')
-                    ->state(fn (Document $record): ?string => self::otpState($record))
+                    ->label('Controllo')
+                    ->state(fn (Document $record): ?string => $this->esitoControlli($record)['errore_ai'] ? 'errore_ai' : $this->esitoControlli($record)['esito'])
                     ->icon(fn (?string $state): ?string => match ($state) {
-                        'Invia OTP' => 'heroicon-o-device-phone-mobile',
-                        'OTP inviato' => 'heroicon-o-paper-airplane',
+                        'errore_ai' => 'heroicon-m-exclamation-circle',
+                        'passed' => DocumentStatus::APPROVED->getIcon(),
+                        'needs_review' => DocumentStatus::ANOMALY->getIcon(),
+                        'failed' => DocumentStatus::REJECTED->getIcon(),
                         default => null,
                     })
-                    ->color(fn (?string $state): string => $state === 'Invia OTP' ? 'primary' : 'info')
-                    ->tooltip(fn (?string $state): ?string => $state === 'Invia OTP' ? 'Invia il codice OTP al cliente per la firma' : $state)
-                    ->action(SendForSignatureAction::make(
-                        onlyForSignedTypes: true,
-                        preflight: fn (Document $document): ?string => self::missingSignerContacts($document),
-                    )),
+                    ->color(fn (?string $state): string => $state === 'errore_ai' ? 'danger' : 'warning')
+                    ->tooltip(fn (Document $record): ?string => $this->esitoControlli($record)['errore_ai']
+                        ? 'Errore dell\'AI: '.$this->esitoControlli($record)['errore_ai'].(filled($this->esitoControlli($record)['api_log']) ? ' — clicca per aprire il registro della chiamata' : '')
+                        : ($this->esitoControlli($record)['dettaglio'] ? 'Controllo automatico: '.$this->esitoControlli($record)['dettaglio'] : null))
+                    ->url(fn (Document $record): ?string => filled($this->esitoControlli($record)['api_log']) ? app(AiCallLog::class)->url($this->esitoControlli($record)['api_log']) : null, shouldOpenInNewTab: true),
+                TextColumn::make('responsible')
+                    ->label('In carico a')
+                    ->state(fn (Document $record): ?string => $this->etichettaResponsabile($record))
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('last_sent_at')
+                    ->label('Ultimo sollecito')
+                    ->getStateUsing(fn (Document $record) => $record->status === DocumentStatus::APPROVED ? null : $record->last_sent_at)
+                    ->dateTime('d/m/y')
+                    ->sortable()
+                    ->placeholder(''),
+                TextColumn::make('reminders_count')
+                    ->label('N. solleciti')
+                    ->getStateUsing(fn (Document $record): ?int => $record->status === DocumentStatus::APPROVED || (int) $record->reminders_count === 0 ? null : (int) $record->reminders_count)
+                    ->numeric()
+                    ->alignEnd()
+                    ->sortable()
+                    ->placeholder(''),
                 IconColumn::make('scadenza')
                     ->label('Scadenza')
                     ->state(fn (Document $record): ?string => self::stadioScadenza($record))
@@ -672,155 +987,51 @@ class DocumentsRelationManager extends RelationManager
             ])
             ->filters($filters)
             ->headerActions($headerActions)
+            // Le azioni sul documento stanno nella finestra di modifica (si apre cliccando la riga), non in una colonna della tabella.
+            ->recordAction('edit')
             ->recordActions([
-                DocumentOutcomeAction::make(),
-                EditAction::make(),
-                RetrySharePointUploadAction::make(),
-                Action::make('refreshSignature')
-                    ->label('Aggiorna stato')
-                    ->icon('heroicon-o-arrow-path')
-                    ->visible(fn (Document $record): bool => self::openSignatureRequest($record) !== null)
-                    ->action(function (Document $record): void {
-                        $request = self::openSignatureRequest($record);
-
-                        if ($request === null) {
-                            return;
-                        }
-
-                        try {
-                            $request = app(SignatureRequestService::class)->reconcile($request);
-                        } catch (SignatureRequestException $e) {
-                            Notification::make()->danger()->title('Aggiornamento non riuscito')->body($e->getMessage())->send();
-
-                            return;
-                        }
-
-                        if ($request->status === SignatureRequestStatus::Signed) {
-                            Notification::make()->success()->title('Documento firmato')->send();
-                        } elseif ($request->status->isOpen()) {
-                            Notification::make()->info()->title('Ancora in attesa di firma')->send();
-                        } else {
-                            Notification::make()->warning()->title('Richiesta di firma: '.mb_strtolower($request->status->getLabel()))->send();
-                        }
-                    }),
-                Action::make('cancelSignature')
-                    ->label('Annulla richiesta di firma')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->visible(fn (Document $record): bool => self::openSignatureRequest($record) !== null)
-                    ->action(function (Document $record): void {
-                        $request = self::openSignatureRequest($record);
-
-                        if ($request === null) {
-                            return;
-                        }
-
-                        try {
-                            app(SignatureRequestService::class)->cancel($request, auth()->user());
-                        } catch (SignatureRequestException $e) {
-                            Notification::make()->danger()->title('Annullamento non riuscito')->body($e->getMessage())->send();
-
-                            return;
-                        }
-
-                        Notification::make()->success()->title('Richiesta di firma annullata')->send();
-                    }),
-                Action::make('approvaConFirma')
-                    ->label('Approva con firma')
-                    ->icon('heroicon-o-check-badge')
-                    ->color('success')
-                    ->visible(fn (Document $record): bool => $record->awaitsApproval() && self::approverFor($record) !== null)
-                    ->requiresConfirmation()
-                    ->modalHeading('Approva il documento firmato')
-                    ->modalDescription('Confermi l\'approvazione con la tua firma? Resta registrata con data e ora.')
-                    ->action(function (Document $record): void {
-                        $record->approve(self::approverFor($record));
-
-                        Notification::make()->title('Documento approvato')->success()->send();
-                    }),
-                Action::make('richiediApi')
-                    ->label('Richiedi via API')
-                    ->icon('heroicon-o-cloud-arrow-down')
-                    ->color('info')
-                    ->visible(fn (Document $record): bool => app(DocumentApiService::class)->supports($record->documentType))
-                    ->requiresConfirmation()
-                    ->modalHeading('Richiedi il documento via API')
-                    ->modalDescription(fn (Document $record): string => 'Il documento viene richiesto al servizio «'.(app(DocumentApiService::class)->services()[$record->documentType?->api_service] ?? '').'». Alcuni servizi sono a pagamento.')
-                    ->action(function (Document $record): void {
-                        $result = app(DocumentApiService::class)->request($record);
-                        $done = $result->ok && ! $result->simulated;
-                        $notification = Notification::make()->title($result->ok ? 'Richiesta API' : 'Richiesta API non riuscita')->body($result->message);
-
-                        $done ? $notification->success() : $notification->warning();
-                        $notification->send();
-                    }),
-                Action::make('downloadDocument')
-                    ->label('Scarica')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->visible(fn (Document $record): bool => ! $record->is_signed && self::downloadKind($record) !== null)
-                    ->action(fn (Document $record) => self::download($record)),
-                Action::make('downloadSigned')
-                    ->label('Scarica firmato')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->visible(fn (Document $record): bool => $record->is_signed && $record->getFirstMedia(Document::COLLECTION) !== null)
-                    ->action(function (Document $record) {
-                        $media = $record->getFirstMedia(Document::COLLECTION);
-
-                        return $media === null ? null : response()->download($media->getPath(), $media->file_name);
-                    }),
-                Action::make('stampa')
-                    ->label('Stampa')
-                    ->icon('heroicon-o-printer')
-                    ->visible(fn (Document $record): bool => self::downloadKind($record) === 'module')
-                    ->action(fn (Document $record) => self::download($record)),
-                Action::make('scarica')
-                    ->label('Scarica file')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->visible(fn (Document $record): bool => $record->getFirstMedia(Document::COLLECTION) !== null && self::downloadKind($record) === null && ! $record->is_signed)
-                    ->action(function (Document $record) {
-                        $media = $record->getFirstMedia(Document::COLLECTION);
-
-                        return $media === null ? null : response()->download($media->getPath(), $media->file_name);
-                    }),
-                Action::make('renew')
-                    ->label('Rinnova')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('success')
-                    ->modalHeading(fn (Document $record) => "Rinnova documento: {$record->name}")
-                    ->form([
-                        DatePicker::make('emitted_at')
-                            ->label('Nuova data di emissione')
-                            ->default(now())
-                            ->maxDate(now())
-                            ->required(),
-                        FileUpload::make('new_attachment')
-                            ->label('Nuovo allegato (opzionale)')
-                            ->helperText('Se carichi un file, viene creata una nuova versione del documento con il nuovo allegato; il documento attuale viene conservato come versione precedente con stato "scaduto".')
-                            ->disk('public')
-                            ->directory('document-renewals')
-                            ->acceptedFileTypes(['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
-                            ->maxSize(20480),
-                    ])
-                    ->action(function (Document $record, array $data): void {
-                        $newDocument = $record->renew($data['emitted_at']);
-
-                        if (filled($data['new_attachment'] ?? null)) {
-                            $newDocument->addMediaFromDisk($data['new_attachment'], 'public')
-                                ->toMediaCollection(Document::COLLECTION);
-                            Storage::disk('public')->delete($data['new_attachment']);
-                        }
-
-                        Notification::make()
-                            ->title('Documento rinnovato')
-                            ->body("Nuova versione generata con successo per \"{$record->name}\".")
-                            ->success()
-                            ->send();
-                    }),
+                EditAction::make()
+                    ->extraAttributes(['class' => 'hidden'])
+                    ->extraModalFooterActions($azioniDocumento),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DocumentOutcomeAction::bulk(),
+                    BulkAction::make('inviaSollecito')
+                        ->label('Invia sollecito')
+                        ->icon('heroicon-o-bell-alert')
+                        ->color('warning')
+                        ->modalHeading('Invia sollecito')
+                        ->modalDescription(fn (Collection $records): string => self::anteprimaSollecito($records))
+                        ->modalSubmitActionLabel('Invia')
+                        ->requiresConfirmation()
+                        ->action(fn (Collection $records) => self::inviaSollecito($records))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('stampaSelezionati')
+                        ->label('Stampa moduli')
+                        ->icon('heroicon-o-printer')
+                        ->color('gray')
+                        ->action(fn (Collection $records) => self::stampaSelezionati($records))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('inviaSelezionatiOtp')
+                        ->label('Invia per firma OTP')
+                        ->icon('heroicon-o-device-phone-mobile')
+                        ->color('primary')
+                        ->visible(fn (): bool => \checkPiano('firma', static::class, write: true))
+                        ->requiresConfirmation()
+                        ->modalHeading('Invia in firma i documenti selezionati')
+                        ->modalDescription('I documenti da firmare partono in un plico per proprietario: il firmatario riceve una sola richiesta e firma tutto con un solo codice OTP. Quelli senza PDF o già in firma vengono saltati.')
+                        ->action(function (Collection $records): void {
+                            $inviabili = $this->documentiDaFirmare()->whereIn('id', $records->modelKeys());
+                            $saltati = $records->count() - $inviabili->count();
+
+                            if ($saltati > 0) {
+                                Notification::make()->warning()->title("{$saltati} documenti saltati")->body('Non sono da firmare, non hanno il PDF o hanno già una richiesta di firma aperta.')->send();
+                            }
+
+                            $this->inviaInFirma($inviabili);
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     BulkAction::make('setEmittedAt')
                         ->label('Imposta Data Emissione')
                         ->icon('heroicon-o-calendar')
@@ -886,8 +1097,8 @@ class DocumentsRelationManager extends RelationManager
     {
         $owner = $document->documentable;
 
-        if (class_exists(\App\Services\ModuleDataResolver::class)) {
-            $resolver = app(\App\Services\ModuleDataResolver::class);
+        if (class_exists(ModuleDataResolver::class)) {
+            $resolver = app(ModuleDataResolver::class);
 
             if ($owner instanceof Client) {
                 return $resolver->resolveForClient($owner);
@@ -903,6 +1114,32 @@ class DocumentsRelationManager extends RelationManager
         return $owner instanceof Pratica ? app(PracticeModuleData::class)->for($owner) : null;
     }
 
+    /**
+     * Il modulo compilato. Un documento del cliente si compila con i dati della sua ultima pratica (stesso codice fiscale).
+     *
+     * @throws PdfFormException
+     */
+    private static function contenutoModulo(Document $document): string
+    {
+        $module = $document->documentType->pdfModule;
+        $data = self::moduleDataFor($document);
+
+        if ($data !== null) {
+            return app(ModulePrinter::class)->render($module, $data);
+        }
+
+        $owner = $document->documentable;
+        $pratica = $owner instanceof Pratica ? $owner : ($owner instanceof Client && filled($owner->tax_code)
+            ? Pratica::query()->where('codice_fiscale', $owner->tax_code)->orderByRaw('data_inserimento_pratica IS NULL')->orderByDesc('data_inserimento_pratica')->orderByDesc('id')->first()
+            : null);
+
+        if (! $pratica instanceof Pratica) {
+            throw new PdfFormException('Il modulo si compila con i dati di una pratica: il cliente non ne ha.');
+        }
+
+        return app(ModulePrinter::class)->print($pratica, $module);
+    }
+
     /** Chi può approvare il documento col proprio utente: l'agente, il dipendente o l'utente indicati da `approver_model`. */
     private static function approverFor(Document $document): ?Model
     {
@@ -914,17 +1151,146 @@ class DocumentsRelationManager extends RelationManager
         }
 
         return match ($alias) {
-            'fornitore' => \Unico\Core\Models\Fornitore::query()->where('user_id', $user->getAuthIdentifier())->first(),
-            'employee' => \Unico\Core\Models\Employee::query()->where('user_id', $user->getAuthIdentifier())->first(),
+            'fornitore' => Fornitore::query()->where('user_id', $user->getAuthIdentifier())->first(),
+            'employee' => Employee::query()->where('user_id', $user->getAuthIdentifier())->first(),
             'user' => $user instanceof Model ? $user : null,
             default => null,
         };
     }
 
-    /** Solo i documenti d'identità (`document_types.is_identity`) portano numero e ente di rilascio. */
+    /** Il testo `document_types.instructions` di quel tipo, se c'è. */
+    private static function istruzioniDelTipo(mixed $documentTypeId): ?string
+    {
+        return blank($documentTypeId) ? null : DocumentType::query()->whereKey($documentTypeId)->value('instructions');
+    }
+
+    /** Le istruzioni per l'operatore del tipo documento (`document_types.instructions`), finché il documento è da caricare o correggere. */
+    private static function istruzioni(Document $document): string
+    {
+        $da = [DocumentStatus::PENDING, DocumentStatus::MISSING_DATA, DocumentStatus::DOWNLOAD, DocumentStatus::REJECTED, DocumentStatus::ANOMALY, DocumentStatus::SUPPLEMENTARY];
+        $istruzioni = $document->documentType?->instructions;
+
+        return filled($istruzioni) && in_array($document->status, $da, true) ? ' — Istruzioni: '.$istruzioni : '';
+    }
+
+    /** Aggiunge al tooltip dello stato i dati che mancano per stampare. */
+    private function elencoDatiMancanti(Document $document): string
+    {
+        if ($document->status !== DocumentStatus::MISSING_DATA) {
+            return '';
+        }
+
+        $mancanti = app(PrintReadiness::class)->missingLabels($document) ?? [];
+
+        return $mancanti === [] ? '' : ': '.implode(', ', $mancanti);
+    }
+
+    /** All'apertura della tabella ricalcola la fase (dati mancanti o da stampare) dei moduli non ancora partiti per la firma. */
+    public function mount(): void
+    {
+        parent::mount();
+
+        $readiness = app(PrintReadiness::class);
+
+        $this->getOwnerRecord()->documents()
+            ->whereIn('status', array_map(fn (DocumentStatus $status): string => $status->value, [DocumentStatus::PENDING, DocumentStatus::MISSING_DATA, DocumentStatus::PRINT]))
+            ->whereHas('documentType', fn ($query) => $query->where('is_signed', true))
+            ->get()
+            ->each(fn (Document $document) => $readiness->refresh($document));
+    }
+
+    /** Il soggetto a cui sono in carico tutti i documenti, o il motivo per cui non c'è. */
+    private static function soggettoDelSollecito(Collection $records): Model|string
+    {
+        $chiavi = $records->map(fn (Document $record): string => (string) $record->responsible_type.'|'.(string) $record->responsible_id)->unique();
+
+        if ($chiavi->count() !== 1 || blank($records->first()->responsible_type)) {
+            return 'I documenti selezionati devono essere tutti in carico allo stesso soggetto.';
+        }
+
+        return $records->first()->responsible ?? 'Il soggetto a cui sono in carico i documenti non esiste più.';
+    }
+
+    /** Il sollecito che partirebbe: destinatario, template e numero di documenti. Il template dipende dal minimo dei solleciti già inviati. */
+    private static function anteprimaSollecito(Collection $records): string
+    {
+        $soggetto = self::soggettoDelSollecito($records);
+
+        if (is_string($soggetto)) {
+            return $soggetto;
+        }
+
+        $bozza = app(DocumentReminderService::class)->compose($records, null, (int) $records->min('reminders_count'), $soggetto);
+
+        return sprintf(
+            '%d documenti a %s%s. Template: %s (grado %s, in base al minimo di %d solleciti già inviati).',
+            $records->count(),
+            $bozza->recipientName,
+            filled($bozza->recipientEmail) ? ' <'.$bozza->recipientEmail.'>' : ' (nessun indirizzo email)',
+            $bozza->template?->name ?? 'nessun template attivo',
+            $bozza->severity,
+            (int) $records->min('reminders_count'),
+        );
+    }
+
+    /** @param  Collection<int, Document>  $records */
+    private static function inviaSollecito(Collection $records): void
+    {
+        $soggetto = self::soggettoDelSollecito($records);
+
+        if (is_string($soggetto)) {
+            Notification::make()->danger()->title('Sollecito non inviato')->body($soggetto)->send();
+
+            return;
+        }
+
+        $servizio = app(DocumentReminderService::class);
+        $bozza = $servizio->compose($records, null, (int) $records->min('reminders_count'), $soggetto);
+
+        if ($bozza->template === null || blank($bozza->recipientEmail)) {
+            Notification::make()->warning()->title('Sollecito non inviato')->body($bozza->template === null ? 'Non c\'è un template di sollecito attivo per questo grado.' : $bozza->recipientName.' non ha un indirizzo email.')->send();
+
+            return;
+        }
+
+        $esito = $servizio->send($bozza);
+
+        Notification::make()
+            ->{$esito['failed'] > 0 ? 'danger' : 'success'}()
+            ->title($esito['failed'] > 0 ? 'Sollecito non riuscito' : 'Sollecito inviato')
+            ->body($esito['sent'].' documenti sollecitati a '.$bozza->recipientName.'.')
+            ->send();
+    }
+
+    /** Le icone della colonna Stato con il loro significato, raggruppate: fasi della firma, esito della verifica, altri stati. */
+    private static function legendaStati(): HtmlString
+    {
+        $gruppi = [
+            'Fasi della firma' => DocumentStatus::firma(),
+            'Verifica (AI o istruttore)' => [DocumentStatus::APPROVED, DocumentStatus::REJECTED, DocumentStatus::NA, DocumentStatus::ANOMALY, DocumentStatus::SUPPLEMENTARY],
+            'Altri stati' => [DocumentStatus::PENDING, DocumentStatus::PROVISIONAL, DocumentStatus::EXPIRED, DocumentStatus::UNREADABLE, DocumentStatus::REVOKED],
+        ];
+
+        $html = '';
+
+        foreach ($gruppi as $titolo => $stati) {
+            $html .= '<h4 class="mt-3 mb-1 text-sm font-semibold">'.e($titolo).'</h4><ul class="space-y-1">';
+
+            foreach ($stati as $stato) {
+                $icona = generate_icon_html($stato->getIcon(), attributes: (new ComponentAttributeBag)->color(IconComponent::class, $stato->getColor()), size: IconSize::Large)?->toHtml();
+                $html .= '<li class="flex items-center gap-2 text-sm">'.$icona.'<span>'.e((string) $stato->getLabel()).'</span></li>';
+            }
+
+            $html .= '</ul>';
+        }
+
+        return new HtmlString($html);
+    }
+
+    /** Solo i documenti d'identità (`document_types.codegroup` = IDENTITA) portano numero e ente di rilascio. */
     private static function isIdentityType(mixed $documentTypeId): bool
     {
-        return filled($documentTypeId) && (bool) DocumentType::query()->whereKey($documentTypeId)->value('is_identity');
+        return filled($documentTypeId) && DocumentType::query()->whereKey($documentTypeId)->value('codegroup') === DocumentType::CODEGROUP_IDENTITA;
     }
 
     /** Il tipo documento è richiesto da un plico del modello (taskable) o nasce su di lui da un plico di un altro modello. */
@@ -946,8 +1312,8 @@ class DocumentsRelationManager extends RelationManager
         return match (true) {
             $owner instanceof Client => $type !== null && $type->appliesToPerson((bool) $owner->is_person) && self::requiredOn('client', $type),
             $owner instanceof Pratica => (
-                class_exists(\App\Services\ModuleDataResolver::class)
-                    ? app(\App\Services\ModuleDataResolver::class)->findClient($owner) !== null
+                class_exists(ModuleDataResolver::class)
+                    ? app(ModuleDataResolver::class)->findClient($owner) !== null
                     : app(PracticeModuleData::class)->findClient($owner) !== null
             ),
             default => false,
@@ -958,18 +1324,17 @@ class DocumentsRelationManager extends RelationManager
     {
         if (self::downloadKind($document) === 'module') {
             $module = $document->documentType->pdfModule;
-            $data = self::moduleDataFor($document);
 
             try {
-                $content = $data === null
-                    ? app(ModulePrinter::class)->print($document->documentable, $module)
-                    : app(ModulePrinter::class)->render($module, $data);
+                $content = self::contenutoModulo($document);
             } catch (PdfFormException $e) {
                 report($e);
                 Notification::make()->danger()->title('Stampa non disponibile')->body($e->getMessage())->send();
 
                 return null;
             }
+
+            self::archiviaStampa($document, $content);
 
             return response()->streamDownload(fn () => print ($content), Str::slug($module->name).'.pdf', ['Content-Type' => 'application/pdf']);
         }
@@ -981,6 +1346,82 @@ class DocumentsRelationManager extends RelationManager
         }
 
         return filled($document->document_url) ? redirect()->away($document->document_url) : null;
+    }
+
+    /**
+     * La stampa resta nel documento (serve per mandarlo in firma OTP) e il documento passa a «da inviare OTP».
+     * Un documento già firmato o partito per la firma non viene toccato.
+     */
+    private static function archiviaStampa(Document $document, string $content): void
+    {
+        $document->loadMissing('documentType');
+
+        if ($document->is_signed || ! ($document->status?->isBeforeSending() || $document->status === DocumentStatus::TO_SEND_OTP)) {
+            return;
+        }
+
+        AnalyzeUploadedDocument::suspendedWhile(function () use ($document, $content): void {
+            $document->clearMediaCollection(Document::COLLECTION);
+            $document->addMediaFromString($content)
+                ->usingFileName((Str::slug((string) $document->documentType?->name) ?: 'modulo').'.pdf')
+                ->toMediaCollection(Document::COLLECTION);
+        });
+
+        $document->forceFill(['status' => DocumentStatus::TO_SEND_OTP])->saveQuietly();
+        $document->syncResponsible();
+    }
+
+    /**
+     * Stampa i moduli selezionati in un unico file ZIP; ritorna null se nessuno è stampabile.
+     *
+     * @param  Collection<int, Document>  $records
+     */
+    private static function stampaSelezionati(Collection $records): mixed
+    {
+        $stampabili = $records->filter(fn (Document $record): bool => self::downloadKind($record) === 'module');
+        $saltati = $records->count() - $stampabili->count();
+
+        if ($stampabili->isEmpty()) {
+            Notification::make()->warning()->title('Nessun documento stampabile')->body('I documenti selezionati non hanno un modulo da stampare.')->send();
+
+            return null;
+        }
+
+        $percorso = tempnam(sys_get_temp_dir(), 'stampe');
+        $zip = new \ZipArchive;
+        $zip->open($percorso, \ZipArchive::OVERWRITE);
+        $stampati = 0;
+
+        foreach ($stampabili as $record) {
+            $module = $record->documentType->pdfModule;
+
+            try {
+                $content = self::contenutoModulo($record);
+            } catch (PdfFormException $e) {
+                report($e);
+                $saltati++;
+
+                continue;
+            }
+
+            self::archiviaStampa($record, $content);
+            $zip->addFromString(Str::slug($module->name).'-'.$record->getKey().'.pdf', $content);
+            $stampati++;
+        }
+
+        $zip->close();
+
+        if ($saltati > 0) {
+            Notification::make()->warning()->title("{$saltati} documenti non stampati")->body('Mancano dati obbligatori o il documento non ha un modulo: apri «Dati mancanti» sulla riga.')->send();
+        }
+
+        if ($stampati === 0) {
+            @unlink($percorso);
+
+            return null;
+        }
+
+        return response()->download($percorso, 'moduli-da-stampare.zip')->deleteFileAfterSend();
     }
 
     private static function openSignatureRequest(Document $document): ?SignatureRequest
@@ -1002,7 +1443,7 @@ class DocumentsRelationManager extends RelationManager
         }
 
         $owner = $this->getOwnerRecord();
-        $documenti = $owner->documents()->get(['id', 'document_type_id', 'status', 'is_signed'])->groupBy('document_type_id');
+        $documenti = $owner->documents()->get(['id', 'document_type_id', 'status', 'signed_at'])->groupBy('document_type_id');
         $task = [];
         $perTipo = [];
 
@@ -1084,6 +1525,37 @@ class DocumentsRelationManager extends RelationManager
     }
 
     /**
+     * Manda in firma OTP i documenti, un plico per ogni proprietario (cliente o pratica), con un solo codice per il plico.
+     *
+     * @param  Collection<int, Document>  $scelti
+     */
+    private function inviaInFirma(Collection $scelti): void
+    {
+        foreach ($scelti->groupBy(fn (Document $documento): string => $documento->documentable_type.':'.$documento->documentable_id) as $gruppo) {
+            $avviso = self::missingSignerContacts($gruppo->first());
+
+            if ($avviso !== null) {
+                Notification::make()->warning()->title('Firma OTP non possibile')->body($avviso)->send();
+
+                continue;
+            }
+
+            $firmatari = [];
+
+            foreach ($gruppo as $documento) {
+                $firmatari += SignerDefaults::for($documento);
+            }
+
+            try {
+                app(SignatureRequestService::class)->sendBundle($gruppo->values()->all(), array_values($firmatari), auth()->user());
+                Notification::make()->success()->title($gruppo->count() > 1 ? 'Plico inviato per la firma' : 'Richiesta di firma inviata')->body($gruppo->count().' documenti, un solo codice OTP.')->send();
+            } catch (SignatureRequestException $e) {
+                Notification::make()->danger()->title('Invio per la firma non riuscito')->body($e->getMessage())->send();
+            }
+        }
+    }
+
+    /**
      * I documenti del record che si possono mandare in firma: tipo da firmare, PDF presente, firmatari previsti dal modulo e nessuna
      * richiesta già aperta.
      *
@@ -1162,8 +1634,10 @@ class DocumentsRelationManager extends RelationManager
             $ultime = $documento->analyses->sortByDesc('id')->unique('kind');
 
             if ($ultime->isEmpty()) {
-                return ['esito' => null, 'dettaglio' => null];
+                return ['esito' => null, 'dettaglio' => null, 'errore_ai' => null, 'api_log' => null];
             }
+
+            $conErrore = $ultime->first(fn ($analisi): bool => filled($analisi->error) && $analisi->operator_type === 'ai');
 
             $esito = $ultime->pluck('outcome')->map(fn ($valore): string => (string) $valore)->sortByDesc(fn (string $valore): int => self::GRAVITA_CONTROLLI[$valore] ?? 0)->first();
             $segnalazioni = $ultime->flatMap(fn ($analisi): array => array_merge(
@@ -1171,7 +1645,12 @@ class DocumentsRelationManager extends RelationManager
                 array_map('strval', (array) ($analisi->result['issues'] ?? [])),
             ))->unique()->values();
 
-            return ['esito' => $esito, 'dettaglio' => $segnalazioni->isEmpty() ? ($esito === 'passed' ? 'Controlli superati' : null) : $segnalazioni->implode(' · ')];
+            return [
+                'esito' => $esito,
+                'dettaglio' => $segnalazioni->isEmpty() ? ($esito === 'passed' ? 'Controlli superati' : null) : $segnalazioni->implode(' · '),
+                'errore_ai' => $conErrore === null ? null : (string) $conErrore->error,
+                'api_log' => $conErrore === null ? null : ($conErrore->result['api_log'] ?? null),
+            ];
         })();
     }
 
@@ -1201,8 +1680,8 @@ class DocumentsRelationManager extends RelationManager
     {
         $owner = $document->documentable;
         $client = $owner instanceof Pratica
-            ? (class_exists(\App\Services\ModuleDataResolver::class)
-                ? app(\App\Services\ModuleDataResolver::class)->findClient($owner)
+            ? (class_exists(ModuleDataResolver::class)
+                ? app(ModuleDataResolver::class)->findClient($owner)
                 : app(PracticeModuleData::class)->findClient($owner))
             : $owner;
 

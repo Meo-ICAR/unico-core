@@ -70,6 +70,7 @@ class DocumentReminderService
 
         $query
             ->whereNull('documents.replaced_by_id')
+            ->whereNull('documents.renewed_by')
             ->where('documents.status', '!=', DocumentStatus::EXPIRED->value)
             ->whereNotExists(function ($newer) use ($ignored): void {
                 $newer->selectRaw('1')
@@ -189,8 +190,10 @@ class DocumentReminderService
     /** @return Collection<string, Collection<int, Document>> raggruppati per `alias|id` del soggetto */
     public function groupedDocuments(?Builder $query = null): Collection
     {
-        return ($query ?? $this->scheduleQuery())->get()->groupBy(
-            fn (Document $d): string => $d->documentable_type.'|'.$d->documentable_id
+        return ($query ?? $this->scheduleQuery())->with('responsible')->get()->groupBy(
+            fn (Document $d): string => filled($d->responsible_type)
+                ? $d->responsible_type.'|'.$d->responsible_id
+                : $d->documentable_type.'|'.$d->documentable_id
         );
     }
 
@@ -241,17 +244,22 @@ class DocumentReminderService
      *  - template: `template_code` della company dei documenti e dell'app, del grado giusto (`EmailTemplateResolver`);
      *  - mittente: la casella di tipo «sollecito» della company (`SenderAccountResolver`); senza, parte dal mailer di default.
      *
+     * Per un sollecito manuale a un soggetto preciso si passano `$recipient` (a cui va l'email) e `$remindersSent`: il grado e quindi il
+     * template dipendono solo da quel numero di solleciti (di norma il minimo tra i documenti), non dalla scadenza.
+     *
      * @param  Collection<int, Document>  $documents  documenti dello stesso soggetto
      */
-    public function compose(Collection $documents, ?string $app = null): ReminderDraft
+    public function compose(Collection $documents, ?string $app = null, ?int $remindersSent = null, ?\Illuminate\Database\Eloquent\Model $recipient = null): ReminderDraft
     {
         $app ??= config('unico-core.app_identifier');
         $first = $documents->first();
-        $recipient = $this->recipients->resolveForDocument($first);
-        $severity = Escalation::severity(
-            (int) $documents->map(fn (Document $d): int => $this->daysUntilExpiry($d))->min(),
-            (int) $documents->max('reminders_count'),
-        );
+        $recipient = $recipient === null ? $this->recipients->resolveForDocument($first) : $this->recipients->resolve($recipient);
+        $severity = $remindersSent !== null
+            ? Escalation::severityBySent($remindersSent)
+            : Escalation::severity(
+                (int) $documents->map(fn (Document $d): int => $this->daysUntilExpiry($d))->min(),
+                (int) $documents->max('reminders_count'),
+            );
         $template = app(EmailTemplateResolver::class)->resolve((string) $this->setting('template_code', 'DOC_EXPIRING'), $first->company_id, $app, MailType::Sollecito, $severity);
         $rendered = $template === null ? ['subject' => '', 'body' => ''] : $this->renderGroupEmail($template, $recipient['name'], $documents);
 

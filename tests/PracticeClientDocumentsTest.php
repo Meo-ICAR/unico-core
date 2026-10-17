@@ -141,7 +141,7 @@ class PracticeClientDocumentsTest extends TestCase
     public function test_l_approvazione_con_firma_la_da_solo_chi_e_indicato_dal_tipo_e_il_rinnovo_punta_alla_nuova_versione(): void
     {
         $tipo = DocumentType::create(['name' => 'Mandato', 'code' => 'MN', 'is_signed' => true, 'approver_model' => 'fornitore']);
-        $documento = Document::create(['documentable_type' => 'client', 'documentable_id' => '1', 'document_type_id' => $tipo->id, 'name' => 'Mandato', 'status' => DocumentStatus::PENDING, 'is_signed' => true]);
+        $documento = Document::create(['documentable_type' => 'client', 'documentable_id' => '1', 'document_type_id' => $tipo->id, 'name' => 'Mandato', 'status' => DocumentStatus::PENDING, 'signed_at' => now()]);
         $agente = \Unico\Core\Models\Fornitore::create(['name' => 'Agente']);
 
         $this->assertTrue($documento->fresh('documentType')->awaitsApproval());

@@ -3,13 +3,16 @@
 namespace Unico\Core\Pdf;
 
 use Illuminate\Support\Collection;
+use Unico\Core\Enums\DocumentStatus;
+use Unico\Core\Documents\Reminders\DocumentRequestRouter;
+use Unico\Core\Models\Client;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\Pratica;
 
 /**
  * Prima della stampa verifica che i campi obbligatori del modulo (`pdf_module_fields.is_required`)
- * siano valorizzati nel record associato al documento, e aggiorna `documents.is_printable`.
- * Vale solo per i documenti ancora da firmare: `documents.is_signed` falso e `document_types.is_signed` vero.
+ * siano valorizzati nel record associato al documento, e porta la fase di `documents.status` a «stampare» quando sono tutti valorizzati, a «dati_mancanti» altrimenti.
+ * Vale solo per i documenti ancora da firmare: non firmati e con `document_types.is_signed` vero.
  */
 class PrintReadiness
 {
@@ -38,6 +41,11 @@ class PrintReadiness
         $module = $document->documentType->pdfModule;
         $record = $document->documentable;
 
+        // Il modulo di un cliente si compila con i dati della sua ultima pratica.
+        if ($record instanceof Client) {
+            $record = app(DocumentRequestRouter::class)->practiceOf($record);
+        }
+
         if ($module === null || ! $module->is_active || ! $record instanceof Pratica) {
             return null;
         }
@@ -48,14 +56,31 @@ class PrintReadiness
         return $this->data->for($record)->missingAmong($required->flatMap->referencedKeys());
     }
 
-    /** Aggiorna `is_printable` e restituisce il nuovo valore. */
+    /**
+     * I dati obbligatori mancanti con il loro nome leggibile. Null se il documento non è da controllare.
+     *
+     * @return array<int, string>|null
+     */
+    public function missingLabels(Document $document): ?array
+    {
+        $missing = $this->missing($document);
+
+        return $missing === null ? null : ModuleKeyLabel::many($missing);
+    }
+
+    /** Porta il documento a «stampare» (campi completi) o a «dati mancanti» (campi obbligatori non valorizzati) e restituisce se è stampabile. */
     public function refresh(Document $document): bool
     {
         $missing = $this->missing($document);
         $printable = $missing !== null && $missing === [];
 
-        if ($document->is_printable !== $printable) {
-            $document->forceFill(['is_printable' => $printable])->saveQuietly();
+        if ($document->status?->isBeforeSending()) {
+            $phase = $printable ? DocumentStatus::PRINT : ($missing !== null ? DocumentStatus::MISSING_DATA : $document->status);
+
+            if ($document->status !== $phase) {
+                $document->forceFill(['status' => $phase])->saveQuietly();
+                $document->syncResponsible();
+            }
         }
 
         return $printable;

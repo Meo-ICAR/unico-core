@@ -50,7 +50,15 @@ class DocumentModelsTest extends TestCase
             $this->assertNotEmpty($status->getColor());
             $this->assertStringStartsWith('heroicon-', $status->getIcon());
         }
-        $this->assertSame(11, count(DocumentStatus::cases()));
+        $this->assertSame(18, count(DocumentStatus::cases()));
+    }
+
+    public function test_il_documento_firmato_si_riconosce_da_data_o_fase_e_le_fasi_della_firma_sono_in_ordine(): void
+    {
+        $this->assertFalse((new Document(['status' => DocumentStatus::TO_SEND_OTP]))->is_signed);
+        $this->assertTrue((new Document(['status' => DocumentStatus::TO_APPROVE_OTP]))->is_signed);
+        $this->assertTrue((new Document(['status' => DocumentStatus::UPLOADED, 'signed_at' => now()]))->is_signed);
+        $this->assertSame(['dati_mancanti', 'stampare', 'scaricare', 'da_inviare_otp', 'inviato_otp', 'firmato_otp', 'da_approvare_otp', 'caricato'], array_map(fn (DocumentStatus $s): string => $s->value, DocumentStatus::firma()));
     }
 
     public function test_duration_units(): void

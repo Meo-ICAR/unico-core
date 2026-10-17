@@ -5,6 +5,7 @@ namespace Unico\Core\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Unico\Core\Concerns\UsesCoreConnection;
 
@@ -30,6 +31,20 @@ class Cliente extends Model
             'is_reported' => 'boolean',
             'is_dummy' => 'boolean',
         ];
+    }
+
+    /** Portali dell'istituto (caricamento, modulistica, API) e altri siti. */
+    public function websites(): MorphMany
+    {
+        return $this->morphMany(Website::class, 'websiteable');
+    }
+
+    /** Indirizzo del portale di quel tipo, se c'è ed è attivo. */
+    public function portalUrl(string $kind): ?string
+    {
+        $url = $this->websites()->where('type', $kind)->where('is_active', true)->value('url');
+
+        return blank($url) ? null : (str_starts_with((string) $url, 'http') ? (string) $url : 'https://'.$url);
     }
 
     public function company(): BelongsTo

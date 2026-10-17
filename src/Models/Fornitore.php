@@ -26,6 +26,7 @@ class Fornitore extends Model
             'dismissed_at' => 'date',
             'is_active' => 'boolean',
             'is_art108' => 'boolean',
+            'allows_direct_requests' => 'boolean',
             'oam_dismissed_at' => 'date',
             'welcome_bonus' => 'decimal:2',
             'available_at' => 'date',

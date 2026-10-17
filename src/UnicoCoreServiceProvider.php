@@ -7,45 +7,55 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
+use Unico\Core\Access\AccessChecker;
+use Unico\Core\Access\ReadOnlyActions;
+use Unico\Core\Console\ClientsPrepareCommand;
+use Unico\Core\Console\DocumentsRemindCommand;
+use Unico\Core\Console\DocumentsPrintRefreshCommand;
+use Unico\Core\Console\DocumentsScheduleSyncCommand;
+use Unico\Core\Console\DocumentTypesCheckCommand;
 use Unico\Core\Console\FetchMailCommand;
-use Unico\Core\Console\MailHealthCommand;
-use Unico\Core\Console\MailAccountFromEnvCommand;
-use Unico\Core\Console\PdfSignatureSlotsCommand;
-use Unico\Core\Documents\PracticeMailReplyHandler;
-use Unico\Core\Events\IncomingEmailReceived;
-use Unico\Core\Console\SeedExportCommand;
 use Unico\Core\Console\ImportAnagraficheCommand;
+use Unico\Core\Console\MailAccountFromEnvCommand;
+use Unico\Core\Console\MailHealthCommand;
 use Unico\Core\Console\MigrateCoreCommand;
-use Unico\Core\Drive\GoogleDriveFactory;
+use Unico\Core\Console\PdfSignatureSlotsCommand;
+use Unico\Core\Console\SeedExportCommand;
+use Unico\Core\Console\SharePointRetryCommand;
+use Unico\Core\Console\SignatureCheckCommand;
+use Unico\Core\Console\SignatureSyncCommand;
 use Unico\Core\Documents\AnthropicDocumentReader;
+use Unico\Core\Documents\Api\CadastreFetcher;
+use Unico\Core\Documents\Api\CompanyDataFetcher;
+use Unico\Core\Documents\Api\CreditScoreFetcher;
+use Unico\Core\Documents\Api\DocumentApiService;
 use Unico\Core\Documents\CheckRegistry;
 use Unico\Core\Documents\Contracts\AnalysisGate;
 use Unico\Core\Documents\Contracts\DeclaredData;
 use Unico\Core\Documents\Contracts\DocumentFileSource;
 use Unico\Core\Documents\Contracts\DocumentReader;
+use Unico\Core\Documents\DocumentPathGenerator;
 use Unico\Core\Documents\Listeners\AnalyzeUploadedDocument;
 use Unico\Core\Documents\MediaDocumentFileSource;
 use Unico\Core\Documents\NullDeclaredData;
 use Unico\Core\Documents\NullDocumentReader;
 use Unico\Core\Documents\OpenGate;
-use Unico\Core\Documents\DocumentPathGenerator;
-use Unico\Core\Models\Document;
-use Unico\Core\Drive\ZipExporter;
-use Unico\Core\SharePoint\GraphTransport;
-use Unico\Core\SharePoint\HttpGraphTransport;
-use Unico\Core\SharePoint\Listeners\QueueSharePointUpload;
-use Unico\Core\Console\DocumentsRemindCommand;
-use Unico\Core\Console\DocumentsScheduleSyncCommand;
-use Unico\Core\Console\SharePointRetryCommand;
-use Unico\Core\Console\SignatureCheckCommand;
-use Unico\Core\Console\SignatureSyncCommand;
+use Unico\Core\Documents\PracticeMailReplyHandler;
 use Unico\Core\Documents\Reminders\ConfigRecipientResolver;
 use Unico\Core\Documents\Reminders\Contracts\RecipientResolver;
+use Unico\Core\Drive\GoogleDriveFactory;
+use Unico\Core\Drive\ZipExporter;
+use Unico\Core\Events\IncomingEmailReceived;
 use Unico\Core\Mail\Contracts\EmailClassifier;
 use Unico\Core\Mail\Contracts\ImapConnector;
 use Unico\Core\Mail\ImapConnectionFactory;
 use Unico\Core\Mail\RuleBasedClassifier;
 use Unico\Core\Mail\SenderIdentifier;
+use Unico\Core\Models\Document;
+use Unico\Core\Pdf\PracticeModuleData;
+use Unico\Core\SharePoint\GraphTransport;
+use Unico\Core\SharePoint\HttpGraphTransport;
+use Unico\Core\SharePoint\Listeners\QueueSharePointUpload;
 use Unico\Core\Signature\SignatureProviderManager;
 
 class UnicoCoreServiceProvider extends ServiceProvider
@@ -66,19 +76,25 @@ class UnicoCoreServiceProvider extends ServiceProvider
         $this->app->bindIf(RecipientResolver::class, ConfigRecipientResolver::class);
 
         // Analisi documenti: ogni pezzo è sostituibile dall'app con un proprio bind.
-        $this->app->bind(\Unico\Core\Pdf\PracticeModuleData::class, fn ($app) => new \Unico\Core\Pdf\PracticeModuleData($app->tagged('unico-core.module-data-providers')));
+        $this->app->bind(PracticeModuleData::class, fn ($app) => new PracticeModuleData($app->tagged('unico-core.module-data-providers')));
         // Documenti richiesti via API: i servizi di base sono qui, le app ne aggiungono o sostituiscono con il tag.
-        $this->app->singleton(\Unico\Core\Documents\Api\DocumentApiService::class, fn ($app) => new \Unico\Core\Documents\Api\DocumentApiService([
-            $app->make(\Unico\Core\Documents\Api\CompanyDataFetcher::class),
-            $app->make(\Unico\Core\Documents\Api\CreditScoreFetcher::class),
-            $app->make(\Unico\Core\Documents\Api\CadastreFetcher::class),
+        $this->app->singleton(DocumentApiService::class, fn ($app) => new DocumentApiService([
+            $app->make(CompanyDataFetcher::class),
+            $app->make(CreditScoreFetcher::class),
+            $app->make(CadastreFetcher::class),
             ...iterator_to_array($app->tagged('unico-core.document-api-fetchers'), false),
         ]));
         $this->app->singleton(CheckRegistry::class);
-        $this->app->singleton(\Unico\Core\Access\AccessChecker::class);
+        $this->app->singleton(AccessChecker::class);
         $this->app->bindIf(DocumentFileSource::class, MediaDocumentFileSource::class);
         $this->app->bindIf(DeclaredData::class, NullDeclaredData::class);
         $this->app->bindIf(AnalysisGate::class, OpenGate::class);
+        $this->app->bindIf(\Unico\Core\Documents\Contracts\AiCallLog::class, \Unico\Core\Documents\NullAiCallLog::class);
+        $this->app->bindIf(\Unico\Core\Documents\Contracts\DocumentSegmenter::class, function ($app) {
+            $reader = $app->make(DocumentReader::class);
+
+            return $reader instanceof \Unico\Core\Documents\Contracts\DocumentSegmenter ? $reader : new \Unico\Core\Documents\NullDocumentSegmenter;
+        });
         $this->app->bindIf(DocumentReader::class, function () {
             $key = (string) config('unico-core.documents.ai.api_key');
 
@@ -89,7 +105,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        \Unico\Core\Access\ReadOnlyActions::register();
+        ReadOnlyActions::register();
 
         $this->registerDocumentsDisk();
 
@@ -130,7 +146,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
                 __DIR__.'/../config/unico-core.php' => config_path('unico-core.php'),
             ], 'unico-core-config');
 
-            $this->commands([MigrateCoreCommand::class, SeedExportCommand::class, MailAccountFromEnvCommand::class, PdfSignatureSlotsCommand::class, ImportAnagraficheCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class, \Unico\Core\Console\DocumentTypesCheckCommand::class]);
+            $this->commands([MigrateCoreCommand::class, SeedExportCommand::class, ClientsPrepareCommand::class, MailAccountFromEnvCommand::class, PdfSignatureSlotsCommand::class, ImportAnagraficheCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, DocumentsPrintRefreshCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class, DocumentTypesCheckCommand::class]);
         }
     }
 

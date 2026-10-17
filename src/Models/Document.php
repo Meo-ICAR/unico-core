@@ -19,6 +19,7 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Documents\DocumentResponsibleResolver;
 use Unico\Core\Enums\DocumentStatus;
 
 /**
@@ -49,8 +50,6 @@ class Document extends Model implements HasMedia
             'status' => DocumentStatus::class,
             'metadata' => 'array',
             'is_template' => 'boolean',
-            'is_signed' => 'boolean',
-            'is_printable' => 'boolean',
             'is_unique' => 'boolean',
             'is_end_month' => 'boolean',
             'is_monitored' => 'boolean',
@@ -81,7 +80,41 @@ class Document extends Model implements HasMedia
             $document->stampAudit();
             $document->applyStatusRules();
             $document->computeExpiry();
+            $document->applyResponsible();
         });
+    }
+
+    /**
+     * Quando la fase cambia, «in carico a» si compila da solo (vedi DocumentResponsibleResolver). Una scelta fatta a mano nello stesso
+     * salvataggio resta; vale fino al cambio di fase successivo.
+     */
+    protected function applyResponsible(): void
+    {
+        if (! $this->isDirty('status') || $this->isDirty('responsible_type') || $this->isDirty('responsible_id')) {
+            return;
+        }
+
+        try {
+            $this->assignResponsible(app(DocumentResponsibleResolver::class)->for($this));
+        } catch (\Throwable) {
+            // Un soggetto del documento non risolvibile non deve impedire il salvataggio: resta com'è.
+        }
+    }
+
+    /** Ricalcola «in carico a» per chi cambia la fase senza eventi (saveQuietly, aggiornamenti diretti). */
+    public function syncResponsible(): void
+    {
+        $this->assignResponsible(app(DocumentResponsibleResolver::class)->for($this));
+
+        if ($this->isDirty('responsible_type') || $this->isDirty('responsible_id')) {
+            $this->saveQuietly();
+        }
+    }
+
+    private function assignResponsible(?Model $responsible): void
+    {
+        $this->responsible_type = $responsible?->getMorphClass();
+        $this->responsible_id = $responsible === null ? null : (string) $responsible->getKey();
     }
 
     /**
@@ -251,6 +284,12 @@ class Document extends Model implements HasMedia
         return $this->belongsTo(DocumentRequirement::class, 'document_requirement_id');
     }
 
+    /** Chi deve far proseguire l'iter del documento (client, fornitore, employee o cliente = istituto). */
+    public function responsible(): MorphTo
+    {
+        return $this->morphTo('responsible', 'responsible_type', 'responsible_id');
+    }
+
     /** Chi ha firmato il documento. */
     public function signedBy(): MorphTo
     {
@@ -261,6 +300,12 @@ class Document extends Model implements HasMedia
     public function approvedBy(): MorphTo
     {
         return $this->morphTo('approved_by', 'approved_by_type', 'approved_by_id');
+    }
+
+    /** Il documento è stato firmato: lo dice la data di firma o la fase (firmato OTP, da approvare OTP). */
+    protected function isSigned(): Attribute
+    {
+        return Attribute::get(fn (): bool => $this->signed_at !== null || $this->status?->isSigned() === true);
     }
 
     /** Il tipo prevede l'approvazione con firma e non è ancora stata data. */
@@ -288,7 +333,7 @@ class Document extends Model implements HasMedia
             throw new \InvalidArgumentException("Il documento va approvato da «{$expected}», non da «{$alias}».");
         }
 
-        $this->forceFill(['approved_by_type' => $expected, 'approved_by_id' => (string) $approver->getKey(), 'approved_at' => now()])->save();
+        $this->forceFill(['approved_by_type' => $expected, 'approved_by_id' => (string) $approver->getKey(), 'approved_at' => now()] + ($this->status === DocumentStatus::TO_APPROVE_OTP ? ['status' => DocumentStatus::UPLOADED] : []))->save();
 
         return $this;
     }
@@ -342,6 +387,7 @@ class Document extends Model implements HasMedia
     {
         return $query
             ->whereNull('replaced_by_id')
+            ->whereNull('renewed_by')
             ->whereNotIn('status', array_map(fn (DocumentStatus $s) => $s->value, DocumentStatus::inactive()));
     }
 
@@ -376,6 +422,51 @@ class Document extends Model implements HasMedia
     }
 
     // --- Operazioni ---
+
+    /** Fasi in cui il documento caricato non è andato bene: il file corretto è una nuova versione, non una sostituzione. */
+    public function needsCorrection(): bool
+    {
+        return in_array($this->status, [DocumentStatus::REJECTED, DocumentStatus::ANOMALY, DocumentStatus::UNREADABLE, DocumentStatus::SUPPLEMENTARY], true);
+    }
+
+    /**
+     * Il documento su cui caricare il file corretto. Se questo è respinto (o anomalo, illeggibile, integrativo) e ha già un file, nasce
+     * una nuova versione dello stesso documento e questo resta com'è, con lo storico dell'invio: `renewed_by` indica la versione
+     * successiva. Negli altri casi è il documento stesso.
+     *
+     * @param  int|null  $exceptMediaId  il file appena caricato, che non conta come «già presente»
+     */
+    public function versionForUpload(?int $exceptMediaId = null): self
+    {
+        $previous = $this->getMedia(self::COLLECTION)->reject(fn ($media): bool => $media->getKey() === $exceptMediaId);
+
+        if (! $this->needsCorrection() || $previous->isEmpty() || $this->renewed_by !== null) {
+            return $this;
+        }
+
+        return $this->getConnection()->transaction(function (): self {
+            $new = static::create([
+                'company_id' => $this->company_id,
+                'documentable_type' => $this->documentable_type,
+                'documentable_id' => $this->documentable_id,
+                'document_type_id' => $this->document_type_id,
+                'document_requirement_id' => $this->document_requirement_id,
+                'user_id' => $this->user_id,
+                'name' => $this->name,
+                'doctype' => $this->doctype,
+                'spatie_collection' => $this->spatie_collection ?? 'default',
+                'description' => $this->description,
+                'is_monitored' => $this->is_monitored ?? false,
+                'is_unique' => $this->is_unique ?? false,
+                'is_end_month' => $this->is_end_month ?? false,
+                'status' => DocumentStatus::PENDING,
+            ]);
+
+            $this->forceFill(['renewed_by' => $new->getKey()])->saveQuietly();
+
+            return $new;
+        });
+    }
 
     /**
      * Rinnovo: crea il nuovo documento, segna questo come scaduto e sostituito.
