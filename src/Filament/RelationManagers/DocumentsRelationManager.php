@@ -403,6 +403,7 @@ class DocumentsRelationManager extends RelationManager
                         ->helperText('Si compila da solo a ogni cambio di fase (istruttore, richiedente, produttore, datore di lavoro, banca); qui puoi cambiarlo a mano.')
                         ->options(self::RESPONSABILI)
                         ->placeholder('Nessuno')
+                        ->disabled(fn (): bool => self::pannelloProduttori())
                         ->live()
                         ->afterStateUpdated(fn (callable $set) => $set('responsible_id', null)),
                     Select::make('responsible_id')
@@ -411,8 +412,9 @@ class DocumentsRelationManager extends RelationManager
                         ->getSearchResultsUsing(fn (string $search, $get): array => $this->cercaResponsabile($get('responsible_type'), $search))
                         ->getOptionLabelUsing(fn ($value, $get): ?string => $this->nomeResponsabile($get('responsible_type'), $value))
                         ->searchable()
+                        ->disabled(fn (): bool => self::pannelloProduttori())
                         ->visible(fn ($get): bool => filled($get('responsible_type')))
-                        ->required(fn ($get): bool => filled($get('responsible_type'))),
+                        ->required(fn ($get): bool => filled($get('responsible_type')) && ! self::pannelloProduttori()),
                     Select::make('document_type_id')
                         ->label('Tipo documento')
                         ->options(fn (?Document $record): array => $this->documentTypeOptions(currentId: $record?->document_type_id, excludeUsed: true))
@@ -724,8 +726,8 @@ class DocumentsRelationManager extends RelationManager
 
         /** @var array<int, Action> $azioniDocumento */
         $azioniDocumento = [
-            DocumentOutcomeAction::make(),
-            RetrySharePointUploadAction::make(),
+            DocumentOutcomeAction::make()->visible(fn (): bool => ! self::pannelloProduttori()),
+            RetrySharePointUploadAction::make()->visible(fn (): bool => ! self::pannelloProduttori()),
             Action::make('datiMancanti')
                 ->label('Dati mancanti')
                 ->icon('heroicon-o-pencil-square')
@@ -816,7 +818,7 @@ class DocumentsRelationManager extends RelationManager
                 ->label('Richiedi via API')
                 ->icon('heroicon-o-cloud-arrow-down')
                 ->color('info')
-                ->visible(fn (Document $record): bool => app(DocumentApiService::class)->supports($record->documentType))
+                ->visible(fn (Document $record): bool => ! self::pannelloProduttori() && app(DocumentApiService::class)->supports($record->documentType))
                 ->requiresConfirmation()
                 ->modalHeading('Richiedi il documento via API')
                 ->modalDescription(fn (Document $record): string => 'Il documento viene richiesto al servizio «'.(app(DocumentApiService::class)->services()[$record->documentType?->api_service] ?? '').'». Alcuni servizi sono a pagamento.')
@@ -996,8 +998,9 @@ class DocumentsRelationManager extends RelationManager
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DocumentOutcomeAction::bulk(),
+                    DocumentOutcomeAction::bulk()->visible(fn (): bool => ! self::pannelloProduttori()),
                     BulkAction::make('inviaSollecito')
+                        ->visible(fn (): bool => ! self::pannelloProduttori())
                         ->label('Invia sollecito')
                         ->icon('heroicon-o-bell-alert')
                         ->color('warning')
@@ -1033,6 +1036,7 @@ class DocumentsRelationManager extends RelationManager
                         })
                         ->deselectRecordsAfterCompletion(),
                     BulkAction::make('setEmittedAt')
+                        ->visible(fn (): bool => ! self::pannelloProduttori())
                         ->label('Imposta Data Emissione')
                         ->icon('heroicon-o-calendar')
                         ->color('success')
@@ -1052,6 +1056,7 @@ class DocumentsRelationManager extends RelationManager
                         ->modalHeading('Imposta data di emissione per i record selezionati')
                         ->modalSubmitActionLabel('Salva'),
                     BulkAction::make('setExpiredAt')
+                        ->visible(fn (): bool => ! self::pannelloProduttori())
                         ->label('Imposta Data Scadenza')
                         ->icon('heroicon-o-calendar')
                         ->color('success')
@@ -1156,6 +1161,15 @@ class DocumentsRelationManager extends RelationManager
             'user' => $user instanceof Model ? $user : null,
             default => null,
         };
+    }
+
+    /**
+     * Il pannello dei produttori (`unico-core.documents.producer_panels`): vedono i documenti delle proprie pratiche, li caricano e
+     * correggono, stampano e mandano in firma, ma non danno l'esito dell'istruttoria, non sollecitano né richiedono servizi a pagamento.
+     */
+    private static function pannelloProduttori(): bool
+    {
+        return in_array(\Filament\Facades\Filament::getCurrentPanel()?->getId(), (array) config('unico-core.documents.producer_panels', []), true);
     }
 
     /** Il testo `document_types.instructions` di quel tipo, se c'è. */
