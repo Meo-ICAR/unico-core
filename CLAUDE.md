@@ -43,7 +43,7 @@ e contratto `DocumentGenerator`; `Mail\SenderIdentifier` (+ `SenderMatcher` per 
 firma elettronica `Signature\*` (Yousign + fake, webhook, `signature:sync`/`signature:check`; il firmato va in `signed` dello stesso documento).
 
 ## Da fare (in ordine)
-1. Collegare le app una alla volta. **unicooam, unicoloan e unicobpm: fatti e su `main`.** **proforma: fatta sul ramo `core-integration`** (Laravel 13, Filament 5, 28 test su 33 con 4 saltati e 1 fallimento preesistente; provvigioni.pratica_id collega le provvigioni alle pratiche (chiave esterna, valorizzata dall'import; id_pratica conserva il codice dell'API); 24 viste su 34).
+1. Collegare le app una alla volta (storico: unicoloan, citato qui sotto, è stato poi dismesso a favore di unicofinance). **unicooam, unicoloan e unicobpm: fatti e su `main`.** **proforma: fatta sul ramo `core-integration`** (Laravel 13, Filament 5, 28 test su 33 con 4 saltati e 1 fallimento preesistente; provvigioni.pratica_id collega le provvigioni alle pratiche (chiave esterna, valorizzata dall'import; id_pratica conserva il codice dell'API); 24 viste su 34).
    unicoloan 511 test su 516, unicobpm 75 su 77 (i fallimenti rimasti c'erano già prima), con un test di fumo sulle pagine elenco ciascuno.
    unicoloan tiene sul database Proforma `Client`, `ClientMandate`, `Tipoprodotto*`, `PraticaClient`...; gli id che li richiamano sono `varchar(36)` senza FK.
    unicobpm usa il database condiviso (connessione `core`, in sviluppo `unicooam_core`) per le tabelle del pacchetto e un database proprio per i processi;

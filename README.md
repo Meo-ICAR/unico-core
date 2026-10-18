@@ -1,6 +1,6 @@
 # unico-core
 
-Tabelle condivise della suite Unico: unicofinance (istruttoria; unicoloan è dismesso), proforma, unicooam, unicobpm, unicoagent e, per le funzioni email e Drive, unicogdpr.
+Tabelle condivise della suite Unico: unicofinance (istruttoria; unicoloan è dismesso), proforma, unicooam, unicobpm e, per le funzioni email e Drive, unicogdpr.
 Ogni app resta un progetto Laravel separato e mostra le stesse tabelle con le proprie risorse Filament.
 
 unicoagent non usa il core: è un'app separata con il proprio database, che si collega ai CRM (incluse le app Unico) tramite API.
@@ -25,7 +25,7 @@ unicoagent non usa il core: è un'app separata con il proprio database, che si c
 
 ## Email
 
-- `Unico\Core\Mail\MailFetcher` scarica una casella in `incoming_emails` (finestra di date con sovrapposizione, deduplica per `company_id` + `message_id` anche sui record eliminati, thread da `References`/`In-Reply-To`, allegati nella collection `email_attachments`) e per ogni nuova email emette `Unico\Core\Events\IncomingEmailReceived`. Gli ascoltatori sono delle app: unicogdpr apre richieste e reclami, unicobpm collega gli allegati ai processi, unicoloan alle pratiche. Un ascoltatore che fallisce non ferma la scansione.
+- `Unico\Core\Mail\MailFetcher` scarica una casella in `incoming_emails` (finestra di date con sovrapposizione, deduplica per `company_id` + `message_id` anche sui record eliminati, thread da `References`/`In-Reply-To`, allegati nella collection `email_attachments`) e per ogni nuova email emette `Unico\Core\Events\IncomingEmailReceived`. Gli ascoltatori sono delle app: unicogdpr apre richieste e reclami, unicobpm collega gli allegati ai processi, unicofinance alle pratiche. Un ascoltatore che fallisce non ferma la scansione.
 - `ImapConnectionFactory`: Basic Auth o OAuth2 (Google, Microsoft) con rinnovo del token tramite Socialite. Solo IMAP: webklex/php-imap non supporta POP3.
 - `RuleBasedClassifier`: riconosce da solo mancati recapiti, notifiche dei provider, inviti e spam; le classi dell'app (reclami, richieste GDPR...) si aggiungono in `unico-core.mail.rules`.
 - `BounceParser`, `OutgoingMailer` (invio con le credenziali SMTP della casella).
