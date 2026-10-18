@@ -1,6 +1,6 @@
 # Porting di email e Google Drive da unicogdpr
 
-unicogdpr resta un'app separata. Le funzioni di lettura email e di gestione Google Drive vanno estratte nel pacchetto, così unicobpm, unicoloan e unicooam le usano senza duplicarle. Le parti specifiche del GDPR (DSAR, classificazione GDPR, data breach) restano in unicogdpr, che userà il pacchetto come le altre app.
+unicogdpr resta un'app separata. Le funzioni di lettura email e di gestione Google Drive vanno estratte nel pacchetto, così unicobpm, unicofinance e unicooam le usano senza duplicarle. Le parti specifiche del GDPR (DSAR, classificazione GDPR, data breach) restano in unicogdpr, che userà il pacchetto come le altre app.
 
 Codice di partenza (repo `Meo-ICAR/unicogdpr`): `app/Services/Mail`, `app/Services/Drive`, `app/Jobs/FetchMailAccountJob.php`, `app/Contracts/ImapConnector.php`, `app/Models/{MailAccount,IncomingEmail}.php`, `app/Console/Commands/*Drive*`, `*Email*`, `CheckMailAccountsHealth`.
 
@@ -35,7 +35,7 @@ Codice di partenza (repo `Meo-ICAR/unicogdpr`): `app/Services/Mail`, `app/Servic
 Dopo il salvataggio emette l'evento `IncomingEmailReceived`. Le app reagiscono con i propri listener:
 - **unicogdpr**: crea DSAR e reclami (la logica attuale di `createComplaintFromEmail` e `DataSubjectRequest::createRequest`);
 - **unicobpm**: `ProcessIncomingEmails` oggi apre una propria connessione Webklex. Va riscritto come listener che collega gli allegati alle `process_instances` con il `DocumentClassifier` esistente;
-- **unicoloan**: allegati a pratiche e documenti.
+- **unicofinance**: allegati a pratiche e documenti.
 
 ## Google Drive: cosa portare in `Unico\Core\Drive`
 

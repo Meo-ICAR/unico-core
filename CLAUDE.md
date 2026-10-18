@@ -1,7 +1,7 @@
 # unico-core
 
 Pacchetto Composer `meo-icar/unico-core` (namespace `Unico\Core`): moduli condivisi dalle app Unico di un mediatore creditizio
-(unicoagent, unicoloan, proforma, unicooam, unicobpm, unicogdpr). Stack: PHP 8.3, MySQL, Laravel 13, Filament 5, Spatie Media Library.
+(unicoagent, unicofinance, proforma, unicooam, unicobpm, unicogdpr; unicoloan è dismesso e unicofinance è l'unica app di istruttoria). Stack: PHP 8.3, MySQL, Laravel 13, Filament 5, Spatie Media Library.
 Le app restano separate e possono avere viste diverse sulle stesse tabelle. Tutti gli ID sono bigint interi. I database sono tutti di sviluppo.
 Leggere prima `README.md` e `docs/` (schema-map, documents-design, porting-email-drive): contengono le decisioni già prese.
 

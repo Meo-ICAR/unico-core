@@ -5,7 +5,7 @@
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 */10 * * * * ubuntu cd /var/www/html/unicobpm && php artisan schedule:run >> /dev/null 2>&1
-*/10 * * * * ubuntu cd /var/www/html/unicoloan && php artisan schedule:run >> /dev/null 2>&1
+*/10 * * * * ubuntu cd /var/www/html/unicofinance && php artisan schedule:run >> /dev/null 2>&1
 */10 * * * * ubuntu cd /var/www/html/unicooam && php artisan schedule:run >> /dev/null 2>&1
 */10 * * * * ubuntu cd /var/www/html/proforma && php artisan schedule:run >> /dev/null 2>&1
 */10 * * * * ubuntu cd /var/www/html/twillio && php artisan schedule:run >> /dev/null 2>&1

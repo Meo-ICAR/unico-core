@@ -366,7 +366,7 @@ return [
         'middleware' => ['web', 'auth'],
     ],
 
-    // Identificativo dell'app (unicooam, unicoloan...): sceglie i template riservati all'app (`email_templates.app_identifier`).
+    // Identificativo dell'app (unicooam, unicofinance...): sceglie i template riservati all'app (`email_templates.app_identifier`).
     'app_identifier' => env('UNICO_CORE_APP_IDENTIFIER'),
 
     /*

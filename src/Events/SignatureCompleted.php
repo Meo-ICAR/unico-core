@@ -7,7 +7,7 @@ use Unico\Core\Models\SignatureRequest;
 
 /**
  * Tutti hanno firmato: il PDF firmato è nella collection `signed` del documento, che risulta `is_signed`.
- * Le app collegano qui i loro effetti (es. unicoloan approva il questionario di adeguata verifica).
+ * Le app collegano qui i loro effetti (es. l'app di istruttoria approva il questionario di adeguata verifica).
  */
 class SignatureCompleted
 {

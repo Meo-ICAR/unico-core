@@ -1,6 +1,6 @@
 # unico-core
 
-Tabelle condivise della suite Unico: unicoloan, proforma, unicooam, unicobpm e, per le funzioni email e Drive, unicogdpr.
+Tabelle condivise della suite Unico: unicofinance (istruttoria; unicoloan è dismesso), proforma, unicooam, unicobpm, unicoagent e, per le funzioni email e Drive, unicogdpr.
 Ogni app resta un progetto Laravel separato e mostra le stesse tabelle con le proprie risorse Filament.
 
 unicoagent non usa il core: è un'app separata con il proprio database, che si collega ai CRM (incluse le app Unico) tramite API.
@@ -68,7 +68,7 @@ Il file si legge sempre da Spatie Media Library (`MediaDocumentFileSource`): Dri
 - A firma completata il PDF firmato va nella collection `signed` **dello stesso documento**, che diventa `is_signed`; l'originale resta in `documents`. Non si crea un secondo documento.
   `Document::currentMedia()` restituisce il firmato se c'è, altrimenti l'originale: lo usano il download (`documents.download`), la lettura per l'analisi e la sincronizzazione con Drive e SharePoint.
   A firma completata un documento già `synced` torna `local`, così al giro successivo il cloud riceve il firmato (accanto all'originale, che non viene cancellato).
-- Eventi per le app (nessun registro attività o KYC nel pacchetto): `SignatureSent`, `SignatureCancelled`, `SignatureCompleted` (unicoloan vi collega l'approvazione del QAV e il suo activity log).
+- Eventi per le app (nessun registro attività o KYC nel pacchetto): `SignatureSent`, `SignatureCancelled`, `SignatureCompleted` (le app vi collegano i loro effetti, es. l'approvazione del QAV).
 - Webhook: `POST signature/webhook/{provider}` (middleware `api`, disattivabile con `UNICO_CORE_SIGNATURE_WEBHOOK=false`); accetta solo il provider attivo e mette in coda `ReconcileSignatureRequest`.
 - Comandi: `signature:sync` (riconcilia le richieste senza aggiornamenti e chiude le scadute; da schedulare) e `signature:check` (verifica credenziali e raggiungibilità).
 - I firmatari proposti (`SignerDefaults`: cliente della pratica, collaboratore) restano nell'app, perché dipendono dalle sue pratiche.

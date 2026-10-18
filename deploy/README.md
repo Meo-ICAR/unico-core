@@ -4,11 +4,13 @@ Cosa serve perché giri tutto ciò che è «in coda» o «pianificato»: lanci d
 solleciti, risposte email, download delle caselle, escalation, backup notturno. Richiede privilegi di amministratore.
 
 ## File
-- `supervisor/unico-<app>-queue.conf`: un worker per app (stesso stile di `whitelist-queue`). unicoloan e unicooam ascoltano anche la coda `documents`
+- `supervisor/unico-<app>-queue.conf`: un worker per app (stesso stile di `whitelist-queue`). unicofinance e unicooam ascoltano anche la coda `documents`
   (analisi dei documenti); la coda del bridge e delle altre attività è `default`.
-- `cron.d-unico-scheduler`: `schedule:run` ogni 10 minuti per ogni app (gli orari pianificati devono cadere su minuti multipli di 10: oggi lo sono tutti, e se ne aggiungi uno nuovo ricordalo; con `everyFiveMinutes` o `everyMinute` il comando parte comunque ogni 10 minuti) (unicobpm, unicoloan, unicooam, proforma, unicoagent, backups3: quest’ultima non ha code, solo il backup notturno).
+- `cron.d-unico-scheduler`: `schedule:run` ogni 10 minuti per ogni app (gli orari pianificati devono cadere su minuti multipli di 10: oggi lo sono tutti, e se ne aggiungi uno nuovo ricordalo; con `everyFiveMinutes` o `everyMinute` il comando parte comunque ogni 10 minuti) (unicobpm, unicofinance, unicooam, proforma, unicoagent, backups3: quest’ultima non ha code, solo il backup notturno).
 
 ## Installazione
+unicoloan è dismesso: sui server dove girava vanno tolti `/etc/supervisor/conf.d/unico-unicoloan-queue.conf` e la sua riga in `/etc/cron.d/unico-scheduler`, e il worker di unicofinance si aspetta l'app in `/var/www/html/unicofinance`.
+
 ```bash
 sudo cp deploy/supervisor/unico-*-queue.conf /etc/supervisor/conf.d/
 sudo supervisorctl reread && sudo supervisorctl update

@@ -466,7 +466,7 @@ class SignatureRequestService
 
     /**
      * Il PDF firmato va nella collection `signed` dello stesso documento (che resta l'originale nella collection
-     * `documents`) e il documento risulta firmato. Le app reagiscono a `SignatureCompleted` (es. unicoloan approva il QAV).
+     * `documents`) e il documento risulta firmato. Le app reagiscono a `SignatureCompleted` (es. l'app di istruttoria approva il QAV).
      */
     private function completeRequest(SignatureRequest $request, string $pdf): void
     {
