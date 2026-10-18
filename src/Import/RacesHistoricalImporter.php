@@ -27,6 +27,9 @@ class RacesHistoricalImporter
     /** @var array<string, int> */
     private array $unknown = [];
 
+    /** @var array<string, int> */
+    private array $cleared = [];
+
     /** @var list<string> */
     private array $failures = [];
 
@@ -91,6 +94,7 @@ class RacesHistoricalImporter
             'companies' => $this->companyIds,
             'tables' => $this->tables,
             'unknown' => $this->unknown,
+            'cleared' => $this->cleared,
             'failures' => $this->failures,
             'warnings' => $this->warnings,
             'skipped' => RacesImportCatalog::skipped(),
@@ -215,6 +219,11 @@ class RacesHistoricalImporter
         $destColumns = $this->columnNames($dest, $to);
         if (filled($plan['legacy'] ?? null) && ! in_array($plan['legacy'], $destColumns, true)) {
             $this->warnings[] = "{$to}: manca la colonna {$plan['legacy']}; eseguire le migration del core prima dell'import definitivo";
+            if ($this->execute) {
+                $this->push($plan, 0, 0, 0, 0, 0, 'non scritto: manca '.$plan['legacy']);
+
+                return;
+            }
         }
 
         $pk = $this->orderColumn($source, $from, (string) ($plan['pk'] ?? 'id'));
@@ -323,7 +332,7 @@ class RacesHistoricalImporter
             }
             $looks = $this->localPk($table);
             if (! $this->localExists($plan['dest'], $table, $looks, $payload[$column])) {
-                $this->unknown[$to.'.'.$column.'='.$payload[$column]] = ($this->unknown[$to.'.'.$column.'='.$payload[$column]] ?? 0) + 1;
+                $this->cleared[$to.'.'.$column] = ($this->cleared[$to.'.'.$column] ?? 0) + 1;
                 $payload[$column] = null;
             }
         }

@@ -73,6 +73,12 @@ class ImportRacesCommand extends Command
                 $this->line("  {$value} ({$count})");
             }
         }
+        if (($report['cleared'] ?? []) !== []) {
+            $this->warn('Riferimenti azzerati perché l\'id non esiste nel database di destinazione (il dato resta nell\'altra colonna, se c\'è):');
+            foreach ($report['cleared'] as $value => $count) {
+                $this->line("  {$value} ({$count})");
+            }
+        }
         foreach ($report['warnings'] as $warning) {
             $this->warn($warning);
         }
