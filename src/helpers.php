@@ -7,10 +7,11 @@ if (! function_exists('checkPiano')) {
      * Verifica se una funzionalità è accessibile all'utente: piano della sua company per questa app e ruoli EmployeeType
      * (vedi Unico\Core\Access\AccessChecker). Il risultato è memorizzato per la durata della richiesta.
      * `$write`: la funzione modifica i dati; i ruoli di sola lettura (l'ispettore) la ottengono solo in lettura.
+     * `$action` (create, update, delete): il permesso della matrice richiesto al ruolo.
      */
-    function checkPiano(string $feature, ?string $callerClass = null, bool $write = false): bool
+    function checkPiano(string $feature, ?string $callerClass = null, bool $write = false, ?string $action = null): bool
     {
-        return app(AccessChecker::class)->check($feature, $callerClass, null, $write);
+        return app(AccessChecker::class)->check($feature, $callerClass, null, $write, $action);
     }
 }
 

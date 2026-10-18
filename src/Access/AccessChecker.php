@@ -56,13 +56,16 @@ class AccessChecker
         return strtoupper(str_replace(' ', '', $this->appName()));
     }
 
-    /** `$write`: la funzione modifica i dati (creare, modificare, eliminare, azioni): i ruoli di sola lettura non la ottengono mai. */
-    public function check(string $feature, ?string $callerClass = null, ?object $user = null, bool $write = false): bool
+    /**
+     * `$write`: la funzione modifica i dati (creare, modificare, eliminare, azioni): i ruoli di sola lettura non la ottengono mai.
+     * `$action` (create, update, delete) chiede al ruolo proprio quel permesso della matrice; senza, basta uno qualunque dei permessi di scrittura.
+     */
+    public function check(string $feature, ?string $callerClass = null, ?object $user = null, bool $write = false, ?string $action = null): bool
     {
         $user ??= $this->currentUser();
-        $key = $feature.'|'.($user?->getKey() ?? 'guest').'|'.$this->plan($user)->value.'|'.(int) $write;
+        $key = $feature.'|'.($user?->getKey() ?? 'guest').'|'.$this->plan($user)->value.'|'.(int) $write.'|'.$action;
 
-        return $this->checks[$key] ??= $this->resolve($feature, $user, $write);
+        return $this->checks[$key] ??= $this->resolve($feature, $user, $write, $action);
     }
 
     /** L'utente è superadmin: ha accesso su tutto. */
@@ -454,7 +457,7 @@ class AccessChecker
         return filled($role) ? (string) $role : null;
     }
 
-    private function resolve(string $feature, ?object $user, bool $write): bool
+    private function resolve(string $feature, ?object $user, bool $write, ?string $action = null): bool
     {
         if ($user === null) {
             return false;
@@ -503,8 +506,18 @@ class AccessChecker
             return true;
         }
 
-        return EmployeeTypePermission::query()->whereIn('employee_type_id', $typeIds)->where('resource_id', $resource->getKey())->exists()
-            || EmployeeTypeResourcePreset::query()->whereIn('employee_type_id', $typeIds)->where('resource_id', $resource->getKey())->exists();
+        // Il preset sblocca tutte le azioni; la matrice granulare distingue lettura (viewAny, view) e scrittura (create, update, delete).
+        if (EmployeeTypeResourcePreset::query()->whereIn('employee_type_id', $typeIds)->where('resource_id', $resource->getKey())->exists()) {
+            return true;
+        }
+
+        $permissions = EmployeeTypePermission::query()->whereIn('employee_type_id', $typeIds)->where('resource_id', $resource->getKey());
+
+        if ($write) {
+            $permissions->whereIn('action', $action !== null ? [$action] : ['create', 'update', 'delete']);
+        }
+
+        return $permissions->exists();
     }
 
     private function canReferenceAccessModel(object $model, object $user, bool $write): bool

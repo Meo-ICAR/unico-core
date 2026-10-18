@@ -42,9 +42,9 @@ trait HasPlanAccess
      * Il controllo vale anche sull'accesso CRUD, non solo sulla voce di menu:
      * un ruolo senza la feature non apre la risorsa nemmeno con l'URL diretto.
      */
-    protected static function hasPlanFeatureAccess(bool $write = false): bool
+    protected static function hasPlanFeatureAccess(bool $write = false, ?string $action = null): bool
     {
-        return \checkPiano(static::getFeatureKey(), static::class, $write);
+        return \checkPiano(static::getFeatureKey(), static::class, $write, $action);
     }
 
     public static function canViewAny(): bool
@@ -59,32 +59,32 @@ trait HasPlanAccess
 
     public static function canCreate(): bool
     {
-        return static::hasPlanFeatureAccess(write: true);
+        return static::hasPlanFeatureAccess(write: true, action: 'create');
     }
 
     public static function canEdit(Model $record): bool
     {
-        return static::hasPlanFeatureAccess(write: true);
+        return static::hasPlanFeatureAccess(write: true, action: 'update');
     }
 
     public static function canDelete(Model $record): bool
     {
-        return static::hasPlanFeatureAccess(write: true);
+        return static::hasPlanFeatureAccess(write: true, action: 'delete');
     }
 
     public static function canDeleteAny(): bool
     {
-        return static::hasPlanFeatureAccess(write: true);
+        return static::hasPlanFeatureAccess(write: true, action: 'delete');
     }
 
     public static function canForceDelete(Model $record): bool
     {
-        return static::hasPlanFeatureAccess(write: true);
+        return static::hasPlanFeatureAccess(write: true, action: 'delete');
     }
 
     public static function canRestore(Model $record): bool
     {
-        return static::hasPlanFeatureAccess(write: true);
+        return static::hasPlanFeatureAccess(write: true, action: 'update');
     }
 
     /**

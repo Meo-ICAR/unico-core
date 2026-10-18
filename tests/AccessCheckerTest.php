@@ -185,6 +185,27 @@ class AccessCheckerTest extends TestCase
         $this->assertTrue($this->access->check('audits', null, $this->user($company, roles: ['Sconosciuto'], id: 5)));
     }
 
+    public function test_la_matrice_distingue_lettura_e_scrittura(): void
+    {
+        $company = $this->plan('FULL');
+        $pratiche = $this->resource('pratiche');
+        $lettore = EmployeeType::create(['name' => 'Lettore']);
+        $editor = EmployeeType::create(['name' => 'Editor']);
+        EmployeeTypePermission::create(['employee_type_id' => $lettore->id, 'resource_id' => $pratiche->id, 'action' => 'viewAny']);
+        EmployeeTypePermission::create(['employee_type_id' => $editor->id, 'resource_id' => $pratiche->id, 'action' => 'update']);
+
+        $reader = $this->user($company, roles: ['Lettore'], id: 1);
+        $this->assertTrue($this->access->check('pratiche', null, $reader));
+        $this->assertFalse($this->access->check('pratiche', null, $reader, true));
+        $this->assertFalse($this->access->check('pratiche', null, $reader, true, 'update'));
+
+        $writer = $this->user($company, roles: ['Editor'], id: 2);
+        $this->assertTrue($this->access->check('pratiche', null, $writer, true));
+        $this->assertTrue($this->access->check('pratiche', null, $writer, true, 'update'));
+        $this->assertFalse($this->access->check('pratiche', null, $writer, true, 'delete'));
+        $this->assertFalse($this->access->check('pratiche', null, $writer, true, 'create'));
+    }
+
     public function test_i_ruoli_possono_arrivare_come_json(): void
     {
         $company = $this->plan('FULL');
@@ -214,7 +235,7 @@ class AccessCheckerTest extends TestCase
         $this->resource('premium', 'FULL');
         $audits = $this->resource('audits');
         $contabile = EmployeeType::create(['name' => 'Contabile']);
-        EmployeeTypePermission::create(['employee_type_id' => $contabile->id, 'resource_id' => $audits->id]);
+        EmployeeTypePermission::create(['employee_type_id' => $contabile->id, 'resource_id' => $audits->id, 'action' => 'update']);
         // Con i ruoli EmployeeType un utente normale vedrebbe solo le risorse con permesso: l'ispettore le vede tutte.
         $inspector = $this->user($company, 'inspector', ['Contabile'], 1);
         $normal = $this->user($company, 'user', ['Contabile'], 2);
