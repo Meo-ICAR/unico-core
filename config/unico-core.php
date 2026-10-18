@@ -1,5 +1,16 @@
 <?php
 
+use Unico\Core\Bridge\Http\Middleware\CorrelationId;
+use Unico\Core\Bridge\Http\Middleware\VerifyBridgeKey;
+use Unico\Core\Documents\Checks\InformativaFirmataCheck;
+use Unico\Core\Documents\Checks\KindCheck;
+use Unico\Core\Documents\Checks\MatchesDeclaredCheck;
+use Unico\Core\Documents\Checks\NotExpiredCheck;
+use Unico\Core\Documents\Checks\ReadableCheck;
+use Unico\Core\Models\Client;
+use Unico\Core\Models\Employee;
+use Unico\Core\Models\Fornitore;
+
 return [
 
     /*
@@ -40,6 +51,10 @@ return [
     | users: super_admin hassistosrl@gmail.com, employees (@races.it / client),
     | fornitoris Proforma con role fornitore.
     |
+    | `races_oam` / `races_proforma`: dump storici del cliente Races.
+    | `dest_oam` / `dest_proforma`: database delle app (stesso server e stesse
+    | credenziali della connessione core). Comando: unico-core:import-races.
+    |
     */
 
     'import' => [
@@ -47,6 +62,10 @@ return [
         'proforma' => env('UNICO_CORE_IMPORT_PROFORMA', 'proforma'),
         'loan' => env('UNICO_CORE_IMPORT_LOAN', 'unicoloan'),
         'agent' => env('UNICO_CORE_IMPORT_AGENT', 'unicoagent'),
+        'races_oam' => env('UNICO_CORE_IMPORT_RACES_OAM', 'unicooam_races'),
+        'races_proforma' => env('UNICO_CORE_IMPORT_RACES_PROFORMA', 'proforma_races'),
+        'dest_oam' => env('UNICO_CORE_IMPORT_DEST_OAM', 'unicooam_core'),
+        'dest_proforma' => env('UNICO_CORE_IMPORT_DEST_PROFORMA', 'proforma_core'),
     ],
 
     /*
@@ -301,11 +320,11 @@ return [
             ],
         ],
         'checks' => [
-            'leggibile' => \Unico\Core\Documents\Checks\ReadableCheck::class,
-            'tipo_documento' => \Unico\Core\Documents\Checks\KindCheck::class,
-            'dati_coerenti' => \Unico\Core\Documents\Checks\MatchesDeclaredCheck::class,
-            'non_scaduto' => \Unico\Core\Documents\Checks\NotExpiredCheck::class,
-            'informativa_firmata' => \Unico\Core\Documents\Checks\InformativaFirmataCheck::class,
+            'leggibile' => ReadableCheck::class,
+            'tipo_documento' => KindCheck::class,
+            'dati_coerenti' => MatchesDeclaredCheck::class,
+            'non_scaduto' => NotExpiredCheck::class,
+            'informativa_firmata' => InformativaFirmataCheck::class,
         ],
         'default_checks' => [
             '*' => ['leggibile', 'tipo_documento', 'dati_coerenti'],
@@ -372,9 +391,9 @@ return [
         'admin_roles' => ['admin'],
         'readonly_roles' => ['inspector'],
         'reference_roles' => [
-            'employee' => \Unico\Core\Models\Employee::class,
-            'client' => \Unico\Core\Models\Client::class,
-            'fornitore' => \Unico\Core\Models\Fornitore::class,
+            'employee' => Employee::class,
+            'client' => Client::class,
+            'fornitore' => Fornitore::class,
         ],
         'bypass_roles' => ['superadmin', 'super_admin'],
         'deny_roles' => [],
@@ -394,7 +413,7 @@ return [
     'bridge' => [
         'enabled' => env('UNICO_CORE_BRIDGE', false),
         'api_key' => env('BPM_BRIDGE_API_KEY'),
-        'middleware' => [\Unico\Core\Bridge\Http\Middleware\CorrelationId::class, 'api', \Unico\Core\Bridge\Http\Middleware\VerifyBridgeKey::class],
+        'middleware' => [CorrelationId::class, 'api', VerifyBridgeKey::class],
         'commands' => [],
         'queue' => env('UNICO_CORE_BRIDGE_QUEUE'),
         'keep_runs_days' => 30,

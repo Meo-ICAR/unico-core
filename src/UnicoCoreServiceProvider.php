@@ -10,12 +10,13 @@ use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
 use Unico\Core\Access\AccessChecker;
 use Unico\Core\Access\ReadOnlyActions;
 use Unico\Core\Console\ClientsPrepareCommand;
-use Unico\Core\Console\DocumentsRemindCommand;
 use Unico\Core\Console\DocumentsPrintRefreshCommand;
+use Unico\Core\Console\DocumentsRemindCommand;
 use Unico\Core\Console\DocumentsScheduleSyncCommand;
 use Unico\Core\Console\DocumentTypesCheckCommand;
 use Unico\Core\Console\FetchMailCommand;
 use Unico\Core\Console\ImportAnagraficheCommand;
+use Unico\Core\Console\ImportRacesCommand;
 use Unico\Core\Console\MailAccountFromEnvCommand;
 use Unico\Core\Console\MailHealthCommand;
 use Unico\Core\Console\MigrateCoreCommand;
@@ -30,15 +31,19 @@ use Unico\Core\Documents\Api\CompanyDataFetcher;
 use Unico\Core\Documents\Api\CreditScoreFetcher;
 use Unico\Core\Documents\Api\DocumentApiService;
 use Unico\Core\Documents\CheckRegistry;
+use Unico\Core\Documents\Contracts\AiCallLog;
 use Unico\Core\Documents\Contracts\AnalysisGate;
 use Unico\Core\Documents\Contracts\DeclaredData;
 use Unico\Core\Documents\Contracts\DocumentFileSource;
 use Unico\Core\Documents\Contracts\DocumentReader;
+use Unico\Core\Documents\Contracts\DocumentSegmenter;
 use Unico\Core\Documents\DocumentPathGenerator;
 use Unico\Core\Documents\Listeners\AnalyzeUploadedDocument;
 use Unico\Core\Documents\MediaDocumentFileSource;
+use Unico\Core\Documents\NullAiCallLog;
 use Unico\Core\Documents\NullDeclaredData;
 use Unico\Core\Documents\NullDocumentReader;
+use Unico\Core\Documents\NullDocumentSegmenter;
 use Unico\Core\Documents\OpenGate;
 use Unico\Core\Documents\PracticeMailReplyHandler;
 use Unico\Core\Documents\Reminders\ConfigRecipientResolver;
@@ -89,11 +94,11 @@ class UnicoCoreServiceProvider extends ServiceProvider
         $this->app->bindIf(DocumentFileSource::class, MediaDocumentFileSource::class);
         $this->app->bindIf(DeclaredData::class, NullDeclaredData::class);
         $this->app->bindIf(AnalysisGate::class, OpenGate::class);
-        $this->app->bindIf(\Unico\Core\Documents\Contracts\AiCallLog::class, \Unico\Core\Documents\NullAiCallLog::class);
-        $this->app->bindIf(\Unico\Core\Documents\Contracts\DocumentSegmenter::class, function ($app) {
+        $this->app->bindIf(AiCallLog::class, NullAiCallLog::class);
+        $this->app->bindIf(DocumentSegmenter::class, function ($app) {
             $reader = $app->make(DocumentReader::class);
 
-            return $reader instanceof \Unico\Core\Documents\Contracts\DocumentSegmenter ? $reader : new \Unico\Core\Documents\NullDocumentSegmenter;
+            return $reader instanceof DocumentSegmenter ? $reader : new NullDocumentSegmenter;
         });
         $this->app->bindIf(DocumentReader::class, function () {
             $key = (string) config('unico-core.documents.ai.api_key');
@@ -146,7 +151,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
                 __DIR__.'/../config/unico-core.php' => config_path('unico-core.php'),
             ], 'unico-core-config');
 
-            $this->commands([MigrateCoreCommand::class, SeedExportCommand::class, ClientsPrepareCommand::class, MailAccountFromEnvCommand::class, PdfSignatureSlotsCommand::class, ImportAnagraficheCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, DocumentsPrintRefreshCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class, DocumentTypesCheckCommand::class]);
+            $this->commands([MigrateCoreCommand::class, SeedExportCommand::class, ClientsPrepareCommand::class, MailAccountFromEnvCommand::class, PdfSignatureSlotsCommand::class, ImportAnagraficheCommand::class, ImportRacesCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, DocumentsPrintRefreshCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class, DocumentTypesCheckCommand::class]);
         }
     }
 
