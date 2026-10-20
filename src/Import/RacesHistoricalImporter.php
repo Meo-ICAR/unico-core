@@ -52,7 +52,33 @@ class RacesHistoricalImporter
         private string $nameFragment = 'Races',
         private ?int $forcedCompanyId = null,
         private string $companyTable = 'companies',
+        private ?\DateTimeInterface $since = null,
     ) {}
+
+    /**
+     * Con una data di partenza (import incrementale) una riga già presente nella destinazione si riscrive solo se nella sorgente è stata
+     * modificata da allora (`updated_at`, altrimenti `created_at`). Le righe senza date si riscrivono sempre; quelle nuove si inseriscono sempre.
+     * Le righe invariate si leggono comunque, per ricordare a quale riga di destinazione corrispondono (servono ai riferimenti delle altre tabelle).
+     *
+     * @param  array<string, mixed>  $src
+     */
+    private function isChanged(array $src): bool
+    {
+        if ($this->since === null) {
+            return true;
+        }
+
+        $modified = $src['updated_at'] ?? null ?: ($src['created_at'] ?? null);
+        if (blank($modified)) {
+            return true;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($modified)->greaterThanOrEqualTo($this->since);
+        } catch (\Throwable) {
+            return true;
+        }
+    }
 
     /**
      * @param  list<array<string, mixed>>|null  $catalog
@@ -393,6 +419,7 @@ class RacesHistoricalImporter
         }
 
         $matchOnly = (bool) ($plan['match_only'] ?? false);
+        $unchanged = $existing && ! $this->isChanged($src);
         if (! $existing && $matchOnly) {
             return 'skipped';
         }
@@ -408,10 +435,10 @@ class RacesHistoricalImporter
                 }
             }
             $destId = $existing->{$pk};
-            if ($this->execute && $writing !== [] && ! $matchOnly) {
+            if ($this->execute && $writing !== [] && ! $matchOnly && ! $unchanged) {
                 $dest->table($to)->where($pk, $destId)->update($writing);
             }
-            $status = $matchOnly ? 'skipped' : 'updated';
+            $status = ($matchOnly || $unchanged) ? 'skipped' : 'updated';
         } else {
             foreach ($plan['defaults'] ?? [] as $column => $value) {
                 if (! array_key_exists($column, $writing) || $writing[$column] === null || $writing[$column] === '') {
@@ -555,7 +582,7 @@ class RacesHistoricalImporter
         $companyId = $this->companyIds[$plan['dest']]['id'] ?? null;
         $columns = $this->columnNames($dest, 'pratiches');
         $rows = $source->table('pratiches')->orderBy('id')->get();
-        $inserted = $updated = $failed = 0;
+        $inserted = $updated = $failed = $skipped = 0;
         $group = $this->group($plan['source']);
 
         foreach ($rows as $row) {
@@ -580,10 +607,14 @@ class RacesHistoricalImporter
                 $payload = $this->sanitize($dest, 'pratiches', $this->onlyKnown($payload, $columns), $columns);
                 $existing = $dest->table('pratiches')->where('codice_pratica', $payload['codice_pratica'])->first();
                 if ($existing) {
-                    $updated++;
                     $destId = $existing->id;
-                    if ($this->execute) {
-                        $dest->table('pratiches')->where('id', $destId)->update($payload);
+                    if ($this->isChanged($src)) {
+                        $updated++;
+                        if ($this->execute) {
+                            $dest->table('pratiches')->where('id', $destId)->update($payload);
+                        }
+                    } else {
+                        $skipped++;
                     }
                 } else {
                     $inserted++;
@@ -602,7 +633,7 @@ class RacesHistoricalImporter
             }
         }
 
-        $this->push($plan, $rows->count(), $inserted, $updated, 0, $failed);
+        $this->push($plan, $rows->count(), $inserted, $updated, $skipped, $failed);
     }
 
     /** @param  array<string, mixed>  $row */

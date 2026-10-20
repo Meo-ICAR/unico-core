@@ -20,6 +20,8 @@ class ImportRacesCommand extends Command
                             {--proforma= : Database sorgente Proforma (default config unico-core.import.races_proforma)}
                             {--dest-oam= : Database destinazione unicooam (default config unico-core.import.dest_oam)}
                             {--dest-proforma= : Database destinazione proforma (default config unico-core.import.dest_proforma)}
+                            {--incremental : Riscrive solo le righe modificate nella sorgente dopo l ultimo import riuscito (updated_at); il primo import è completo}
+                            {--since= : Come --incremental, ma da una data indicata (es. "2026-10-20 10:00")}
                             {--company= : Id della company sul core, se già noto}
                             {--name=Races : Frammento del nome con cui cercare la company}';
 
@@ -49,11 +51,17 @@ class ImportRacesCommand extends Command
             : 'Dry-run: nessuna scrittura');
 
         $company = $this->option('company');
+        $startedAt = now();
+        $since = $this->since($connections['core']);
+        $this->info($since ? 'Incrementale: righe modificate dal '.$since->format('d/m/Y H:i:s') : 'Import completo');
+
         $report = (new RacesHistoricalImporter(
             $connections,
             $execute,
             (string) $this->option('name'),
             filled($company) ? (int) $company : null,
+            'companies',
+            $since,
         ))->run();
 
         foreach ($report['companies'] as $key => $companyRow) {
@@ -93,11 +101,42 @@ class ImportRacesCommand extends Command
             array_map(fn (array $row) => [$row['table'], $row['why']], $report['skipped']),
         );
 
+        $failed = array_sum(array_column($report['tables'], 'failed'));
+        if ($execute) {
+            $this->registraEsecuzione($connections['core'], $startedAt, $failed);
+        }
+
         if (! $execute) {
             $this->comment('Per scrivere: php artisan unico-core:import-races --execute');
         }
 
-        return self::SUCCESS;
+        // Righe fallite: esito diverso da zero, così lo scheduler e il monitoraggio se ne accorgono.
+        return $failed > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    /** Data da cui riscrivere le righe modificate: quella indicata, oppure l'inizio dell'ultimo import riuscito meno un margine per gli orologi. */
+    private function since(Connection $core): ?\Illuminate\Support\Carbon
+    {
+        if (filled($this->option('since'))) {
+            return \Illuminate\Support\Carbon::parse((string) $this->option('since'));
+        }
+
+        if (! $this->option('incremental') || ! \Illuminate\Support\Facades\Schema::connection((string) config('unico-core.connection'))->hasTable('races_import_runs')) {
+            return null;
+        }
+
+        $last = $core->table('races_import_runs')->where('failed', 0)->max('started_at');
+
+        return $last ? \Illuminate\Support\Carbon::parse($last)->subMinutes(5) : null;
+    }
+
+    private function registraEsecuzione(Connection $core, \Illuminate\Support\Carbon $startedAt, int $failed): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::connection((string) config('unico-core.connection'))->hasTable('races_import_runs')) {
+            return;
+        }
+
+        $core->table('races_import_runs')->insert(['started_at' => $startedAt, 'finished_at' => now(), 'failed' => $failed]);
     }
 
     private function optionDatabase(string $option, string $configKey): string
