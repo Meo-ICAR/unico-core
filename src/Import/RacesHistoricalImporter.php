@@ -216,6 +216,12 @@ class RacesHistoricalImporter
             return;
         }
 
+        if (($plan['skip_if_dest_has_rows'] ?? false) && $dest->table($to)->exists()) {
+            $this->push($plan, (int) $source->table($from)->count(), 0, 0, (int) $source->table($from)->count(), 0, 'destinazione già popolata: non si tocca');
+
+            return;
+        }
+
         $destColumns = $this->columnNames($dest, $to);
         if (filled($plan['legacy'] ?? null) && ! in_array($plan['legacy'], $destColumns, true)) {
             $this->warnings[] = "{$to}: manca la colonna {$plan['legacy']}; eseguire le migration del core prima dell'import definitivo";
@@ -292,6 +298,9 @@ class RacesHistoricalImporter
         $to = $plan['dest_table'];
         $group = $this->group($plan['source']);
         $pk = (string) ($plan['pk'] ?? 'id');
+        if ($pk !== 'id' && blank($src[$pk] ?? null)) {
+            return 'skipped';
+        }
         $payload = $this->onlyKnown($src, $destColumns);
 
         if (filled($plan['legacy'] ?? null) && $sourceId !== null && in_array($plan['legacy'], $destColumns, true)) {
@@ -301,6 +310,7 @@ class RacesHistoricalImporter
             $payload['company_id'] = $this->companyIds[$plan['dest']]['id'] ?? null;
         }
 
+        $orphanMorph = null;
         if (is_array($plan['morph'] ?? null)) {
             [$typeCol, $idCol] = $plan['morph'];
             if (array_key_exists($typeCol, $src)) {
@@ -313,6 +323,17 @@ class RacesHistoricalImporter
                         $payload[$idCol] = $mapped;
                     } elseif (($plan['numeric_morph'] ?? false) && $this->isNumericColumn($dest, $to, $idCol) && ! is_numeric($src[$idCol])) {
                         return 'skipped';
+                    } elseif ($this->isNumericColumn($dest, $to, $idCol) && ! is_numeric($src[$idCol])) {
+                        // L'UUID del padre non è nella destinazione (padre non importato o orfano): la colonna intera non si scrive.
+                        // Una riga già presente resta com'è; una nuova si salta, senza inserire un valore che non è un id.
+                        if ($this->meta($dest, $to)[$idCol]['nullable'] ?? false) {
+                            // La riga ha senso anche senza padre (es. una fattura): si tiene, con il riferimento vuoto.
+                            $payload[$idCol] = null;
+                            $this->cleared[$to.'.'.$idCol] = ($this->cleared[$to.'.'.$idCol] ?? 0) + 1;
+                        } else {
+                            unset($payload[$idCol]);
+                            $orphanMorph = $to.'.'.$idCol;
+                        }
                     }
                 }
             }
@@ -322,6 +343,11 @@ class RacesHistoricalImporter
             if (in_array($column, $plan['self_fk'] ?? [], true) || ! in_array($column, $destColumns, true)) {
                 continue;
             }
+            // Stessa colonna, tabella diversa a seconda di un'altra colonna (proformas.fornitori_id: fornitore per gli agenti, banca per gli istituti).
+            if (isset($plan['fk_by'][$column])) {
+                $switch = $plan['fk_by'][$column];
+                $table = $switch['tables'][$src[$switch['column']] ?? ''] ?? $table;
+            }
             $raw = $payload[$column] ?? $src[$column] ?? null;
             $payload[$column] = ($raw === null || $raw === '') ? null : $this->resolveId($group, $table, $raw);
         }
@@ -329,6 +355,11 @@ class RacesHistoricalImporter
         foreach ($plan['local_fk'] ?? [] as $column => $table) {
             if (! array_key_exists($column, $payload) || $payload[$column] === null || $payload[$column] === '') {
                 continue;
+            }
+            // Gli id della destinazione possono essere diversi da quelli della sorgente (righe già presenti, id rinumerati): si usa l'associazione.
+            $remapped = $this->resolveId($group, $table, $payload[$column]);
+            if ($remapped !== null) {
+                $payload[$column] = $remapped;
             }
             $looks = $this->localPk($table);
             if (! $this->localExists($plan['dest'], $table, $looks, $payload[$column])) {
@@ -354,15 +385,27 @@ class RacesHistoricalImporter
         $writing = $payload;
         unset($writing[$pk]);
 
+        if ($orphanMorph !== null) {
+            $this->cleared[$orphanMorph] = ($this->cleared[$orphanMorph] ?? 0) + 1;
+            if (! $existing) {
+                return 'skipped';
+            }
+        }
+
+        $matchOnly = (bool) ($plan['match_only'] ?? false);
+        if (! $existing && $matchOnly) {
+            return 'skipped';
+        }
+
         if ($existing) {
             foreach ($plan['preserve_on_update'] ?? [] as $column) {
                 unset($writing[$column]);
             }
             $destId = $existing->{$pk};
-            if ($this->execute && $writing !== []) {
+            if ($this->execute && $writing !== [] && ! $matchOnly) {
                 $dest->table($to)->where($pk, $destId)->update($writing);
             }
-            $status = 'updated';
+            $status = $matchOnly ? 'skipped' : 'updated';
         } else {
             foreach ($plan['defaults'] ?? [] as $column => $value) {
                 if (! array_key_exists($column, $writing) || $writing[$column] === null || $writing[$column] === '') {
@@ -623,6 +666,16 @@ class RacesHistoricalImporter
     }
 
     /** @param  array<string, mixed>  $row */
+    /** @param  array<string, mixed>  $row */
+    private function prepareTrainingRecord(array $row): array
+    {
+        if (blank($row['course_name'] ?? null)) {
+            $row['course_name'] = $row['name'] ?? null;
+        }
+
+        return $row;
+    }
+
     private function prepareProvvigione(array $row): array
     {
         if (blank($row['pratica_id'] ?? null) && filled($row['id_pratica'] ?? null)) {
@@ -668,6 +721,9 @@ class RacesHistoricalImporter
             'user', 'users' => 'users',
             'audit', 'audits' => 'audits',
             'branch', 'branches' => 'branches',
+            'proforma', 'proformas' => 'proformas',
+            'salesinvoice', 'sales_invoice', 'sales_invoices' => 'sales_invoices',
+            'purchaseinvoice', 'purchase_invoice', 'purchase_invoices' => 'purchase_invoices',
             default => null,
         };
     }
@@ -801,7 +857,7 @@ class RacesHistoricalImporter
             return $this->columnMeta[$key];
         }
         $rows = $dest->select(
-            'select COLUMN_NAME as name, COLUMN_TYPE as type, DATA_TYPE as data_type from information_schema.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ?',
+            'select COLUMN_NAME as name, COLUMN_TYPE as type, DATA_TYPE as data_type, IS_NULLABLE as nullable from information_schema.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ?',
             [$dest->getDatabaseName(), $table]
         );
         $meta = [];
@@ -812,6 +868,7 @@ class RacesHistoricalImporter
             }
             $meta[$row->name] = [
                 'enum' => $enum,
+                'nullable' => $row->nullable === 'YES',
                 'numeric' => in_array($row->data_type, ['bigint', 'int', 'integer', 'mediumint', 'smallint', 'tinyint'], true),
             ];
         }

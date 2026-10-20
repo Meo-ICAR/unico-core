@@ -21,6 +21,12 @@ namespace Unico\Core\Import;
  * - provvigioni.id_pratica resta il codice; pratica_id (bigint) si valorizza solo se la pratica
  *   esiste nello stesso database di destinazione
  *
+ * document_types: non si inserisce né si aggiorna nulla; i tipi della sorgente si associano per codice, slug o nome a quelli già presenti
+ * (`match_only`), così i documenti importati mantengono il tipo.
+ *
+ * proformas e prima_nota_entries: la destinazione ha già altre righe con gli stessi id, quindi si inseriscono con id nuovo e il vecchio id va in `legacy_id`
+ * (rilanciare l'import le ritrova, non le duplica).
+ *
  * Gli id UUID di clientis, fornitoris e documents diventano legacy_id: la destinazione ha id intero.
  * Le company dei dump sono vuote: ogni company_id operativo punta alla company Races (nome / partita IVA).
  * Gli id numerici si ricordano per sorgente (proforma e oam possono riusare lo stesso intero);
@@ -49,7 +55,7 @@ class RacesImportCatalog
             self::row($oam, 'users', $core, preserve: true, match: [['email'], ['id']], morph: ['profile_type', 'profile_id'], preserveOnUpdate: ['password', 'remember_token', 'role', 'profile_type', 'profile_id']),
             self::row($oam, 'company_roles', $core, preserve: true, match: [['id'], ['name']]),
             self::row($oam, 'company_modules', $core, preserve: true, match: [['id']]),
-            self::row($oam, 'branches', $core, preserve: true, match: [['id'], ['name']]),
+            self::row($oam, 'branches', $core, preserve: true, match: [['id'], ['name']], morph: ['branchable_type', 'branchable_id']),
             self::row($oam, 'employees', $core, preserve: true, match: [['id'], ['email'], ['cf']], fk: ['user_id' => 'users', 'branch_id' => 'branches']),
             self::row($proforma, 'socialite_users', $core, company: false, preserve: true, match: [['user_id', 'provider'], ['id']], fk: ['user_id' => 'users']),
             self::row($oam, 'socialite_users', $core, company: false, preserve: true, match: [['user_id', 'provider'], ['id']], fk: ['user_id' => 'users']),
@@ -57,7 +63,7 @@ class RacesImportCatalog
             self::row($proforma, 'fornitoris', $core, legacy: true, match: [['legacy_id'], ['piva'], ['cf'], ['name']], fk: ['fornitorirole_id' => 'fornitoriroles', 'branch_id' => 'branches', 'user_id' => 'users'], prepare: 'prepareFornitore'),
             self::row($proforma, 'clients', $core, preserve: true, match: [['tax_code'], ['vat_number'], ['email'], ['id']], fk: ['user_id' => 'users', 'client_type_id' => 'client_types', 'blacklisted_by' => 'users'], selfFk: ['employer_id', 'legal_representative_id', 'leadsource_id']),
             self::row($proforma, 'addresses', $core, preserve: true, match: [['id']], fk: ['address_type_id' => 'address_types'], morph: ['addressable_type', 'addressable_id']),
-            self::row($oam, 'clienti_oam', $core, preserve: true, match: [['id']], fk: ['clienti_id' => 'clientis']),
+            self::row($oam, 'clienti_oam', $core, preserve: true, match: [['clienti_id', 'oam_code_id'], ['id']], fk: ['clienti_id' => 'clientis']),
             self::row($proforma, 'tipoprodotto', $core, company: false, preserve: true, match: [['tipo_prodotto'], ['code'], ['id']]),
             self::row($proforma, 'tipoprodotto_sub', $core, company: false, preserve: true, match: [['id'], ['tipoprodotto_id', 'name']], fk: ['tipoprodotto_id' => 'tipoprodotto']),
             self::row($proforma, 'tipoprodotto_sub_constraints', $core, company: false, preserve: true, match: [['id']], fk: ['clienti_id' => 'clientis', 'role_id' => 'fornitoriroles']),
@@ -66,7 +72,8 @@ class RacesImportCatalog
             ['source' => $proforma, 'source_table' => 'pratiches', 'dest' => $core, 'dest_table' => 'pratiches', 'handler' => 'importPratiches', 'company' => true],
             self::row($proforma, 'pratica_status_history', $core, company: false, preserve: true, match: [['id']], fk: ['pratica_id' => 'pratiches', 'user_id' => 'users']),
             self::row($proforma, 'client_pratiches', $core, 'pratica_clients', company: false, preserve: true, match: [['id']], renames: ['pratiche_id' => 'pratica_id'], fk: ['pratica_id' => 'pratiches', 'client_id' => 'clients']),
-            self::row($oam, 'document_types', $core, company: false, match: [['code'], ['slug'], ['name']], prepare: 'prepareDocumentType'),
+            // Solo associazione: nella destinazione i tipi di documento sono più numerosi e non si toccano. Servono per collegare i documenti.
+            self::row($oam, 'document_types', $core, company: false, match: [['code'], ['slug'], ['name']], prepare: 'prepareDocumentType', matchOnly: true),
             self::row($oam, 'tasks', $core, company: false, preserve: true, match: [['id'], ['name']]),
             self::row($oam, 'documents', $core, legacy: true, match: [['legacy_id']], fk: [
                 'document_type_id' => 'document_types',
@@ -83,8 +90,8 @@ class RacesImportCatalog
             self::row($oam, 'document_reminders', $core, preserve: true, match: [['id']], fk: ['document_id' => 'documents']),
             self::row($oam, 'document_schedules', $core, preserve: true, match: [['id']], fk: ['document_id' => 'documents'], morph: ['documentable_type', 'documentable_id']),
             self::row($oam, 'email_templates', $core, company: false, preserve: true, match: [['code'], ['id']]),
-            self::row($oam, 'mail_accounts', $core, preserve: true, match: [['email_address'], ['id']], prepare: 'prepareMailAccount', preserveOnUpdate: ['imap_password', 'smtp_password', 'access_token', 'refresh_token']),
-            self::row($oam, 'websites', $core, preserve: true, match: [['id'], ['domain']], fk: ['clienti_id' => 'clientis']),
+            self::row($oam, 'mail_accounts', $core, preserve: true, match: [['email_address'], ['id']], morph: ['mailable_type', 'mailable_id'], prepare: 'prepareMailAccount', preserveOnUpdate: ['imap_password', 'smtp_password', 'access_token', 'refresh_token']),
+            self::row($oam, 'websites', $core, preserve: true, match: [['id'], ['domain']], fk: ['clienti_id' => 'clientis'], morph: ['websiteable_type', 'websiteable_id']),
             self::row($oam, 'oam_codes', $core, company: false, preserve: true, match: [['id'], ['code']]),
             self::row($oam, 'provvigioni_rules', $core, company: false, preserve: true, match: [['id']], fk: ['clienti_id' => 'clientis', 'fornitori_id' => 'fornitoris']),
             self::row($oam, 'complaints', $core, preserve: true, match: [['id']]),
@@ -94,21 +101,21 @@ class RacesImportCatalog
 
             self::row($proforma, 'provvigioni_statos', 'proforma', company: false, pk: 'stato', match: [['stato']]),
             self::row($proforma, 'compensos', 'proforma', company: false, pk: 'status_compenso', match: [['status_compenso']]),
-            self::row($proforma, 'coges', 'proforma', company: false, preserve: true, match: [['id']]),
-            self::row($proforma, 'enasarcos', 'proforma', company: false, preserve: true, match: [['id']]),
-            self::row($proforma, 'firrs', 'proforma', company: false, preserve: true, match: [['id']]),
+            self::row($proforma, 'coges', 'proforma', company: false, preserve: true, match: [['id']], skipIfDestHasRows: true),
+            self::row($proforma, 'enasarcos', 'proforma', company: false, preserve: true, match: [['id']], skipIfDestHasRows: true),
+            self::row($proforma, 'firrs', 'proforma', company: false, preserve: true, match: [['id']], skipIfDestHasRows: true),
             self::row($proforma, 'fatturas', 'proforma', company: false, preserve: true, match: [['id']], fk: ['clienti_id' => 'clientis']),
             self::row($proforma, 'invoiceins', 'proforma', company: false, preserve: true, match: [['id']]),
-            self::row($proforma, 'invoices', 'proforma', company: false, preserve: true, match: [['id']], fk: ['clienti_id' => 'clientis']),
-            self::row($proforma, 'prima_nota_configs', 'proforma', company: false, preserve: true, match: [['id']]),
-            self::row($proforma, 'prima_nota_entries', 'proforma', company: false, preserve: true, match: [['id']], localFk: ['prima_nota_config_id' => 'prima_nota_configs']),
-            self::row($proforma, 'purchase_invoices', 'proforma', preserve: true, match: [['id']]),
-            self::row($proforma, 'sales_invoices', 'proforma', preserve: true, match: [['id']]),
-            self::row($proforma, 'proformas', 'proforma', company: false, preserve: true, match: [['id']], fk: ['fornitori_id' => 'fornitoris']),
-            self::row($proforma, 'provvigioni', 'proforma', company: false, preserve: true, match: [['id']], fk: ['pratica_id' => 'pratiches'], localFk: ['pratica_id' => 'pratiches', 'proforma_id' => 'proformas', 'fattura_id' => 'fatturas', 'stato' => 'provvigioni_statos'], prepare: 'prepareProvvigione'),
-            self::row($proforma, 'vcoge', 'proforma', company: false, preserve: true, match: [['id']]),
-            self::row($proforma, 'venasarcotot', 'proforma', company: false, preserve: true, match: [['id']]),
-            self::row($proforma, 'venasarcotrimestre', 'proforma', company: false, preserve: true, match: [['id']]),
+            self::row($proforma, 'invoices', 'proforma', company: false, preserve: true, match: [['invoice_number', 'nr_documento'], ['id']], fk: ['clienti_id' => 'clientis']),
+            self::row($proforma, 'prima_nota_configs', 'proforma', company: false, preserve: true, match: [['name'], ['id']]),
+            self::row($proforma, 'purchase_invoices', 'proforma', preserve: true, match: [['number'], ['id']], morph: ['invoiceable_type', 'invoiceable_id']),
+            self::row($proforma, 'sales_invoices', 'proforma', preserve: true, match: [['number'], ['id']], morph: ['invoiceable_type', 'invoiceable_id']),
+            self::row($proforma, 'proformas', 'proforma', company: false, legacy: true, match: [['legacy_id']], fk: ['fornitori_id' => 'fornitoris'], fkBy: ['fornitori_id' => ['column' => 'tipo', 'tables' => ['Istituto' => 'clientis']]], morph: ['invoiceable_type', 'invoiceable_id']),
+            self::row($proforma, 'prima_nota_entries', 'proforma', company: false, legacy: true, match: [['legacy_id']], localFk: ['prima_nota_config_id' => 'prima_nota_configs'], morph: ['record_type', 'record_id']),
+            self::row($proforma, 'provvigioni', 'proforma', company: false, preserve: true, match: [['id']], fk: ['pratica_id' => 'pratiches', 'id_pratica' => 'pratiches'], localFk: ['pratica_id' => 'pratiches', 'proforma_id' => 'proformas', 'fattura_id' => 'fatturas', 'stato' => 'provvigioni_statos'], prepare: 'prepareProvvigione'),
+            self::row($proforma, 'vcoge', 'proforma', company: false, preserve: true, match: [['id']], skipIfDestHasRows: true),
+            self::row($proforma, 'venasarcotot', 'proforma', company: false, preserve: true, match: [['id']], skipIfDestHasRows: true),
+            self::row($proforma, 'venasarcotrimestre', 'proforma', company: false, preserve: true, match: [['id']], skipIfDestHasRows: true),
             self::row($oam, 'onorabilita', 'proforma', company: false, pk: 'nominativo', match: [['nominativo', 'data_ultima_onorabilita'], ['nominativo']]),
 
             self::row($oam, 'remediations', 'oam', company: false, preserve: true, match: [['code'], ['id']]),
@@ -118,7 +125,7 @@ class RacesImportCatalog
             self::row($oam, 'audits', 'oam', preserve: true, match: [['protocol_number'], ['id']], localFk: ['organization_id' => 'organizations', 'quality_review_id' => 'quality_reviews'], morph: ['auditable_type', 'auditable_id']),
             self::row($oam, 'audit_findings', 'oam', preserve: true, match: [['id']], localFk: ['audit_id' => 'audits', 'remediation_id' => 'remediations']),
             self::row($oam, 'audit_checklist_evaluations', 'oam', company: false, preserve: true, match: [['id']], localFk: ['audit_id' => 'audits']),
-            self::row($oam, 'training_records', 'oam', preserve: true, match: [['id']], morph: ['trainable_type', 'trainable_id']),
+            self::row($oam, 'training_records', 'oam', preserve: true, match: [['id']], morph: ['trainable_type', 'trainable_id'], prepare: 'prepareTrainingRecord'),
             self::row($oam, 'suspicious_activity_reports', 'oam', preserve: true, match: [['id']], morph: ['reportable_type', 'reportable_id']),
             self::row($proforma, 'client_mandates', 'oam', preserve: true, match: [['id']], fk: ['client_id' => 'clients']),
             self::row($proforma, 'client_relations', 'oam', preserve: true, match: [['id']], fk: ['client_id' => 'clients', 'client_type_id' => 'client_types']),
@@ -191,6 +198,9 @@ class RacesImportCatalog
         string $pk = 'id',
         array $defaults = [],
         array $preserveOnUpdate = [],
+        bool $matchOnly = false,
+        bool $skipIfDestHasRows = false,
+        array $fkBy = [],
     ): array {
         return [
             'source' => $source,
@@ -211,6 +221,9 @@ class RacesImportCatalog
             'pk' => $pk,
             'defaults' => $defaults,
             'preserve_on_update' => $preserveOnUpdate,
+            'match_only' => $matchOnly,
+            'skip_if_dest_has_rows' => $skipIfDestHasRows,
+            'fk_by' => $fkBy,
         ];
     }
 }
