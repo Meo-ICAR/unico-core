@@ -24,6 +24,9 @@ namespace Unico\Core\Import;
  * document_types: non si inserisce né si aggiorna nulla; i tipi della sorgente si associano per codice, slug o nome a quelli già presenti
  * (`match_only`), così i documenti importati mantengono il tipo.
  *
+ * proformas.invoiceable_* e provvigioni.proforma_id (keep_if_empty): li compila l'app (abbinamento alle fatture, proforma storici); un valore vuoto nella
+ * sorgente non li azzera nell'aggiornamento orario.
+ *
  * proformas e prima_nota_entries: la destinazione ha già altre righe con gli stessi id, quindi si inseriscono con id nuovo e il vecchio id va in `legacy_id`
  * (rilanciare l'import le ritrova, non le duplica).
  *
@@ -110,9 +113,9 @@ class RacesImportCatalog
             self::row($proforma, 'prima_nota_configs', 'proforma', company: false, preserve: true, match: [['name'], ['id']]),
             self::row($proforma, 'purchase_invoices', 'proforma', preserve: true, match: [['number'], ['id']], morph: ['invoiceable_type', 'invoiceable_id']),
             self::row($proforma, 'sales_invoices', 'proforma', preserve: true, match: [['number'], ['id']], morph: ['invoiceable_type', 'invoiceable_id']),
-            self::row($proforma, 'proformas', 'proforma', company: false, legacy: true, match: [['legacy_id']], fk: ['fornitori_id' => 'fornitoris'], fkBy: ['fornitori_id' => ['column' => 'tipo', 'tables' => ['Istituto' => 'clientis']]], morph: ['invoiceable_type', 'invoiceable_id']),
+            self::row($proforma, 'proformas', 'proforma', company: false, legacy: true, match: [['legacy_id']], fk: ['fornitori_id' => 'fornitoris'], fkBy: ['fornitori_id' => ['column' => 'tipo', 'tables' => ['Istituto' => 'clientis']]], morph: ['invoiceable_type', 'invoiceable_id'], keepIfEmpty: ['invoiceable_type', 'invoiceable_id']),
             self::row($proforma, 'prima_nota_entries', 'proforma', company: false, legacy: true, match: [['legacy_id']], localFk: ['prima_nota_config_id' => 'prima_nota_configs'], morph: ['record_type', 'record_id']),
-            self::row($proforma, 'provvigioni', 'proforma', company: false, preserve: true, match: [['id']], fk: ['pratica_id' => 'pratiches', 'id_pratica' => 'pratiches'], localFk: ['pratica_id' => 'pratiches', 'proforma_id' => 'proformas', 'fattura_id' => 'fatturas', 'stato' => 'provvigioni_statos'], prepare: 'prepareProvvigione'),
+            self::row($proforma, 'provvigioni', 'proforma', company: false, preserve: true, match: [['id']], fk: ['pratica_id' => 'pratiches', 'id_pratica' => 'pratiches'], localFk: ['pratica_id' => 'pratiches', 'proforma_id' => 'proformas', 'fattura_id' => 'fatturas', 'stato' => 'provvigioni_statos'], prepare: 'prepareProvvigione', keepIfEmpty: ['proforma_id']),
             self::row($proforma, 'vcoge', 'proforma', company: false, preserve: true, match: [['id']], skipIfDestHasRows: true),
             self::row($proforma, 'venasarcotot', 'proforma', company: false, preserve: true, match: [['id']], skipIfDestHasRows: true),
             self::row($proforma, 'venasarcotrimestre', 'proforma', company: false, preserve: true, match: [['id']], skipIfDestHasRows: true),
@@ -201,6 +204,7 @@ class RacesImportCatalog
         bool $matchOnly = false,
         bool $skipIfDestHasRows = false,
         array $fkBy = [],
+        array $keepIfEmpty = [],
     ): array {
         return [
             'source' => $source,
@@ -224,6 +228,7 @@ class RacesImportCatalog
             'match_only' => $matchOnly,
             'skip_if_dest_has_rows' => $skipIfDestHasRows,
             'fk_by' => $fkBy,
+            'keep_if_empty' => $keepIfEmpty,
         ];
     }
 }

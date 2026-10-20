@@ -401,6 +401,12 @@ class RacesHistoricalImporter
             foreach ($plan['preserve_on_update'] ?? [] as $column) {
                 unset($writing[$column]);
             }
+            // Colonne che l'app compila da sé (abbinamento alle fatture, proforma storici): la sorgente non le conosce, e un suo valore vuoto non le azzera.
+            foreach ($plan['keep_if_empty'] ?? [] as $column) {
+                if (blank($writing[$column] ?? null)) {
+                    unset($writing[$column]);
+                }
+            }
             $destId = $existing->{$pk};
             if ($this->execute && $writing !== [] && ! $matchOnly) {
                 $dest->table($to)->where($pk, $destId)->update($writing);
