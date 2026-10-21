@@ -104,7 +104,7 @@ Il file si legge sempre da Spatie Media Library (`MediaDocumentFileSource`): Dri
 
 ## Test
 
-`composer install && vendor/bin/phpunit`. I test usano un database MySQL/MariaDB vuoto (variabili `CORE_TEST_DB_HOST`, `CORE_TEST_DB_PORT`, `CORE_TEST_DB_DATABASE`, `CORE_TEST_DB_USERNAME`, `CORE_TEST_DB_PASSWORD`; default `unico_core_phpunit`, utente `unico`) e ne ricreano le tabelle a ogni avvio: non puntarli a un database con dati (la suite rifiuta di partire su `unico_core_test`, il database condiviso fra le app).
+`composer install && vendor/bin/phpunit`. I test usano un database MySQL/MariaDB vuoto (variabili `CORE_TEST_DB_HOST`, `CORE_TEST_DB_PORT`, `CORE_TEST_DB_DATABASE`, `CORE_TEST_DB_USERNAME`, `CORE_TEST_DB_PASSWORD`; default `unicosuite_test`, utente `unico`) e ne ricreano le tabelle a ogni avvio: non puntarli a un database con dati (la suite rifiuta di partire su `unicosuite`, il database condiviso fra le app).
 
 ## Installazione in un'app
 
@@ -126,7 +126,7 @@ In `config/database.php`, aggiungi una connessione `core` che punta al database 
     'driver' => 'mysql',
     'host' => env('CORE_DB_HOST', '127.0.0.1'),
     'port' => env('CORE_DB_PORT', '3306'),
-    'database' => env('CORE_DB_DATABASE', 'unico_core'),
+    'database' => env('CORE_DB_DATABASE', 'unicosuite'),
     'username' => env('CORE_DB_USERNAME', 'root'),
     'password' => env('CORE_DB_PASSWORD', ''),
     'charset' => 'utf8mb4',

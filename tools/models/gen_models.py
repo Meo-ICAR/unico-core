@@ -13,7 +13,7 @@ from collections import OrderedDict, defaultdict
 from pathlib import Path
 
 PKG = Path(sys.argv[1])
-DB = sys.argv[2] if len(sys.argv) > 2 else "unico_core_test"
+DB = sys.argv[2] if len(sys.argv) > 2 else "unicosuite"
 OUT = PKG / "src" / "Models"
 
 CLASSES = {

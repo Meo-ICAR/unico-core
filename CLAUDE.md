@@ -31,7 +31,7 @@ Leggere prima `README.md` e `docs/` (schema-map, documents-design, porting-email
 
 ## Test
 `composer install`, un database MySQL vuoto, poi `vendor/bin/phpunit` (serve `pdftk` per i test dei moduli PDF; si salta se manca). Le variabili possono stare nel `.env` (lette da `tests/bootstrap.php`; mai committare il `.env`): `CORE_TEST_DB_HOST/PORT/DATABASE/USERNAME/PASSWORD`
-(default `127.0.0.1:3306`, `unico_core_phpunit`, `unico`/`unico`; `unico_core_test` è il database condiviso e i test non lo toccano). I test sono scritti senza un'app Laravel completa (`tests/Support/CoreDatabase.php`);
+(default `127.0.0.1:3306`, `unicosuite_test`, `unico`/`unico`; `unicosuite` è il database condiviso e i test non lo toccano). I test sono scritti senza un'app Laravel completa (`tests/Support/CoreDatabase.php`);
 rete e servizi esterni sono sostituiti da finti (`FakeImap`, `FakeDrive`, `FakeGraph`, `FakeReader`, `FakeMailManager`, `FakeFiles`).
 Non lanciare due `phpunit` insieme sullo stesso database: ognuno ricrea le tabelle. Gli errori di integrazione vanno corretti, non aggirati.
 

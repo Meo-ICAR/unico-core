@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Campi di companies usati da unicoagent e assenti nel core condiviso.
  * Confrontati su: proforma_core, unicoagent, unicobpm, unicofinance,
- * unicoloan_core, unicooam_core rispetto a unico_core_test.
+ * unicoloan_core, unicooam_core rispetto a unicosuite.
  */
 return new class extends Migration
 {

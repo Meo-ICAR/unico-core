@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Schema completo del database `unico_core_test`, rigenerato dal server MySQL.
+ * Schema completo del database `unicosuite`, rigenerato dal server MySQL.
  *
  * Idempotente: crea solo le tabelle, colonne, indici e chiavi esterne che mancano,
  * quindi si puo' rieseguire su un database gia' popolato senza errori e senza toccare i dati.
@@ -72,7 +72,7 @@ return new class extends Migration
         try {
             $db->statement($sql);
         } catch (\Throwable $e) {
-            Log::warning("Migration unico_core_test: saltato {$label}: ".$e->getMessage());
+            Log::warning("Migration unicosuite: saltato {$label}: ".$e->getMessage());
         }
     }
 

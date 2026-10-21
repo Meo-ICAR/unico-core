@@ -4,8 +4,8 @@
          bootstrap="tests/bootstrap.php"
          colors="true">
     <php>
-        <!-- I test ricreano le tabelle: mai sul database condiviso (unico_core_test), qualunque cosa dica il .env. -->
-        <env name="CORE_TEST_DB_DATABASE" value="unico_core_phpunit" force="true"/>
+        <!-- I test ricreano le tabelle: mai sul database condiviso (unicosuite), qualunque cosa dica il .env. -->
+        <env name="CORE_TEST_DB_DATABASE" value="unicosuite_test" force="true"/>
     </php>
     <testsuites>
         <testsuite name="Core">
