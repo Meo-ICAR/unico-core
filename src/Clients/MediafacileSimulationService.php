@@ -56,7 +56,7 @@ class MediafacileSimulationService
 
             $offers[] = [
                 'valid' => trim($fields['Errore'] ?? '') === '2',
-                'erogato' => self::number($fields['Importo_erogato']),
+                'erogato' => self::erogato($fields),
                 'bank' => self::filled($fields['Denominazione_istituto'] ?? $fields['Istituto'] ?? null),
                 'commission' => isset($fields['Importo_provvigione']) && trim($fields['Importo_provvigione']) !== '' ? self::number($fields['Importo_provvigione']) : null,
             ];
@@ -148,6 +148,20 @@ class MediafacileSimulationService
         }
 
         return $records;
+    }
+
+    /**
+     * Importo erogato. Alcune banche lo danno ×100 (come rata e capitale, che sono in centesimi): se supera il capitale
+     * e diviso per 100 rientra, si scala. Le altre offerte restano come sono.
+     *
+     * @param  array<string,string>  $fields
+     */
+    private static function erogato(array $fields): float
+    {
+        $erogato = self::number($fields['Importo_erogato']);
+        $capital = isset($fields['Importo_capitale']) && trim($fields['Importo_capitale']) !== '' ? self::number($fields['Importo_capitale']) / 100 : null;
+
+        return $capital !== null && $capital > 0 && $erogato > $capital && $erogato / 100 <= $capital ? $erogato / 100 : $erogato;
     }
 
     private static function filled(?string $value): ?string
