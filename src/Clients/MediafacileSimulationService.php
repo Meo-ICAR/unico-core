@@ -29,7 +29,7 @@ class MediafacileSimulationService
         try {
             $response = Http::timeout($timeout)->asForm()->post($url, ['passkey' => $passkey] + $params);
         } catch (ConnectionException $e) {
-            throw new SimulationUnavailable('Servizio di simulazione non raggiungibile.', 0, $e);
+            throw new SimulationUnavailable('Servizio di simulazione non raggiungibile: '.$e->getMessage(), 0, $e);
         }
 
         if ($response->failed()) {
