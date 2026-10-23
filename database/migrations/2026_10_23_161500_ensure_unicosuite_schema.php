@@ -35,6 +35,7 @@ return new class extends Migration
                 foreach ($def['columns'] as $column => $sql) {
                     $has = $db->selectOne('select 1 as x from information_schema.columns where table_schema = ? and table_name = ? and column_name = ?', [$schema, $table, $column]);
                     if (! $has) {
+                        $sql = $this->nullableWhenWithoutDefault($sql);
                         if (stripos($sql, 'AUTO_INCREMENT') !== false && ! $db->selectOne("select 1 as x from information_schema.statistics where table_schema = ? and table_name = ? and index_name = 'PRIMARY'", [$schema, $table])) {
                             $sql .= ", ADD PRIMARY KEY (`{$column}`)";
                         }
@@ -65,6 +66,19 @@ return new class extends Migration
     public function down(): void
     {
         // Non si elimina nulla: lo schema e i dati sono condivisi.
+    }
+
+    /**
+     * Una colonna aggiunta a una tabella già esistente (creata da un'altra app con le sue colonne) non può essere
+     * obbligatoria senza valore predefinito: gli inserimenti dell'app proprietaria della tabella non la conoscono.
+     */
+    private function nullableWhenWithoutDefault(string $sql): string
+    {
+        if (stripos($sql, 'AUTO_INCREMENT') !== false || stripos($sql, 'DEFAULT') !== false) {
+            return $sql;
+        }
+
+        return preg_replace('/ NOT NULL(?= COMMENT| AFTER| FIRST|$)/i', ' NULL', $sql, 1);
     }
 
     private function tryStatement($db, string $sql, string $label): void
