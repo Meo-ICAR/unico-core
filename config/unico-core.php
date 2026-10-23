@@ -427,6 +427,11 @@ return [
     | Il token sta in OPENAPI_TOKEN e non va scritto nel codice.
     |
     */
+    'mediafacile' => [
+        // Servizio di simulazione Mediafacile (WS Offerte): secondi di attesa della risposta (il servizio impiega 15-20 secondi).
+        'timeout' => (int) env('MEDIAFACILE_TIMEOUT', 45),
+    ],
+
     'openapi' => [
         'token' => env('OPENAPI_TOKEN'),
         'company_url' => env('OPENAPI_COMPANY_URL', 'https://company.openapi.com'),

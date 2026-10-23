@@ -4,5 +4,5 @@ namespace Unico\Core\Clients;
 
 use RuntimeException;
 
-/** Il servizio di simulazione non è raggiungibile, ha risposto con un errore o con una risposta illeggibile. */
+/** Il servizio di simulazione non ha dato una risposta utilizzabile (non raggiungibile, errore HTTP o XML non valido). */
 class SimulationUnavailable extends RuntimeException {}

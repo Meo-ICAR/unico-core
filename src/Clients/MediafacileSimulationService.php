@@ -4,30 +4,25 @@ namespace Unico\Core\Clients;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
-use SimpleXMLElement;
 
 /**
- * Servizio di simulazione Mediafacile: POST in form (con la `passkey`) e risposta XML, un'offerta per banca.
- * La risposta vera è un fmresultset di FileMaker (un `record` con i `field` per offerta); si legge anche un XML
- * semplice con un elemento per offerta. Un'offerta è valida se `Errore` vale 2.
+ * Servizio di simulazione Mediafacile (WS Offerte): POST in form con `passkey` e i parametri, risposta XML di FileMaker
+ * (`fmresultset`, un `record` per offerta). Di ogni offerta si legge l'importo erogato; l'offerta vale se `Errore` è 2.
+ * Se un parametro obbligatorio manca il servizio risponde con una riga di testo (es. «Campo ID_listino non fornito…»).
+ * L'URL e la Passkey sono della società (ognuna ha le sue): qui non si salva nulla.
  */
 class MediafacileSimulationService
 {
-    public function __construct(private int $timeout = 0) {}
-
     /**
-     * Invia la simulazione e restituisce il corpo della risposta.
-     *
-     * @param  array<string,string>  $params  senza passkey
+     * @param  array<string, string>  $params  senza Passkey
      *
      * @throws SimulationUnavailable
      */
     public function request(string $url, string $passkey, array $params): string
     {
-        $timeout = $this->timeout ?: (int) config('finanziamento.quote.timeout', 15);
-
         try {
-            $response = Http::timeout($timeout)->asForm()->post($url, ['passkey' => $passkey] + $params);
+            $response = Http::asForm()->timeout((int) config('unico-core.mediafacile.timeout', 45))
+                ->post($url, ['passkey' => $passkey] + $params);
         } catch (ConnectionException $e) {
             throw new SimulationUnavailable('Servizio di simulazione non raggiungibile: '.$e->getMessage(), 0, $e);
         }
@@ -40,133 +35,161 @@ class MediafacileSimulationService
     }
 
     /**
-     * Una voce per ogni offerta, con importo erogato, banca e provvigione.
-     *
-     * @return list<array{valid: bool, erogato: float, bank: ?string, commission: ?float}>
-     *
-     * @throws SimulationUnavailable
-     */
-    public static function offers(string $raw): array
-    {
-        $offers = [];
-        foreach (self::records(self::load($raw)) as $fields) {
-            if (! array_key_exists('Importo_erogato', $fields)) {
-                continue;
-            }
-
-            $offers[] = [
-                'valid' => trim($fields['Errore'] ?? '') === '2',
-                'erogato' => self::erogato($fields),
-                'bank' => self::filled($fields['Denominazione_istituto'] ?? $fields['Istituto'] ?? null),
-                'commission' => isset($fields['Importo_provvigione']) && trim($fields['Importo_provvigione']) !== '' ? self::number($fields['Importo_provvigione']) : null,
-            ];
-        }
-
-        return $offers;
-    }
-
-    /**
-     * @return list<array{valid: bool, erogato: float}>
+     * @return list<array{valid: bool, erogato: float}> una voce per ogni elemento che contiene Importo_erogato
      *
      * @throws SimulationUnavailable
      */
     public static function parse(string $raw): array
     {
-        return array_map(fn (array $offer): array => ['valid' => $offer['valid'], 'erogato' => $offer['erogato']], self::offers($raw));
+        return array_map(
+            fn (array $offer): array => ['valid' => $offer['valid'], 'erogato' => $offer['erogato']],
+            self::offers($raw),
+        );
     }
 
     /**
-     * Realizzo delle offerte valide: medio (ponderato sulla provvigione se c'è, altrimenti semplice), massimo e minimo con la banca.
+     * Come parse(), con la banca e la provvigione di ogni offerta (null se il servizio non le dà).
      *
-     * @param  list<array{valid: bool, erogato: float, bank?: ?string, commission?: ?float}>  $offers
-     * @return array{count: int, weighted: bool, average: float, max: array{amount: float, bank: ?string}, min: array{amount: float, bank: ?string}}|null
+     * @return list<array{valid: bool, erogato: float, bank: ?string, commission: ?float, message: ?string}>
+     *
+     * @throws SimulationUnavailable
      */
-    public static function summary(array $offers): ?array
+    public static function offers(string $raw): array
     {
-        $valid = array_values(array_filter($offers, fn (array $offer): bool => $offer['valid']));
-        if ($valid === []) {
-            return null;
+        $raw = trim($raw);
+
+        // Un parametro mancante o non valido: il servizio risponde con una riga di testo, non con XML.
+        if ($raw === '' || ! str_starts_with($raw, '<')) {
+            throw new SimulationUnavailable($raw === '' ? 'Risposta vuota del servizio di simulazione.' : mb_substr($raw, 0, 200));
         }
 
-        $max = $min = $valid[0];
-        $weight = $weighted = $total = 0.0;
-        foreach ($valid as $offer) {
-            $max = $offer['erogato'] > $max['erogato'] ? $offer : $max;
-            $min = $offer['erogato'] < $min['erogato'] ? $offer : $min;
-            $commission = max(0.0, (float) ($offer['commission'] ?? 0));
-            $weight += $commission;
-            $weighted += $offer['erogato'] * $commission;
-            $total += $offer['erogato'];
-        }
-
-        return [
-            'count' => count($valid),
-            'weighted' => $weight > 0,
-            'average' => $weight > 0 ? $weighted / $weight : $total / count($valid),
-            'max' => ['amount' => $max['erogato'], 'bank' => $max['bank'] ?? null],
-            'min' => ['amount' => $min['erogato'], 'bank' => $min['bank'] ?? null],
-        ];
-    }
-
-    private static function load(string $raw): SimpleXMLElement
-    {
         $previous = libxml_use_internal_errors(true);
-        $xml = simplexml_load_string($raw);
+        $xml = simplexml_load_string(preg_replace('/<!DOCTYPE[^>]*>/', '', $raw) ?? $raw);
         libxml_use_internal_errors($previous);
 
         if ($xml === false) {
             throw new SimulationUnavailable('Risposta del servizio di simulazione non valida.');
         }
 
-        return $xml;
+        if (isset($xml->xpath('/*[local-name()="fmresultset"]')[0])) {
+            return self::fromFileMaker($xml);
+        }
+
+        $offers = [];
+        foreach ($xml->xpath('//Importo_erogato/..') ?: [] as $node) {
+            $offers[] = self::offer(
+                trim((string) $node->Errore) === '2',
+                (string) $node->Importo_erogato,
+                null,
+                self::bank($node),
+                trim((string) $node->Importo_provvigione),
+                trim((string) $node->Stato),
+            );
+        }
+
+        return $offers;
     }
 
-    /** @return list<array<string,string>> i campi di ogni offerta */
-    private static function records(SimpleXMLElement $xml): array
+    /** @return list<array{valid: bool, erogato: float, bank: ?string, commission: ?float, message: ?string}> */
+    private static function fromFileMaker(\SimpleXMLElement $xml): array
     {
-        $records = [];
+        $xml->registerXPathNamespace('f', 'http://www.filemaker.com/xml/fmresultset');
+        $code = (string) ($xml->xpath('/f:fmresultset/f:error/@code')[0] ?? '0');
 
-        foreach ($xml->xpath("//*[local-name()='record']") ?: [] as $record) {
-            $fields = [];
-            foreach ($record->xpath("*[local-name()='field']") ?: [] as $field) {
-                $fields[(string) $field['name']] = trim((string) ($field->xpath("*[local-name()='data']")[0] ?? ''));
-            }
-            $records[] = $fields;
+        if ($code !== '0' && $code !== '401') {
+            throw new SimulationUnavailable("Il servizio di simulazione ha risposto con l'errore {$code}.");
         }
 
-        if ($records !== []) {
-            return $records;
+        $offers = [];
+        foreach ($xml->xpath('//f:resultset/f:record') ?: [] as $record) {
+            $record->registerXPathNamespace('f', 'http://www.filemaker.com/xml/fmresultset');
+            $field = function (string $name) use ($record): string {
+                $found = $record->xpath('f:field[@name="'.$name.'"]/f:data');
+
+                return $found ? trim((string) $found[0]) : '';
+            };
+
+            $offers[] = self::offer(
+                $field('Errore') === '2',
+                $field('Importo_erogato'),
+                $field('Importo_capitale'),
+                $field('Denominazione_istituto') ?: null,
+                $field('Importo_provvigione'),
+                $field('Stato'),
+            );
         }
 
-        foreach ($xml->xpath('//Importo_erogato/..') ?: [] as $node) {
-            $fields = [];
-            foreach ($node->children() as $name => $child) {
-                $fields[$name] = trim((string) $child);
-            }
-            $fields['Istituto'] = trim((string) ($node->Istituto->Nome ?? $node->Istituto ?? ''));
-            $records[] = $fields;
-        }
-
-        return $records;
+        return $offers;
     }
 
     /**
-     * Importo erogato. Alcune banche lo danno ×100 (come rata e capitale, che sono in centesimi): se supera il capitale
-     * e diviso per 100 rientra, si scala. Le altre offerte restano come sono.
+     * Alcune banche (es. FIGENPA) danno l'erogato moltiplicato per 100, come capitale e rata. Se supera il capitale
+     * (rata × durata) e diviso per 100 rientra nel capitale, si riporta in euro. Le altre offerte restano come sono.
      *
-     * @param  array<string,string>  $fields
+     * @return array{valid: bool, erogato: float, bank: ?string, commission: ?float, message: ?string}
      */
-    private static function erogato(array $fields): float
+    private static function offer(bool $valid, string $erogato, ?string $capital, ?string $bank, string $commission, string $message): array
     {
-        $erogato = self::number($fields['Importo_erogato']);
-        $capital = isset($fields['Importo_capitale']) && trim($fields['Importo_capitale']) !== '' ? self::number($fields['Importo_capitale']) / 100 : null;
+        $amount = self::number($erogato);
+        $capitalEuro = $capital !== null && trim($capital) !== '' ? self::number($capital) / 100 : null;
 
-        return $capital !== null && $capital > 0 && $erogato > $capital && $erogato / 100 <= $capital ? $erogato / 100 : $erogato;
+        if ($capitalEuro !== null && $capitalEuro > 0 && $amount > $capitalEuro && $amount / 100 <= $capitalEuro) {
+            $amount = round($amount / 100, 2);
+        }
+
+        return [
+            'valid' => $valid,
+            'erogato' => $amount,
+            'bank' => $bank,
+            'commission' => $commission === '' ? null : self::number($commission),
+            'message' => $message === '' ? null : $message,
+        ];
     }
 
-    private static function filled(?string $value): ?string
+    /**
+     * Riepilogo delle offerte valide (gli errori si scartano): realizzo medio ponderato, massimo e minimo con la banca.
+     * Il peso di ogni offerta è la sua provvigione; se manca a qualcuna la media è semplice.
+     *
+     * @param  list<array{valid: bool, erogato: float, bank: ?string, commission: ?float}>  $offers
+     * @return array{count: int, average: float, weighted: bool, max: array{amount: float, bank: ?string}, min: array{amount: float, bank: ?string}}|null
+     */
+    public static function summary(array $offers): ?array
     {
-        return $value === null || trim($value) === '' ? null : trim($value);
+        $valid = array_values(array_filter($offers, fn (array $offer): bool => $offer['valid']));
+
+        if ($valid === []) {
+            return null;
+        }
+
+        $weighted = array_reduce($valid, fn (bool $all, array $offer): bool => $all && ($offer['commission'] ?? 0) > 0, true);
+        $weights = array_map(fn (array $offer): float => $weighted ? (float) $offer['commission'] : 1.0, $valid);
+        $average = array_sum(array_map(fn (array $offer, float $weight): float => $offer['erogato'] * $weight, $valid, $weights)) / array_sum($weights);
+
+        usort($valid, fn (array $a, array $b): int => $a['erogato'] <=> $b['erogato']);
+        $min = $valid[0];
+        $max = $valid[count($valid) - 1];
+
+        return [
+            'count' => count($valid),
+            'average' => round($average, 2),
+            'weighted' => $weighted,
+            'max' => ['amount' => $max['erogato'], 'bank' => $max['bank']],
+            'min' => ['amount' => $min['erogato'], 'bank' => $min['bank']],
+        ];
+    }
+
+    private static function bank(\SimpleXMLElement $node): ?string
+    {
+        foreach (['Istituto/Nome', 'Nome_istituto', 'Istituto', 'Nome_banca', 'Banca', 'Finanziaria', 'Ente'] as $path) {
+            $found = $node->xpath($path);
+            $name = $found ? trim((string) $found[0]) : '';
+
+            if ($name !== '') {
+                return $name;
+            }
+        }
+
+        return null;
     }
 
     /** «12.345,67» (italiano) oppure «12345.67». */
