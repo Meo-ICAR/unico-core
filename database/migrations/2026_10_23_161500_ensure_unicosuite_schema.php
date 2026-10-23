@@ -6422,28 +6422,28 @@ return new class extends Migration
                 'create' => 'CREATE TABLE `process_task_raci` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT \'ID univoco assegnazione RACI\',
   `process_task_id` bigint unsigned NOT NULL COMMENT \'Task di processo di riferimento\',
-  `business_function_id` bigint unsigned NOT NULL COMMENT \'Funzione di business coinvolta\',
+  `employee_type_id` bigint unsigned DEFAULT NULL COMMENT \'Ruolo (ufficio) responsabile\',
   `raci_role` enum(\'R\',\'A\',\'C\',\'I\') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'Ruolo nella matrice: R(Responsible), A(Accountable), C(Consulted), I(Informed)\',
   `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT \'Note specifiche sull\'\'assegnazione del ruolo per questo task\',
   `created_at` timestamp NULL DEFAULT NULL COMMENT \'Data e ora di creazione dell\'\'assegnazione di responsabilità RACI sul task\',
   `updated_at` timestamp NULL DEFAULT NULL COMMENT \'Data e ora dell\'\'ultimo aggiornamento dell\'\'assegnazione di responsabilità RACI sul task\',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_raci_assignment` (`process_task_id`,`business_function_id`),
-  KEY `process_task_raci_business_function_id_index` (`business_function_id`),
+  UNIQUE KEY `unique_raci_assignment` (`process_task_id`,`employee_type_id`),
+  KEY `process_task_raci_employee_type_id_index` (`employee_type_id`),
   KEY `process_task_raci_process_task_id_index` (`process_task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Matrice RACI: Mappatura delle responsabilità delle funzioni aziendali sui task di processo\'',
                 'columns' => [
                     'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT \'ID univoco assegnazione RACI\' FIRST',
                     'process_task_id' => '`process_task_id` bigint unsigned NOT NULL COMMENT \'Task di processo di riferimento\' AFTER `id`',
-                    'business_function_id' => '`business_function_id` bigint unsigned NOT NULL COMMENT \'Funzione di business coinvolta\' AFTER `process_task_id`',
-                    'raci_role' => '`raci_role` enum(\'R\',\'A\',\'C\',\'I\') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'Ruolo nella matrice: R(Responsible), A(Accountable), C(Consulted), I(Informed)\' AFTER `business_function_id`',
+                    'employee_type_id' => '`employee_type_id` bigint unsigned DEFAULT NULL COMMENT \'Ruolo (ufficio) responsabile\' AFTER `process_task_id`',
+                    'raci_role' => '`raci_role` enum(\'R\',\'A\',\'C\',\'I\') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'Ruolo nella matrice: R(Responsible), A(Accountable), C(Consulted), I(Informed)\' AFTER `employee_type_id`',
                     'notes' => '`notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT \'Note specifiche sull\'\'assegnazione del ruolo per questo task\' AFTER `raci_role`',
                     'created_at' => '`created_at` timestamp NULL DEFAULT NULL COMMENT \'Data e ora di creazione dell\'\'assegnazione di responsabilità RACI sul task\' AFTER `notes`',
                     'updated_at' => '`updated_at` timestamp NULL DEFAULT NULL COMMENT \'Data e ora dell\'\'ultimo aggiornamento dell\'\'assegnazione di responsabilità RACI sul task\' AFTER `created_at`',
                 ],
                 'indexes' => [
-                    'unique_raci_assignment' => 'UNIQUE KEY `unique_raci_assignment` (`process_task_id`,`business_function_id`)',
-                    'process_task_raci_business_function_id_index' => 'KEY `process_task_raci_business_function_id_index` (`business_function_id`)',
+                    'unique_raci_assignment' => 'UNIQUE KEY `unique_raci_assignment` (`process_task_id`,`employee_type_id`)',
+                    'process_task_raci_employee_type_id_index' => 'KEY `process_task_raci_employee_type_id_index` (`employee_type_id`)',
                     'process_task_raci_process_task_id_index' => 'KEY `process_task_raci_process_task_id_index` (`process_task_id`)',
                 ],
                 'foreign' => [
@@ -6457,7 +6457,7 @@ return new class extends Migration
   `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'Nome esplicativo del task\',
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT \'Descrizione dettagliata delle attività del task\',
   `ordine` int NOT NULL DEFAULT \'0\' COMMENT \'Ordine sequenziale di esecuzione nel processo\',
-  `business_function_id` bigint unsigned DEFAULT NULL COMMENT \'Funzione di business associata\',
+  `employee_type_id` bigint unsigned DEFAULT NULL COMMENT \'Ruolo (ufficio) responsabile\',
   `trigger_field` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'Campo del modello da controllare\',
   `trigger_state` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'filled, empty, equals\',
   `trigger_value` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'Il valore specifico da controllare\',
@@ -6471,7 +6471,7 @@ return new class extends Migration
   `created_at` timestamp NULL DEFAULT NULL COMMENT \'Data e ora di creazione del task del processo aziendale\',
   `updated_at` timestamp NULL DEFAULT NULL COMMENT \'Data e ora dell\'\'ultimo aggiornamento del task del processo aziendale\',
   PRIMARY KEY (`id`),
-  KEY `process_tasks_business_function_id_foreign` (`business_function_id`),
+  KEY `process_tasks_employee_type_id_index` (`employee_type_id`),
   KEY `process_tasks_process_id_index` (`process_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Anagrafica dei task di processo aziendali collegati alle checklist\'',
                 'columns' => [
@@ -6481,8 +6481,8 @@ return new class extends Migration
                     'name' => '`name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'Nome esplicativo del task\' AFTER `code`',
                     'description' => '`description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT \'Descrizione dettagliata delle attività del task\' AFTER `name`',
                     'ordine' => '`ordine` int NOT NULL DEFAULT \'0\' COMMENT \'Ordine sequenziale di esecuzione nel processo\' AFTER `description`',
-                    'business_function_id' => '`business_function_id` bigint unsigned DEFAULT NULL COMMENT \'Funzione di business associata\' AFTER `ordine`',
-                    'trigger_field' => '`trigger_field` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'Campo del modello da controllare\' AFTER `business_function_id`',
+                    'employee_type_id' => '`employee_type_id` bigint unsigned DEFAULT NULL COMMENT \'Ruolo (ufficio) responsabile\' AFTER `ordine`',
+                    'trigger_field' => '`trigger_field` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'Campo del modello da controllare\' AFTER `employee_type_id`',
                     'trigger_state' => '`trigger_state` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'filled, empty, equals\' AFTER `trigger_field`',
                     'trigger_value' => '`trigger_value` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'Il valore specifico da controllare\' AFTER `trigger_state`',
                     'exclude_field' => '`exclude_field` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT \'Campo del modello da escludere se valorizzato\' AFTER `trigger_value`',
@@ -6496,7 +6496,7 @@ return new class extends Migration
                     'updated_at' => '`updated_at` timestamp NULL DEFAULT NULL COMMENT \'Data e ora dell\'\'ultimo aggiornamento del task del processo aziendale\' AFTER `created_at`',
                 ],
                 'indexes' => [
-                    'process_tasks_business_function_id_foreign' => 'KEY `process_tasks_business_function_id_foreign` (`business_function_id`)',
+                    'process_tasks_employee_type_id_index' => 'KEY `process_tasks_employee_type_id_index` (`employee_type_id`)',
                     'process_tasks_process_id_index' => 'KEY `process_tasks_process_id_index` (`process_id`)',
                 ],
                 'foreign' => [
