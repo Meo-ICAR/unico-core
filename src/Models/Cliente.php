@@ -57,6 +57,12 @@ class Cliente extends Model
         return $this->belongsTo(ClientType::class, 'customertype_id');
     }
 
+    /** I clienti che la hanno come banca preferita. */
+    public function preferringClients(): HasMany
+    {
+        return $this->hasMany(Client::class, 'preferred_bank_id');
+    }
+
     public function blacklistClientiEmployees(): HasMany
     {
         return $this->hasMany(BlacklistClienteEmployee::class, 'cliente_id');

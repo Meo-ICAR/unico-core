@@ -2,6 +2,9 @@
 
 namespace Unico\Core\Models;
 
+use Unico\Core\Enums\IbanHolder;
+use Unico\Core\Enums\MaritalStatus;
+use Unico\Core\Enums\PaymentMethod;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -95,6 +98,13 @@ class Client extends Model
             'employee_roles' => 'array',
             'birth_date' => 'date',
             'hiring_date' => 'date',
+            'marital_status' => MaritalStatus::class,
+            'payment_method' => PaymentMethod::class,
+            'iban_holder' => IbanHolder::class,
+            'family_members' => 'integer',
+            'family_members_with_income' => 'integer',
+            'salary_months' => 'integer',
+            'salary_day' => 'integer',
             'company_started_at' => 'date',
             'share_capital' => 'decimal:2',
             'turnover' => 'decimal:2',
@@ -121,6 +131,27 @@ class Client extends Model
     public function employer(): BelongsTo
     {
         return $this->belongsTo(Client::class, 'employer_id');
+    }
+
+    public function occupationType(): BelongsTo
+    {
+        return $this->belongsTo(OccupationType::class, 'occupation_type_id');
+    }
+
+    public function hiringType(): BelongsTo
+    {
+        return $this->belongsTo(HiringType::class, 'hiring_type_id');
+    }
+
+    public function incomeType(): BelongsTo
+    {
+        return $this->belongsTo(IncomeType::class, 'income_type_id');
+    }
+
+    /** La banca preferita del cliente (clientis). */
+    public function preferredBank(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class, 'preferred_bank_id');
     }
 
     public function employees(): HasMany

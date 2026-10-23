@@ -5,6 +5,7 @@ namespace Unico\Core\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Enums\Kinship;
 
 /** Richiedente, coobbligati e garanti di una pratica. */
 class PraticaClient extends Model
@@ -14,6 +15,11 @@ class PraticaClient extends Model
     protected $table = 'pratica_clients';
 
     protected $guarded = ['id'];
+
+    protected function casts(): array
+    {
+        return ['kinship' => Kinship::class];
+    }
 
     public function client(): BelongsTo
     {

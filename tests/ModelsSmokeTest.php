@@ -95,6 +95,8 @@ class ModelsSmokeTest extends TestCase
             $this->assertTrue(is_subclass_of($class, Model::class), "$alias → $class");
             $this->assertSame(strtolower($alias), $alias);
         }
+        $this->assertSame($map['cliente'], $map['clienti']);
+        unset($map['clienti']);
         $this->assertSame(count($map), count(array_unique(array_values($map))));
     }
 }

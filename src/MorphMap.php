@@ -2,7 +2,8 @@
 
 namespace Unico\Core;
 
-use Unico\Core\Models;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 /**
  * Alias stabili salvati nei campi `*_type` delle relazioni polimorfiche.
@@ -24,6 +25,8 @@ final class MorphMap
             'employee' => Models\Employee::class,
             'client' => Models\Client::class,
             'cliente' => Models\Cliente::class,
+            // Grafia già presente sui documenti. Resta dopo `cliente`: i record nuovi continuano a salvarsi con quello.
+            'clienti' => Models\Cliente::class,
             'fornitore' => Models\Fornitore::class,
             'organization' => Models\Organization::class,
             'pratica' => Models\Pratica::class,
@@ -36,6 +39,7 @@ final class MorphMap
             'mail_account' => Models\MailAccount::class,
             'incoming_email' => Models\IncomingEmail::class,
             'audit' => Models\Audit::class,
+            'audit_checklist_evaluation' => Models\AuditChecklistEvaluation::class,
             'audit_finding' => Models\AuditFinding::class,
             'quality_review' => Models\QualityReview::class,
             'complaint' => Models\Complaint::class,
@@ -52,15 +56,15 @@ final class MorphMap
      * L'alias di un modello anche quando è una sottoclasse di quella registrata (es. `App\Models\Pratica` che estende la classe
      * del core): `Relation::getMorphAlias()` conosce solo la classe esatta.
      */
-    public static function aliasOf(\Illuminate\Database\Eloquent\Model $record): string
+    public static function aliasOf(Model $record): string
     {
-        $alias = \Illuminate\Database\Eloquent\Relations\Relation::getMorphAlias($record::class);
+        $alias = Relation::getMorphAlias($record::class);
 
         if ($alias !== $record::class) {
             return $alias;
         }
 
-        foreach (array_merge(self::all(), \Illuminate\Database\Eloquent\Relations\Relation::morphMap()) as $name => $class) {
+        foreach (array_merge(self::all(), Relation::morphMap()) as $name => $class) {
             if ($record instanceof $class) {
                 return $name;
             }
