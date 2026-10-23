@@ -21,8 +21,8 @@ namespace Unico\Core\Import;
  * - provvigioni.id_pratica resta il codice; pratica_id (bigint) si valorizza solo se la pratica
  *   esiste nello stesso database di destinazione
  *
- * document_types: non si inserisce né si aggiorna nulla; i tipi della sorgente si associano per codice, slug o nome a quelli già presenti
- * (`match_only`), così i documenti importati mantengono il tipo.
+ * document_types: i tipi già presenti (stesso codice, slug o nome) non si aggiornano, si associano soltanto; quelli nuovi si inseriscono
+ * (`insert_only`), così i documenti importati mantengono il tipo.
  *
  * proformas.invoiceable_* e provvigioni.proforma_id (keep_if_empty): li compila l'app (abbinamento alle fatture, proforma storici); un valore vuoto nella
  * sorgente non li azzera nell'aggiornamento orario.
@@ -75,8 +75,8 @@ class RacesImportCatalog
             ['source' => $proforma, 'source_table' => 'pratiches', 'dest' => $core, 'dest_table' => 'pratiches', 'handler' => 'importPratiches', 'company' => true],
             self::row($proforma, 'pratica_status_history', $core, company: false, preserve: true, match: [['id']], fk: ['pratica_id' => 'pratiches', 'user_id' => 'users']),
             self::row($proforma, 'client_pratiches', $core, 'pratica_clients', company: false, preserve: true, match: [['id']], renames: ['pratiche_id' => 'pratica_id'], fk: ['pratica_id' => 'pratiches', 'client_id' => 'clients']),
-            // Solo associazione: nella destinazione i tipi di documento sono più numerosi e non si toccano. Servono per collegare i documenti.
-            self::row($oam, 'document_types', $core, company: false, match: [['code'], ['slug'], ['name']], prepare: 'prepareDocumentType', matchOnly: true),
+            // I tipi già presenti non si toccano; si aggiungono solo quelli nuovi. Servono anche per collegare i documenti.
+            self::row($oam, 'document_types', $core, company: false, match: [['code'], ['slug'], ['name']], prepare: 'prepareDocumentType', insertOnly: true),
             self::row($oam, 'tasks', $core, company: false, preserve: true, match: [['id'], ['name']]),
             self::row($oam, 'documents', $core, legacy: true, match: [['legacy_id']], fk: [
                 'document_type_id' => 'document_types',
@@ -202,6 +202,7 @@ class RacesImportCatalog
         array $defaults = [],
         array $preserveOnUpdate = [],
         bool $matchOnly = false,
+        bool $insertOnly = false,
         bool $skipIfDestHasRows = false,
         array $fkBy = [],
         array $keepIfEmpty = [],
@@ -226,6 +227,7 @@ class RacesImportCatalog
             'defaults' => $defaults,
             'preserve_on_update' => $preserveOnUpdate,
             'match_only' => $matchOnly,
+            'insert_only' => $insertOnly,
             'skip_if_dest_has_rows' => $skipIfDestHasRows,
             'fk_by' => $fkBy,
             'keep_if_empty' => $keepIfEmpty,

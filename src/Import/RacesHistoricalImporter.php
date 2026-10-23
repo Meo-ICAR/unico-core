@@ -3,6 +3,7 @@
 namespace Unico\Core\Import;
 
 use Illuminate\Database\Connection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -53,6 +54,7 @@ class RacesHistoricalImporter
         private ?int $forcedCompanyId = null,
         private string $companyTable = 'companies',
         private ?\DateTimeInterface $since = null,
+        private bool $insertOnly = false,
     ) {}
 
     /**
@@ -74,8 +76,8 @@ class RacesHistoricalImporter
         }
 
         try {
-            return \Illuminate\Support\Carbon::parse($modified)->greaterThanOrEqualTo($this->since);
-        } catch (\Throwable) {
+            return Carbon::parse($modified)->greaterThanOrEqualTo($this->since);
+        } catch (Throwable) {
             return true;
         }
     }
@@ -419,6 +421,8 @@ class RacesHistoricalImporter
         }
 
         $matchOnly = (bool) ($plan['match_only'] ?? false);
+        // insert_only (o $insertOnly per tutto l'import): una riga già presente si associa e basta, non si aggiorna mai.
+        $keepExisting = $matchOnly || $this->insertOnly || (bool) ($plan['insert_only'] ?? false);
         $unchanged = $existing && ! $this->isChanged($src);
         if (! $existing && $matchOnly) {
             return 'skipped';
@@ -435,10 +439,10 @@ class RacesHistoricalImporter
                 }
             }
             $destId = $existing->{$pk};
-            if ($this->execute && $writing !== [] && ! $matchOnly && ! $unchanged) {
+            if ($this->execute && $writing !== [] && ! $keepExisting && ! $unchanged) {
                 $dest->table($to)->where($pk, $destId)->update($writing);
             }
-            $status = ($matchOnly || $unchanged) ? 'skipped' : 'updated';
+            $status = ($keepExisting || $unchanged) ? 'skipped' : 'updated';
         } else {
             foreach ($plan['defaults'] ?? [] as $column => $value) {
                 if (! array_key_exists($column, $writing) || $writing[$column] === null || $writing[$column] === '') {
@@ -478,8 +482,10 @@ class RacesHistoricalImporter
         $this->rememberName($to, $payload, $destId);
         if ($destId !== null) {
             $this->rememberLocal($plan['dest'], $to, $pk, $destId);
-            foreach ($selfValues as $column => $value) {
-                $selfLater[] = [$destId, $column, $value];
+            if (! ($existing && $keepExisting)) {
+                foreach ($selfValues as $column => $value) {
+                    $selfLater[] = [$destId, $column, $value];
+                }
             }
         }
 
@@ -524,7 +530,7 @@ class RacesHistoricalImporter
         }
 
         $pairs = $source->table('pratiches')->select('stato_pratica', 'tipo_prodotto')->whereNotNull('stato_pratica')->where('stato_pratica', '!=', '')->distinct()->get();
-        $inserted = $updated = 0;
+        $inserted = $updated = $skipped = 0;
         $seen = [];
         $ordine = (int) $dest->table('pratica_stati')->max('ordine');
 
@@ -548,7 +554,10 @@ class RacesHistoricalImporter
             ];
             $payload = $this->onlyKnown($payload, $this->columnNames($dest, 'pratica_stati'));
             $existing = $dest->table('pratica_stati')->whereRaw('LOWER(codice) = ?', [Str::lower($codice)])->first();
-            if ($existing) {
+            if ($existing && $this->insertOnly) {
+                $skipped++;
+                $id = $existing->id;
+            } elseif ($existing) {
                 $updated++;
                 $id = $existing->id;
                 if ($this->execute) {
@@ -565,7 +574,7 @@ class RacesHistoricalImporter
             $this->rememberLocal($plan['dest'], 'pratica_stati', 'id', $id);
         }
 
-        $this->push($plan, $pairs->count(), $inserted, $updated, 0, 0);
+        $this->push($plan, $pairs->count(), $inserted, $updated, $skipped, 0);
     }
 
     /** @param  array<string, mixed>  $plan */
@@ -608,7 +617,7 @@ class RacesHistoricalImporter
                 $existing = $dest->table('pratiches')->where('codice_pratica', $payload['codice_pratica'])->first();
                 if ($existing) {
                     $destId = $existing->id;
-                    if ($this->isChanged($src)) {
+                    if (! $this->insertOnly && $this->isChanged($src)) {
                         $updated++;
                         if ($this->execute) {
                             $dest->table('pratiches')->where('id', $destId)->update($payload);

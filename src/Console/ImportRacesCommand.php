@@ -4,7 +4,9 @@ namespace Unico\Core\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Database\Connection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 use Unico\Core\Import\RacesHistoricalImporter;
 
@@ -20,6 +22,7 @@ class ImportRacesCommand extends Command
                             {--proforma= : Database sorgente Proforma (default config unico-core.import.races_proforma)}
                             {--dest-oam= : Database destinazione unicooam (default config unico-core.import.dest_oam)}
                             {--dest-proforma= : Database destinazione proforma (default config unico-core.import.dest_proforma)}
+                            {--insert-only : Inserisce solo le righe nuove; quelle già presenti nella destinazione si associano ma non si aggiornano}
                             {--incremental : Riscrive solo le righe modificate nella sorgente dopo l ultimo import riuscito (updated_at); il primo import è completo}
                             {--since= : Come --incremental, ma da una data indicata (es. "2026-10-20 10:00")}
                             {--company= : Id della company sul core, se già noto}
@@ -62,6 +65,7 @@ class ImportRacesCommand extends Command
             filled($company) ? (int) $company : null,
             'companies',
             $since,
+            (bool) $this->option('insert-only'),
         ))->run();
 
         foreach ($report['companies'] as $key => $companyRow) {
@@ -115,24 +119,24 @@ class ImportRacesCommand extends Command
     }
 
     /** Data da cui riscrivere le righe modificate: quella indicata, oppure l'inizio dell'ultimo import riuscito meno un margine per gli orologi. */
-    private function since(Connection $core): ?\Illuminate\Support\Carbon
+    private function since(Connection $core): ?Carbon
     {
         if (filled($this->option('since'))) {
-            return \Illuminate\Support\Carbon::parse((string) $this->option('since'));
+            return Carbon::parse((string) $this->option('since'));
         }
 
-        if (! $this->option('incremental') || ! \Illuminate\Support\Facades\Schema::connection((string) config('unico-core.connection'))->hasTable('races_import_runs')) {
+        if (! $this->option('incremental') || ! Schema::connection((string) config('unico-core.connection'))->hasTable('races_import_runs')) {
             return null;
         }
 
         $last = $core->table('races_import_runs')->where('failed', 0)->max('started_at');
 
-        return $last ? \Illuminate\Support\Carbon::parse($last)->subMinutes(5) : null;
+        return $last ? Carbon::parse($last)->subMinutes(5) : null;
     }
 
-    private function registraEsecuzione(Connection $core, \Illuminate\Support\Carbon $startedAt, int $failed): void
+    private function registraEsecuzione(Connection $core, Carbon $startedAt, int $failed): void
     {
-        if (! \Illuminate\Support\Facades\Schema::connection((string) config('unico-core.connection'))->hasTable('races_import_runs')) {
+        if (! Schema::connection((string) config('unico-core.connection'))->hasTable('races_import_runs')) {
             return;
         }
 

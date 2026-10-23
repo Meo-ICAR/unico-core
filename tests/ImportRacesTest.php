@@ -88,6 +88,52 @@ class ImportRacesTest extends TestCase
         $this->assertSame('ok', $db->table('races_imp_dst')->value('status'));
     }
 
+    public function test_insert_only_adds_new_rows_and_leaves_existing_untouched(): void
+    {
+        $this->schema();
+        $db = CoreDatabase::$capsule->getConnection('core');
+        $db->table('races_imp_co')->insert(['name' => 'Races Finance S.r.l.', 'vat_number' => '05822361007']);
+        $db->table('races_imp_dst')->insert(['name' => 'Carta identità', 'status' => 'ok']);
+        $db->table('races_imp_src')->insert([
+            ['id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'label' => 'Carta identità', 'status' => 'no', 'company_id' => null],
+            ['id' => 'bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee', 'label' => 'Busta paga', 'status' => 'ok', 'company_id' => null],
+        ]);
+
+        $report = $this->importer(true)->run([[
+            ...$this->plan(),
+            'company' => false,
+            'legacy' => null,
+            'match' => [['name']],
+            'insert_only' => true,
+        ]]);
+
+        $this->assertSame(1, $report['tables'][0]['inserted']);
+        $this->assertSame(1, $report['tables'][0]['skipped']);
+        $this->assertSame(0, $report['tables'][0]['updated']);
+        $this->assertSame('ok', $db->table('races_imp_dst')->where('name', 'Carta identità')->value('status'));
+        $this->assertSame(2, $db->table('races_imp_dst')->count());
+    }
+
+    public function test_global_insert_only_keeps_rows_already_in_destination(): void
+    {
+        $this->schema();
+        $db = CoreDatabase::$capsule->getConnection('core');
+        $db->table('races_imp_co')->insert(['name' => 'Races Finance S.r.l.', 'vat_number' => '05822361007']);
+        $db->table('races_imp_dst')->insert(['legacy_id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'name' => 'Banca Uno', 'status' => 'ok']);
+        $db->table('races_imp_src')->insert([
+            ['id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'label' => 'Banca Vecchia', 'status' => 'no', 'company_id' => null],
+            ['id' => 'bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee', 'label' => 'Banca Nuova', 'status' => 'ok', 'company_id' => null],
+        ]);
+
+        $report = $this->importer(true, insertOnly: true)->run([$this->plan()]);
+
+        $this->assertSame(1, $report['tables'][0]['inserted']);
+        $this->assertSame(1, $report['tables'][0]['skipped']);
+        $this->assertSame(0, $report['tables'][0]['updated']);
+        $this->assertSame('Banca Uno', $db->table('races_imp_dst')->where('legacy_id', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')->value('name'));
+        $this->assertSame('Banca Nuova', $db->table('races_imp_dst')->where('legacy_id', 'bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee')->value('name'));
+    }
+
     public function test_dry_run_does_not_write_rows(): void
     {
         $this->schema();
@@ -107,7 +153,7 @@ class ImportRacesTest extends TestCase
         $this->assertSame(0, $db->table('races_imp_co')->count());
     }
 
-    private function importer(bool $execute): RacesHistoricalImporter
+    private function importer(bool $execute, bool $insertOnly = false): RacesHistoricalImporter
     {
         $connection = CoreDatabase::$capsule->getConnection('core');
 
@@ -117,6 +163,7 @@ class ImportRacesTest extends TestCase
             'Races',
             null,
             'races_imp_co',
+            insertOnly: $insertOnly,
         );
     }
 
