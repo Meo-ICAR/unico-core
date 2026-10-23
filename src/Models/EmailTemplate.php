@@ -3,6 +3,7 @@
 namespace Unico\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Unico\Core\Concerns\UsesCoreConnection;
 
 /** Registro dei template email configurabili. */
@@ -39,5 +40,11 @@ class EmailTemplate extends Model
             'placeholders' => 'array',
             'is_active' => 'boolean',
         ];
+    }
+
+    /** Company a cui è riservato il template; nulla = comune a tutte. */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 }
