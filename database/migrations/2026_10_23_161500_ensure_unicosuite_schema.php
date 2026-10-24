@@ -963,7 +963,7 @@ return new class extends Migration
             ],
             'blacklist_clienti_fornitori' => [
                 'create' => 'CREATE TABLE `blacklist_clienti_fornitori` (
-  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'Identificativo interno del divieto di un istituto verso un produttore\',
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT \'Identificativo interno del divieto di un istituto verso un produttore\',
   `cliente_id` bigint unsigned NOT NULL COMMENT \'Istituto mandante che ha posto il divieto verso il produttore\',
   `fornitore_id` bigint unsigned NOT NULL COMMENT \'Produttore o agente a cui l\'\'istituto ha vietato il contatto\',
   `motivo` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT \'Motivo del divieto\',
@@ -977,7 +977,7 @@ return new class extends Migration
   KEY `blacklist_clienti_fornitori_fornitore_id_cliente_id_index` (`fornitore_id`,`cliente_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Divieto di un istituto verso un produttore (blacklist)\'',
                 'columns' => [
-                    'id' => '`id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'Identificativo interno del divieto di un istituto verso un produttore\' FIRST',
+                    'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT \'Identificativo interno del divieto di un istituto verso un produttore\' FIRST',
                     'cliente_id' => '`cliente_id` bigint unsigned NOT NULL COMMENT \'Istituto mandante che ha posto il divieto verso il produttore\' AFTER `id`',
                     'fornitore_id' => '`fornitore_id` bigint unsigned NOT NULL COMMENT \'Produttore o agente a cui l\'\'istituto ha vietato il contatto\' AFTER `cliente_id`',
                     'motivo' => '`motivo` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT \'Motivo del divieto\' AFTER `fornitore_id`',

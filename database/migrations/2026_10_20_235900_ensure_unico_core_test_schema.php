@@ -446,7 +446,7 @@ return new class extends Migration
         ],
         'blacklist_clienti_fornitori' => [
             'create' => 'CREATE TABLE `blacklist_clienti_fornitori` (
-  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'Identificativo interno del divieto di un istituto verso un produttore\',
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT \'ID intero autoincrementante\',
   `cliente_id` bigint unsigned NOT NULL COMMENT \'L\'\'istituto di credito (DB Esterno)\',
   `fornitore_id` bigint unsigned NOT NULL COMMENT \'L\'\'agente bloccato\',
   `motivo` text COLLATE utf8mb4_unicode_ci COMMENT \'Motivazione del blocco da parte della banca\',
@@ -458,7 +458,7 @@ return new class extends Migration
   UNIQUE KEY `blacklist_clienti_fornitori_cliente_id_fornitore_id_unique` (`cliente_id`,`fornitore_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Divieti di contatto tra un cliente e un fornitore\'',
             'columns' => [
-                'id' => '`id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'Identificativo interno del divieto di un istituto verso un produttore\' FIRST',
+                'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT \'ID intero autoincrementante\' FIRST',
                 'cliente_id' => '`cliente_id` bigint unsigned NOT NULL COMMENT \'L\'\'istituto di credito (DB Esterno)\' AFTER `id`',
                 'fornitore_id' => '`fornitore_id` bigint unsigned NOT NULL COMMENT \'L\'\'agente bloccato\' AFTER `cliente_id`',
                 'motivo' => '`motivo` text COLLATE utf8mb4_unicode_ci COMMENT \'Motivazione del blocco da parte della banca\' AFTER `fornitore_id`',
