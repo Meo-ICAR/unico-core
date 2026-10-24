@@ -3,20 +3,25 @@
 namespace Unico\Core\Documents\Reminders;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Throwable;
 use Unico\Core\Documents\Reminders\Contracts\RecipientResolver;
 use Unico\Core\Enums\DocumentStatus;
-use Unico\Core\Models\Document;
-use Unico\Core\Models\DocumentReminder;
 use Unico\Core\Enums\MailType;
 use Unico\Core\Mail\EmailTemplateResolver;
 use Unico\Core\Mail\OutgoingMailer;
 use Unico\Core\Mail\SenderAccountResolver;
 use Unico\Core\Mail\ThreadId;
+use Unico\Core\Models\Document;
+use Unico\Core\Models\DocumentReminder;
+use Unico\Core\Models\DocumentSchedule;
 use Unico\Core\Models\EmailTemplate;
+use Unico\Core\Models\Employee;
+use Unico\Core\Models\Fornitore;
 
 /**
  * Scadenziario e solleciti dei documenti (unione di unicooam e unicoloan). Sono da sollecitare:
@@ -54,6 +59,7 @@ class DocumentReminderService
             });
 
         $this->excludeSupersededVersions($query);
+        $this->excludeInactiveSubjects($query);
 
         return $query->orderBy('expires_at');
     }
@@ -108,6 +114,26 @@ class DocumentReminderService
     }
 
     /**
+     * Esclude i documenti di chi non c'è più: produttori dimessi (`dismissed_at`) o eliminati, dipendenti cessati (`termination_date`) o
+     * eliminati. Lo scadenziario, i controlli e i solleciti non li considerano.
+     */
+    public function excludeInactiveSubjects(Builder $query): Builder
+    {
+        $gone = [
+            [['fornitore', Fornitore::class], Fornitore::query()->withoutGlobalScopes()->where(fn (Builder $subject) => $subject->whereNotNull('deleted_at')->orWhereNotNull('dismissed_at'))->select('id')],
+            [['employee', Employee::class], Employee::query()->withoutGlobalScopes()->where(fn (Builder $subject) => $subject->whereNotNull('deleted_at')->orWhereNotNull('termination_date'))->select('id')],
+        ];
+
+        foreach ($gone as [$types, $ids]) {
+            $query->where(fn (Builder $document) => $document
+                ->whereNotIn('documents.documentable_type', $types)
+                ->orWhereNotIn('documents.documentable_id', $ids));
+        }
+
+        return $query;
+    }
+
+    /**
      * Documenti monitorati scaduti o in scadenza entro `$windowDays`. Il grado dipende dal più urgente:
      * scaduto = alert, entro 7 giorni = warning, oltre = regular. Non invia nulla.
      */
@@ -118,10 +144,13 @@ class DocumentReminderService
             ->where('is_monitored', true)
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now()->addDays($windowDays)->toDateString())
-            ->whereNotIn('status', [DocumentStatus::REJECTED->value, DocumentStatus::NA->value])
-            ->whereNull('replaced_by_id')
-            ->orderBy('expires_at')
-            ->get();
+            ->whereNotIn('status', [DocumentStatus::REJECTED->value, DocumentStatus::NA->value]);
+
+        // Come lo scadenziario: niente vecchie versioni (sostituite o rinnovate) né documenti di chi non c'è più.
+        $this->excludeSupersededVersions($documents);
+        $this->excludeInactiveSubjects($documents);
+
+        $documents = $documents->orderBy('expires_at')->get();
 
         if ($documents->isEmpty()) {
             return new ExpiryStatus(0, ExpiryStatus::OK);
@@ -156,7 +185,7 @@ class DocumentReminderService
      */
     public function expiredStatus(int $maxListed = 100): ExpiryStatus
     {
-        $expired = \Unico\Core\Models\DocumentSchedule::query()
+        $expired = DocumentSchedule::query()
             ->whereDate('expires_at', '<', now()->toDateString())
             ->orderBy('expires_at')
             ->get();
@@ -249,7 +278,7 @@ class DocumentReminderService
      *
      * @param  Collection<int, Document>  $documents  documenti dello stesso soggetto
      */
-    public function compose(Collection $documents, ?string $app = null, ?int $remindersSent = null, ?\Illuminate\Database\Eloquent\Model $recipient = null): ReminderDraft
+    public function compose(Collection $documents, ?string $app = null, ?int $remindersSent = null, ?Model $recipient = null): ReminderDraft
     {
         $app ??= config('unico-core.app_identifier');
         $first = $documents->first();
@@ -472,7 +501,7 @@ class DocumentReminderService
     /** La classe del documento dell'app (alias `document` della morph map), così i risultati sono i suoi modelli e non quelli del pacchetto. */
     private function documentClass(): string
     {
-        return \Illuminate\Database\Eloquent\Relations\Relation::getMorphedModel('document') ?? Document::class;
+        return Relation::getMorphedModel('document') ?? Document::class;
     }
 
     private function setting(string $key, mixed $default): mixed
