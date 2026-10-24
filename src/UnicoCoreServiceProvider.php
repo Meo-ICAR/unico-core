@@ -10,6 +10,7 @@ use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
 use Unico\Core\Access\AccessChecker;
 use Unico\Core\Access\ReadOnlyActions;
 use Unico\Core\Console\ClientsPrepareCommand;
+use Unico\Core\Console\DocumentsClearConcludedExpiryCommand;
 use Unico\Core\Console\DocumentsPrintRefreshCommand;
 use Unico\Core\Console\DocumentsRemindCommand;
 use Unico\Core\Console\DocumentsScheduleSyncCommand;
@@ -151,7 +152,7 @@ class UnicoCoreServiceProvider extends ServiceProvider
                 __DIR__.'/../config/unico-core.php' => config_path('unico-core.php'),
             ], 'unico-core-config');
 
-            $this->commands([MigrateCoreCommand::class, SeedExportCommand::class, ClientsPrepareCommand::class, MailAccountFromEnvCommand::class, PdfSignatureSlotsCommand::class, ImportAnagraficheCommand::class, ImportRacesCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, DocumentsPrintRefreshCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class, DocumentTypesCheckCommand::class]);
+            $this->commands([MigrateCoreCommand::class, SeedExportCommand::class, ClientsPrepareCommand::class, MailAccountFromEnvCommand::class, PdfSignatureSlotsCommand::class, ImportAnagraficheCommand::class, ImportRacesCommand::class, FetchMailCommand::class, MailHealthCommand::class, SharePointRetryCommand::class, DocumentsRemindCommand::class, DocumentsScheduleSyncCommand::class, DocumentsClearConcludedExpiryCommand::class, DocumentsPrintRefreshCommand::class, SignatureSyncCommand::class, SignatureCheckCommand::class, DocumentTypesCheckCommand::class]);
         }
     }
 

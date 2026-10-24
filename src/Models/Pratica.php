@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Unico\Core\Concerns\UsesCoreConnection;
+use Unico\Core\Documents\ConcludedPracticeExpiry;
 
 /** Registro delle pratiche di finanziamento/mutuo caricate. */
 class Pratica extends Model
@@ -16,6 +17,25 @@ class Pratica extends Model
     protected $table = 'pratiches';
 
     protected $guarded = ['id'];
+
+    /**
+     * Quando la pratica nasce o cambia stato e il nuovo stato non è più in lavorazione, le scadenze dei documenti suoi e dei suoi clienti
+     * si azzerano (`ConcludedPracticeExpiry`). Vale per ogni app, anche per il suo import.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $pratica): void {
+            if (! ($pratica->wasRecentlyCreated || $pratica->wasChanged('pratica_stato_id'))) {
+                return;
+            }
+
+            $scadenze = new ConcludedPracticeExpiry;
+
+            if ($scadenze->isConcluded($pratica)) {
+                $scadenze->clear($pratica);
+            }
+        });
+    }
 
     protected function casts(): array
     {

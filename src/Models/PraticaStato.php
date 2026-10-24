@@ -2,6 +2,7 @@
 
 namespace Unico\Core\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -15,6 +16,18 @@ class PraticaStato extends Model
     protected $table = 'pratica_stati';
 
     protected $guarded = ['id'];
+
+    /** Il nome dello stato è sempre in maiuscolo. */
+    protected function name(): Attribute
+    {
+        return Attribute::set(fn (?string $value): ?string => $value === null ? null : mb_strtoupper($value));
+    }
+
+    /** Il codice dello stato è sempre in maiuscolo. */
+    protected function codice(): Attribute
+    {
+        return Attribute::set(fn (?string $value): ?string => $value === null ? null : mb_strtoupper($value));
+    }
 
     protected function casts(): array
     {
