@@ -149,6 +149,21 @@ class ChecklistPerfezionamentoSeeder extends Seeder
         'BANCA DEL FUCINO' => 'Allegato B per CQS (Banca del Fucino)',
     ];
 
+    /**
+     * Fascicolo Races condiviso: un task base per documento, inattivo (non è un plico a sé), ereditato dai task dei prodotti che
+     * lo usano (`inherits_task_id`). Nome del task base => [documento, fase del requisito, prodotti che lo richiamano].
+     */
+    private const FASCICOLI_RACES = [
+        'Fascicolo Races CQ' => [self::FASCICOLO_CQ, 'invio_banca', ['Cessione', 'Delega']],
+        'Fascicolo Races Mutui' => [self::FASCICOLO_MUTUI, null, ['Mutuo', 'IPOTECARIO']],
+        'Fascicolo Races Prestiti' => [self::FASCICOLO_PRESTITI, null, ['Prestito']],
+        'Fascicolo Races TFS' => ['Races VERS. 03_2026 - Fascicolo completo retail TFS compilabile', null, ['TFS']],
+        'Fascicolo Races Corporate' => [self::CORPORATE, null, ['LEASING', 'CHIROGRAFARIO', 'Microcredito', 'Aziendale', 'PRESTITO AZIENDALE']],
+    ];
+
+    /** Task di stato dei prodotti che richiamano il fascicolo Races. */
+    private const STATI_CON_FASCICOLO = [self::FASE_FIRMA, 'ACCETTATO PREVENTIVO'];
+
     public function run(): void
     {
         $this->rinomina();
@@ -166,6 +181,57 @@ class ChecklistPerfezionamentoSeeder extends Seeder
 
         $this->allineaStatiAziendali();
         $this->mutuoRistrutturazione();
+        $this->fascicoliRaces();
+    }
+
+    /**
+     * Crea i task base del fascicolo Races e li fa ereditare ai task di stato dei prodotti: il documento resta solo nel base, a meno
+     * che il task lo richieda in modo diverso (facoltativo o con un'altra fase), nel qual caso tiene la propria copia, che vince. Un task si collega
+     * solo se aveva il documento (o eredita già dal base), così non si aggiunge il fascicolo dove non serviva. Ripetibile.
+     */
+    private function fascicoliRaces(): void
+    {
+        foreach (self::FASCICOLI_RACES as $nomeBase => [$documento, $fase, $prodotti]) {
+            $tipo = DocumentType::query()->where('name', $documento)->first();
+
+            if ($tipo === null) {
+                $this->command?->warn("Tipo documento mancante: {$documento}");
+
+                continue;
+            }
+
+            $base = Task::query()->firstOrCreate(['taskable' => 'pratica', 'name' => $nomeBase], [
+                'description' => "Modello riusabile: {$documento}. I task che lo richiamano lo ereditano (inherits_task_id). Inattivo: non è un plico a sé.",
+                'is_active' => false,
+            ]);
+            $requisitoBase = DocumentRequirement::query()->firstOrCreate(
+                ['task_id' => $base->getKey(), 'document_type_id' => $tipo->getKey()],
+                ['is_required' => true, 'phase' => $fase, 'sort_order' => 1],
+            );
+
+            foreach ($prodotti as $prodotto) {
+                foreach (self::STATI_CON_FASCICOLO as $stato) {
+                    $figlio = Task::query()->where('taskable', 'pratica')->where('name', "{$prodotto} · {$stato}")->first();
+
+                    if ($figlio === null || ($figlio->inherits_task_id !== null && $figlio->inherits_task_id !== $base->getKey())) {
+                        continue;
+                    }
+
+                    $copia = DocumentRequirement::query()->where('task_id', $figlio->getKey())->where('document_type_id', $tipo->getKey())->first();
+
+                    if ($copia === null && $figlio->inherits_task_id === null) {
+                        continue;
+                    }
+
+                    // La copia uguale al base si toglie; una copia senza fase (la ricrea il seeder) non cancella la fase del base.
+                    if ($copia !== null && (bool) $copia->is_required && ($copia->phase === null || $copia->phase === $requisitoBase->phase)) {
+                        $copia->delete();
+                    }
+
+                    $figlio->forceFill(['inherits_task_id' => $base->getKey()])->save();
+                }
+            }
+        }
     }
 
     private function rinomina(): void
