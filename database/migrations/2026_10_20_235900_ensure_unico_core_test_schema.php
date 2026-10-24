@@ -661,7 +661,7 @@ return new class extends Migration
             'foreign' => [
                 'client_relations_client_id_foreign' => 'CONSTRAINT `client_relations_client_id_foreign` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE',
                 'client_relations_client_type_id_foreign' => 'CONSTRAINT `client_relations_client_type_id_foreign` FOREIGN KEY (`client_type_id`) REFERENCES `client_types` (`id`) ON DELETE SET NULL',
-                'client_relations_company_id_foreign' => 'CONSTRAINT `client_relations_company_id_foreign` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE',
+                'client_relations_company_id_foreign' => 'CONSTRAINT `client_relations_company_id_foreign` FOREIGN KEY (`company_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE',
             ],
         ],
         'client_types' => [

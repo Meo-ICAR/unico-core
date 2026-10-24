@@ -1451,7 +1451,7 @@ return new class extends Migration
             'client_relations' => [
                 'create' => 'CREATE TABLE `client_relations` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT \'ID univoco del legame\',
-  `company_id` bigint unsigned NOT NULL COMMENT \'Società di mediazione (tenant) a cui appartiene il legame tra anagrafiche\',
+  `company_id` bigint unsigned NOT NULL COMMENT \'Cliente persona giuridica (clients.id) a cui appartiene il legame: socio, amministratore, titolare effettivo o referente\',
   `client_id` bigint unsigned NOT NULL COMMENT \'Persona collegata alla società: socio, amministratore, titolare effettivo o referente\',
   `client_type_id` int unsigned DEFAULT NULL COMMENT \'Tipo di cliente\',
   `role` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'legale_rappresentante | amministratore | socio | titolare_effettivo | garante | altro\',
@@ -1471,7 +1471,7 @@ return new class extends Migration
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Soci, amministratori, titolari effettivi e referente di una persona giuridica\'',
                 'columns' => [
                     'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT \'ID univoco del legame\' FIRST',
-                    'company_id' => '`company_id` bigint unsigned NOT NULL COMMENT \'Società di mediazione (tenant) a cui appartiene il legame tra anagrafiche\' AFTER `id`',
+                    'company_id' => '`company_id` bigint unsigned NOT NULL COMMENT \'Cliente persona giuridica (clients.id) a cui appartiene il legame: socio, amministratore, titolare effettivo o referente\' AFTER `id`',
                     'client_id' => '`client_id` bigint unsigned NOT NULL COMMENT \'Persona collegata alla società: socio, amministratore, titolare effettivo o referente\' AFTER `company_id`',
                     'client_type_id' => '`client_type_id` int unsigned DEFAULT NULL COMMENT \'Tipo di cliente\' AFTER `client_id`',
                     'role' => '`role` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'legale_rappresentante | amministratore | socio | titolare_effettivo | garante | altro\' AFTER `client_type_id`',
@@ -1492,7 +1492,7 @@ return new class extends Migration
                 ],
                 'foreign' => [
                     'client_relations_client_id_foreign' => 'CONSTRAINT `client_relations_client_id_foreign` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE',
-                    'client_relations_company_id_foreign' => 'CONSTRAINT `client_relations_company_id_foreign` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE',
+                    'client_relations_company_id_foreign' => 'CONSTRAINT `client_relations_company_id_foreign` FOREIGN KEY (`company_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE',
                 ],
             ],
             'client_types' => [
