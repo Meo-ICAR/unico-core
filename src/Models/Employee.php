@@ -26,6 +26,8 @@ class Employee extends Model
             'hiring_date' => 'date',
             'termination_date' => 'date',
             'employee_roles' => 'array',
+            'tipoprodotto_ids' => 'array',
+            'clienti_ids' => 'array',
             'is_structure' => 'boolean',
             'is_external' => 'boolean',
             'is_ghost' => 'boolean',
