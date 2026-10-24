@@ -3,6 +3,8 @@
 namespace Unico\Core\Tests;
 
 use Illuminate\Container\Container;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Mail\Mailable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Facade;
 use PHPUnit\Framework\TestCase;
@@ -11,6 +13,9 @@ use Unico\Core\Documents\Reminders\DocumentReminderService;
 use Unico\Core\Documents\Reminders\ExpiryStatus;
 use Unico\Core\Documents\Reminders\ScheduleSynchronizer;
 use Unico\Core\Enums\DocumentStatus;
+use Unico\Core\Mail\OutgoingMailer;
+use Unico\Core\Mail\ThreadId;
+use Unico\Core\Models\Company;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\DocumentAnalysis;
 use Unico\Core\Models\DocumentReminder;
@@ -18,6 +23,8 @@ use Unico\Core\Models\DocumentSchedule;
 use Unico\Core\Models\DocumentType;
 use Unico\Core\Models\EmailTemplate;
 use Unico\Core\Models\Employee;
+use Unico\Core\Models\MailAccount;
+use Unico\Core\MorphMap;
 use Unico\Core\Tests\Support\CoreDatabase;
 use Unico\Core\Tests\Support\FakeMailManager;
 
@@ -36,7 +43,7 @@ class RemindersTest extends TestCase
     {
         CoreDatabase::truncate('document_schedules', 'document_reminders', 'document_analyses', 'documents', 'document_types', 'email_templates', 'mail_accounts', 'employees', 'companies');
         Carbon::setTestNow('2026-10-10 09:00:00');
-        \Illuminate\Database\Eloquent\Relations\Relation::morphMap(\Unico\Core\MorphMap::all(), merge: true);
+        Relation::morphMap(MorphMap::all(), merge: true);
 
         $defaults = (require __DIR__.'/../config/unico-core.php')['documents']['reminders'];
         config(['unico-core.documents.reminders' => $defaults]);
@@ -146,7 +153,7 @@ class RemindersTest extends TestCase
 
         // Stessa emissione: prevale la scadenza più lontana.
         $tieA = $this->doc($e, $type = $this->type(), ['emitted_at' => '2025-05-05', 'expires_at' => '2026-10-12']);
-        $tieB = $this->doc($e, $type, ['emitted_at' => '2025-05-05', 'expires_at' => '2026-10-30']);
+        $tieB = $this->doc($e, $type, ['emitted_at' => '2025-05-05', 'expires_at' => '2026-10-24']);
         $ids = $this->ids();
         $this->assertNotContains($tieA->id, $ids);
         $this->assertContains($tieB->id, $ids);
@@ -175,7 +182,7 @@ class RemindersTest extends TestCase
     public function test_thresholds_default_and_per_type(): void
     {
         $e = $this->employee();
-        $this->assertSame([30, 15, 7, 1, 0], $this->service->notifyThresholds($this->doc($e)));
+        $this->assertSame([15, 7, 0], $this->service->notifyThresholds($this->doc($e)));
         $this->assertSame([3, 2], $this->service->notifyThresholds($this->doc($e, $this->type(['notify_days_before' => [3, 2]]))));
     }
 
@@ -316,7 +323,7 @@ class RemindersTest extends TestCase
         $e = $this->employee();
         $this->assertSame(ExpiryStatus::OK, $this->service->expiryStatus()->severity);
 
-        $this->doc($e, null, ['expires_at' => '2026-11-01']);
+        $this->doc($e, null, ['expires_at' => '2026-10-22']);
         $this->assertSame(ExpiryStatus::REGULAR, $this->service->expiryStatus()->severity);
 
         $this->doc($e, null, ['expires_at' => '2026-10-15']);
@@ -423,23 +430,23 @@ class RemindersTest extends TestCase
 
     public function test_the_company_template_and_the_company_sender_are_used(): void
     {
-        $company = \Unico\Core\Models\Company::create(['name' => 'Acme']);
+        $company = Company::create(['name' => 'Acme']);
         $this->template(['name' => 'comune']);
         $this->template(['name' => 'acme', 'company_id' => $company->id, 'subject' => 'Acme: {documento_nome}']);
-        \Unico\Core\Models\MailAccount::create([
+        MailAccount::create([
             'name' => 'Solleciti', 'email_address' => 'solleciti@acme.test', 'imap_host' => 'imap.acme.test', 'imap_port' => 993, 'imap_username' => 'x',
             'smtp_host' => 'smtp.acme.test', 'smtp_password' => 'segreto', 'company_id' => $company->id, 'type' => 'sollecito',
         ]);
-        $outgoing = new class extends \Unico\Core\Mail\OutgoingMailer
+        $outgoing = new class extends OutgoingMailer
         {
             public array $sent = [];
 
-            public function send(\Unico\Core\Models\MailAccount $account, string $to, \Illuminate\Mail\Mailable $mailable, ?string $fromName = null): void
+            public function send(MailAccount $account, string $to, Mailable $mailable, ?string $fromName = null): void
             {
                 $this->sent[] = ['from' => $account->email_address, 'to' => $to, 'subject' => $mailable->subjectLine];
             }
         };
-        Container::getInstance()->instance(\Unico\Core\Mail\OutgoingMailer::class, $outgoing);
+        Container::getInstance()->instance(OutgoingMailer::class, $outgoing);
         $this->doc($this->employee(), null, ['company_id' => $company->id, 'name' => 'Patente']);
 
         $stats = $this->service->sendReminders();
@@ -468,8 +475,8 @@ class RemindersTest extends TestCase
 
     public function test_a_group_without_a_matching_template_is_skipped(): void
     {
-        $company = \Unico\Core\Models\Company::create(['name' => 'Beta']);
-        $other = \Unico\Core\Models\Company::create(['name' => 'Acme']);
+        $company = Company::create(['name' => 'Beta']);
+        $other = Company::create(['name' => 'Acme']);
         $this->template(['company_id' => $other->id]);
         $this->doc($this->employee(), null, ['company_id' => $company->id]);
 
@@ -514,10 +521,10 @@ class RemindersTest extends TestCase
     {
         config(['unico-core.documents.reminders.thread_domain' => 'unico.test']);
 
-        $this->assertSame('<doc-42@unico.test>', \Unico\Core\Mail\ThreadId::forDocument(42));
-        $this->assertSame('42', \Unico\Core\Mail\ThreadId::documentFrom('<altro@x.it> <doc-42@unico.test>'));
-        $this->assertNull(\Unico\Core\Mail\ThreadId::documentFrom('<altro@x.it>'));
-        $this->assertNull(\Unico\Core\Mail\ThreadId::documentFrom(null));
+        $this->assertSame('<doc-42@unico.test>', ThreadId::forDocument(42));
+        $this->assertSame('42', ThreadId::documentFrom('<altro@x.it> <doc-42@unico.test>'));
+        $this->assertNull(ThreadId::documentFrom('<altro@x.it>'));
+        $this->assertNull(ThreadId::documentFrom(null));
     }
 
     public function test_render_text_fills_the_placeholders_of_a_text_changed_by_the_user(): void

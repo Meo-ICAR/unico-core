@@ -36,7 +36,7 @@ class DocumentReminderService
     /** @return Builder<Document> */
     public function scheduleQuery(): Builder
     {
-        $windowDays = (int) $this->setting('window_days', 90);
+        $windowDays = (int) $this->setting('window_days', 15);
         $resendAfter = (int) $this->setting('resend_after_days', 5);
         $until = now()->addDays($windowDays)->toDateString();
 
@@ -135,9 +135,9 @@ class DocumentReminderService
 
     /**
      * Documenti monitorati scaduti o in scadenza entro `$windowDays`. Il grado dipende dal più urgente:
-     * scaduto = alert, entro 7 giorni = warning, oltre = regular. Non invia nulla.
+     * scaduto = alert, entro 7 giorni = warning, entro 15 = regular. Non invia nulla.
      */
-    public function expiryStatus(int $windowDays = 30): ExpiryStatus
+    public function expiryStatus(int $windowDays = 15): ExpiryStatus
     {
         $documents = $this->documentClass()::query()
             ->with('documentType')
@@ -181,7 +181,7 @@ class DocumentReminderService
 
     /**
      * Documenti già scaduti nella tabella dello scadenziario (da `ScheduleSynchronizer`). Il grado dipende da quanto è vecchia
-     * la scadenza più in ritardo: oltre 30 giorni alert, oltre 15 warning, oltre 7 regular.
+     * la scadenza: un documento scaduto è sempre un alert.
      */
     public function expiredStatus(int $maxListed = 100): ExpiryStatus
     {
@@ -206,14 +206,7 @@ class DocumentReminderService
             $list .= "\n... e altri ".($expired->count() - $maxListed).' documenti.';
         }
 
-        $severity = match (true) {
-            $oldest > 30 => ExpiryStatus::ALERT,
-            $oldest > 15 => ExpiryStatus::WARNING,
-            $oldest > 7 => ExpiryStatus::REGULAR,
-            default => ExpiryStatus::OK,
-        };
-
-        return new ExpiryStatus($expired->count(), $severity, "{$expired->count()} documenti scaduti, il più vecchio da {$oldest} giorni.\n".$list);
+        return new ExpiryStatus($expired->count(), ExpiryStatus::ALERT, "{$expired->count()} documenti scaduti, il più vecchio da {$oldest} giorni.\n".$list);
     }
 
     /** @return Collection<string, Collection<int, Document>> raggruppati per `alias|id` del soggetto */
@@ -411,7 +404,7 @@ class DocumentReminderService
             return array_map('intval', $configured);
         }
 
-        return array_map('intval', (array) $this->setting('default_notify_days_before', [30, 15, 7, 1, 0]));
+        return array_map('intval', (array) $this->setting('default_notify_days_before', [15, 7, 0]));
     }
 
     /**

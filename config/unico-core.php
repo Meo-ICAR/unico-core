@@ -293,10 +293,10 @@ return [
             'price_output' => env('UNICO_CORE_AI_PRICE_OUTPUT'),
         ],
         'reminders' => [
-            'window_days' => 90,
+            'window_days' => 15,
             'resend_after_days' => 5,
             'missing_reminder_days' => 7,
-            'default_notify_days_before' => [30, 15, 7, 1, 0],
+            'default_notify_days_before' => [15, 7, 0],
             'template_code' => 'DOC_EXPIRING',
             // Dominio degli identificativi di conversazione dei solleciti (<doc-ID@dominio>); vuoto = host di APP_URL.
             'thread_domain' => env('UNICO_CORE_REMINDER_THREAD_DOMAIN'),
