@@ -439,7 +439,7 @@ return new class extends Migration
   KEY `api_logs_event_id_index` (`event_id`),
   KEY `api_logs_origin_index` (`origin`),
   KEY `api_logs_company_id_index` (`company_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Registro delle chiamate API tra unicobpm e le altre app (in uscita e in entrata), con esito e durata\'',
                 'columns' => [
                     'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT FIRST',
                     'direction' => '`direction` varchar(3) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'in = ricevuta da un\'\'altra app, out = inviata a un\'\'altra app o a un webhook\' AFTER `id`',
@@ -3550,7 +3550,7 @@ return new class extends Migration
   PRIMARY KEY (`id`),
   UNIQUE KEY `external_events_event_id_unique` (`event_id`),
   KEY `external_events_name_status_index` (`name`,`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Eventi comunicati a unicobpm dalle altre app: ognuno si registra una sola volta e può avviare processi\'',
                 'columns' => [
                     'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT FIRST',
                     'event_id' => '`event_id` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'Identificativo dell\'\'evento dato dal mittente: lo stesso evento inviato due volte vale una volta\' AFTER `id`',
@@ -5331,7 +5331,7 @@ return new class extends Migration
   PRIMARY KEY (`id`),
   UNIQUE KEY `outbound_calls_idempotency_key_unique` (`idempotency_key`),
   KEY `outbound_calls_status_next_attempt_at_index` (`status`,`next_attempt_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Coda delle chiamate in uscita verso le altre app, con ritentativi e idempotenza\'',
                 'columns' => [
                     'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT FIRST',
                     'event' => '`event` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT \'Cosa l\'\'ha generata (es. completion_write, webhook:process.status_changed)\' AFTER `id`',
@@ -6150,7 +6150,7 @@ return new class extends Migration
   UNIQUE KEY `process_email_replies_incoming_email_id_unique` (`incoming_email_id`),
   KEY `process_email_replies_process_instance_id_foreign` (`process_instance_id`),
   KEY `process_email_replies_status_created_at_index` (`status`,`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Risposte email ai processi: interpretate in automatico o in attesa dell\'\'operatore\'',
                 'columns' => [
                     'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT FIRST',
                     'incoming_email_id' => '`incoming_email_id` bigint unsigned NOT NULL COMMENT \'incoming_emails.id del database condiviso (nessun vincolo): una email si elabora una sola volta\' AFTER `id`',
@@ -6258,7 +6258,7 @@ return new class extends Migration
   PRIMARY KEY (`id`),
   KEY `process_postponements_process_instance_id_foreign` (`process_instance_id`),
   KEY `process_postponements_process_task_execution_id_foreign` (`process_task_execution_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Rinvii concessi del termine di un passo di processo, con la nuova data e chi li ha concessi\'',
                 'columns' => [
                     'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT FIRST',
                     'process_instance_id' => '`process_instance_id` bigint unsigned NOT NULL AFTER `id`',
@@ -8154,7 +8154,7 @@ return new class extends Migration
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT=\'Destinatari dei webhook verso terzi per gli eventi dei processi, con firma e segreto\'',
                 'columns' => [
                     'id' => '`id` bigint unsigned NOT NULL AUTO_INCREMENT FIRST',
                     'name' => '`name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL AFTER `id`',
