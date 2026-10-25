@@ -30,6 +30,7 @@ class Cliente extends Model
             'is_exclusive' => 'boolean',
             'is_reported' => 'boolean',
             'is_dummy' => 'boolean',
+            'tracciato_import' => 'array',
         ];
     }
 
