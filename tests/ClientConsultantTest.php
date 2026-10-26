@@ -13,7 +13,7 @@ class ClientConsultantTest extends TestCase
         CoreDatabase::migrateFresh();
     }
 
-    public function test_a_client_with_roles_in_the_org_chart_is_a_company_consultant_on_save(): void
+    public function test_a_client_with_roles_in_the_org_chart_is_a_consultant_on_save(): void
     {
         $consultant = Client::create(['name' => 'Studio Alfa', 'is_company' => false, 'employee_roles' => ['compliance']]);
         $plain = Client::create(['name' => 'Cliente Beta', 'is_company' => false]);

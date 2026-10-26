@@ -26,7 +26,8 @@ class Client extends Model
 
     /**
      * Ogni nuova persona fisica nasce con i due indirizzi (residenza, domicilio) e i due documenti d'identità da compilare.
-     * Un client che ricopre ruoli dell'organigramma (`employee_roles`) è un consulente aziendale: al salvataggio `is_company` si attiva.
+     * `is_company` indica il consulente aziendale (non un'azienda: la persona giuridica è `is_person = false`): un client che ricopre ruoli
+     * dell'organigramma (`employee_roles`) lo è, e al salvataggio `is_company` si attiva.
      */
     protected static function booted(): void
     {
