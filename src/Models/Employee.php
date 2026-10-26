@@ -34,6 +34,12 @@ class Employee extends Model
         ];
     }
 
+    /** Società o studio per cui lavora (client persona giuridica). */
+    public function employer(): BelongsTo
+    {
+        return $this->belongsTo(Client::class, 'employer_id');
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class, 'branch_id');
