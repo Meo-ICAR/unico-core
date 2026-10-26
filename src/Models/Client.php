@@ -2,15 +2,15 @@
 
 namespace Unico\Core\Models;
 
-use Unico\Core\Enums\IbanHolder;
-use Unico\Core\Enums\MaritalStatus;
-use Unico\Core\Enums\PaymentMethod;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Unico\Core\Concerns\UsesCoreConnection;
 use Unico\Core\Enums\DocumentStatus;
+use Unico\Core\Enums\IbanHolder;
+use Unico\Core\Enums\MaritalStatus;
+use Unico\Core\Enums\PaymentMethod;
 
 /** Clienti finali: persone fisiche e giuridiche, con dati KYC e consensi privacy. */
 class Client extends Model
@@ -24,9 +24,17 @@ class Client extends Model
     /** Tipi dei due documenti d'identità che ogni persona fisica ha da raccogliere (codice o nome del tipo). */
     public const DOCUMENTI_INIZIALI = [['code', 'CARTA_IDENTITA'], ['name', 'Patente di Guida']];
 
-    /** Ogni nuova persona fisica nasce con i due indirizzi (residenza, domicilio) e i due documenti d'identità da compilare. */
+    /**
+     * Ogni nuova persona fisica nasce con i due indirizzi (residenza, domicilio) e i due documenti d'identità da compilare.
+     * Un client che ricopre ruoli dell'organigramma (`employee_roles`) è un consulente aziendale: al salvataggio `is_company` si attiva.
+     */
     protected static function booted(): void
     {
+        static::saving(function (self $client): void {
+            if (! empty($client->employee_roles)) {
+                $client->is_company = true;
+            }
+        });
         static::created(fn (self $client) => $client->preparaAnagrafica());
     }
 
