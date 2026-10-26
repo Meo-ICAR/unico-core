@@ -75,7 +75,7 @@ return new class extends Migration
             $table->timestamp('consent_marketing_at')->nullable()->comment('Consenso comunicazioni commerciali e newsletter');
             $table->timestamp('consent_profiling_at')->nullable()->comment('Consenso profilazione abitudini di consumo/spesa');
             $table->string('status')->default('raccolta_dati')->comment('raccolta_dati, valutazione_aml, approvata, sos_inviata, chiusa');
-            $table->boolean('is_company')->default(false)->comment('True se il cliente è un\'azienda fornitore');
+            $table->boolean('is_company')->default(false)->comment('Consulente aziendale (esterno con ruoli in organigramma); la persona giuridica si indica con is_person = false');
             $table->boolean('is_lead')->default(false)->comment('True se è un lead non ancora convertito');
             $table->foreignId('leadsource_id')->nullable()->comment('ID del client che ha fornito il lead');
             $table->timestamp('acquired_at')->nullable()->comment('Data di acquisizione del contatto');
