@@ -129,16 +129,16 @@ class MediafacileSimulationService
     }
 
     /**
-     * Alcune banche (es. FIGENPA) danno l'erogato moltiplicato per 100, come capitale e rata. Il tetto è il capitale della risposta
-     * (o, se manca, il montante rata × durata dei parametri): se l'erogato lo supera e diviso per 100 rientra, si riporta in euro;
-     * se lo supera ancora, l'offerta non è attendibile e non vale.
+     * Alcune banche (es. FIGENPA) hanno dato in passato l'erogato moltiplicato per 100. Il tetto è il montante rata × durata dei parametri
+     * inviati o, se non ci sono, il capitale della risposta, preso com'è: se l'erogato lo supera e diviso per 100 rientra, si riporta in
+     * euro; se lo supera ancora, l'offerta non è attendibile e non vale. Con importi già corretti non cambia nulla.
      *
      * @return array{valid: bool, erogato: float, bank: ?string, commission: ?float, message: ?string}
      */
     private static function offer(bool $valid, string $erogato, ?string $capital, ?string $bank, string $commission, string $message, ?float $ceiling = null): array
     {
         $amount = self::number($erogato);
-        $limit = $capital !== null && trim($capital) !== '' ? self::number($capital) / 100 : $ceiling;
+        $limit = $ceiling ?? ($capital !== null && trim($capital) !== '' ? self::number($capital) : null);
 
         if ($limit !== null && $limit > 0 && $amount > $limit) {
             if ($amount / 100 <= $limit) {

@@ -78,11 +78,11 @@ class MediafacileSimulationServiceTest extends TestCase
 
     public function test_legge_la_risposta_vera_di_filemaker_con_banca_scartando_gli_errori_e_riportando_in_euro_gli_importi_x100(): void
     {
-        $offers = MediafacileSimulationService::offers((string) file_get_contents(__DIR__.'/Fixtures/mediafacile-simulazione.xml'));
+        $offers = MediafacileSimulationService::offers((string) file_get_contents(__DIR__.'/Fixtures/mediafacile-simulazione.xml'), ['Importo_rata' => '300,00', 'Durata' => '120']);
 
         $this->assertCount(3, $offers);
         $this->assertSame(['valid' => true, 'erogato' => 25645.84, 'bank' => 'CAPITALFIN', 'commission' => 108000.0, 'message' => null], $offers[0]);
-        // FIGENPA dà l'erogato × 100 (2.131.328,62) ma il capitale è 36.000: si riporta in euro.
+        // FIGENPA dà l'erogato × 100 (2.131.328,62) ma il montante è 36.000 (300 × 120): si riporta in euro.
         $this->assertSame(21313.29, $offers[1]['erogato']);
         $this->assertSame('FIGENPA SPA', $offers[1]['bank']);
         $this->assertFalse($offers[2]['valid']);
@@ -196,6 +196,21 @@ class MediafacileSimulationServiceTest extends TestCase
         } catch (SimulationUnavailable $e) {
             $this->assertSame('Nessuna offerta valida.', $e->getMessage());
             $this->assertSame(['unico'], $registrati);
+        }
+    }
+
+    public function test_con_importi_gia_in_euro_nulla_viene_diviso_neppure_senza_parametri(): void
+    {
+        $record = fn (string $banca, string $erogato) => '<record><field name="Importo_rata"><data>280</data></field><field name="Importo_capitale"><data>33600</data></field>'
+            .'<field name="Importo_erogato"><data>'.$erogato.'</data></field><field name="Errore"><data>2</data></field>'
+            .'<field name="Denominazione_istituto"><data>'.$banca.'</data></field></record>';
+        $xml = '<fmresultset xmlns="http://www.filemaker.com/xml/fmresultset"><error code="0"/><resultset>'.$record('CAPITALFIN', '23611,75').$record('FIGENPA SPA', '20790,64').'</resultset></fmresultset>';
+
+        foreach ([[], ['Importo_rata' => '280,00', 'Durata' => '120']] as $params) {
+            $offers = MediafacileSimulationService::offers($xml, $params);
+
+            $this->assertSame([23611.75, 20790.64], array_column($offers, 'erogato'));
+            $this->assertSame([true, true], array_column($offers, 'valid'));
         }
     }
 }
