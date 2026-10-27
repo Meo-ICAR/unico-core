@@ -58,6 +58,7 @@ class CoreDataSeeder extends Seeder
     public function run(): void
     {
         $this->load(self::TABLES);
+        $this->call(ComuniSeeder::class);
     }
 
     /**
