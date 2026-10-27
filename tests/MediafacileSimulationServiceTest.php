@@ -150,4 +150,52 @@ class MediafacileSimulationServiceTest extends TestCase
         $this->assertNull($summary['max']['bank']);
         $this->assertNull(MediafacileSimulationService::summary(MediafacileSimulationService::offers('<Offerte><Offerta><Importo_erogato>0</Importo_erogato><Errore>1</Errore></Offerta></Offerte>')));
     }
+
+    public function test_senza_capitale_nella_risposta_il_tetto_e_il_montante_dei_parametri(): void
+    {
+        $xml = '<Offerte>'
+            .'<Offerta><Importo_erogato>20.000,00</Importo_erogato><Errore>2</Errore></Offerta>'
+            .'<Offerta><Importo_erogato>2.131.328,62</Importo_erogato><Errore>2</Errore></Offerta>'
+            .'<Offerta><Importo_erogato>9.999.999,00</Importo_erogato><Errore>2</Errore></Offerta>'
+            .'</Offerte>';
+
+        $offers = MediafacileSimulationService::offers($xml, ['Importo_rata' => '280,00', 'Durata' => '120']);
+
+        $this->assertSame([20000.0, 21313.29, 9999999.0], array_column($offers, 'erogato'));
+        $this->assertSame([true, true, false], array_column($offers, 'valid'));
+        // Senza parametri nessun tetto, e col prestito (importo richiesto) neppure.
+        $this->assertSame(2131328.62, MediafacileSimulationService::offers($xml)[1]['erogato']);
+        $this->assertSame(2131328.62, MediafacileSimulationService::offers($xml, ['Importo_rata' => '280,00', 'Durata' => '120', 'Importo_richiesto' => '15000,00'])[1]['erogato']);
+    }
+
+    public function test_run_fa_una_chiamata_per_scenario_registra_anche_quello_senza_offerte_e_riassume(): void
+    {
+        $uno = '<Offerte><Offerta><Istituto><Nome>Banca A</Nome></Istituto><Importo_erogato>15000,00</Importo_erogato><Errore>2</Errore></Offerta></Offerte>';
+        $due = '<Offerte><Offerta><Istituto><Nome>Banca B</Nome></Istituto><Importo_erogato>9000,00</Importo_erogato><Errore>2</Errore></Offerta></Offerte>';
+        Http::fake([self::URL.'*' => Http::sequence()->push($uno)->push($due)]);
+        $registrati = [];
+
+        $esito = (new MediafacileSimulationService)->run(self::URL, 'PK', ['best' => ['Durata' => '60'], 'worst' => ['Durata' => '72']],
+            function (string $nome, array $params, string $raw, array $offers) use (&$registrati): void {
+                $registrati[] = [$nome, $params['Durata'], count($offers)];
+            });
+
+        $this->assertSame([['best', '60', 1], ['worst', '72', 1]], $registrati);
+        $this->assertCount(2, $esito['offers']);
+        $this->assertSame(['amount' => 15000.0, 'bank' => 'Banca A'], $esito['summary']['max']);
+        $this->assertSame(['amount' => 9000.0, 'bank' => 'Banca B'], $esito['summary']['min']);
+
+        Http::fake(['https://altro.test/*' => Http::response('<Offerte><Offerta><Importo_erogato>0</Importo_erogato><Errore>1</Errore></Offerta></Offerte>')]);
+        $registrati = [];
+
+        try {
+            (new MediafacileSimulationService)->run('https://altro.test/ws', 'PK', ['unico' => []], function (string $nome) use (&$registrati): void {
+                $registrati[] = $nome;
+            });
+            $this->fail('Attesa SimulationUnavailable');
+        } catch (SimulationUnavailable $e) {
+            $this->assertSame('Nessuna offerta valida.', $e->getMessage());
+            $this->assertSame(['unico'], $registrati);
+        }
+    }
 }

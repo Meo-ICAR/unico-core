@@ -49,12 +49,14 @@ class MediafacileSimulationService
 
     /**
      * Come parse(), con la banca e la provvigione di ogni offerta (null se il servizio non le dà).
+     * Con i `$params` inviati si ricava il montante (rata × durata), che fa da tetto all'erogato quando la risposta non dà il capitale.
      *
+     * @param  array<string, string>  $params
      * @return list<array{valid: bool, erogato: float, bank: ?string, commission: ?float, message: ?string}>
      *
      * @throws SimulationUnavailable
      */
-    public static function offers(string $raw): array
+    public static function offers(string $raw, array $params = []): array
     {
         $raw = trim($raw);
 
@@ -71,8 +73,10 @@ class MediafacileSimulationService
             throw new SimulationUnavailable('Risposta del servizio di simulazione non valida.');
         }
 
+        $ceiling = self::ceiling($params);
+
         if (isset($xml->xpath('/*[local-name()="fmresultset"]')[0])) {
-            return self::fromFileMaker($xml);
+            return self::fromFileMaker($xml, $ceiling);
         }
 
         $offers = [];
@@ -84,6 +88,7 @@ class MediafacileSimulationService
                 self::bank($node),
                 trim((string) $node->Importo_provvigione),
                 trim((string) $node->Stato),
+                $ceiling,
             );
         }
 
@@ -91,7 +96,7 @@ class MediafacileSimulationService
     }
 
     /** @return list<array{valid: bool, erogato: float, bank: ?string, commission: ?float, message: ?string}> */
-    private static function fromFileMaker(\SimpleXMLElement $xml): array
+    private static function fromFileMaker(\SimpleXMLElement $xml, ?float $ceiling): array
     {
         $xml->registerXPathNamespace('f', 'http://www.filemaker.com/xml/fmresultset');
         $code = (string) ($xml->xpath('/f:fmresultset/f:error/@code')[0] ?? '0');
@@ -116,6 +121,7 @@ class MediafacileSimulationService
                 $field('Denominazione_istituto') ?: null,
                 $field('Importo_provvigione'),
                 $field('Stato'),
+                $ceiling,
             );
         }
 
@@ -123,18 +129,24 @@ class MediafacileSimulationService
     }
 
     /**
-     * Alcune banche (es. FIGENPA) danno l'erogato moltiplicato per 100, come capitale e rata. Se supera il capitale
-     * (rata × durata) e diviso per 100 rientra nel capitale, si riporta in euro. Le altre offerte restano come sono.
+     * Alcune banche (es. FIGENPA) danno l'erogato moltiplicato per 100, come capitale e rata. Il tetto è il capitale della risposta
+     * (o, se manca, il montante rata × durata dei parametri): se l'erogato lo supera e diviso per 100 rientra, si riporta in euro;
+     * se lo supera ancora, l'offerta non è attendibile e non vale.
      *
      * @return array{valid: bool, erogato: float, bank: ?string, commission: ?float, message: ?string}
      */
-    private static function offer(bool $valid, string $erogato, ?string $capital, ?string $bank, string $commission, string $message): array
+    private static function offer(bool $valid, string $erogato, ?string $capital, ?string $bank, string $commission, string $message, ?float $ceiling = null): array
     {
         $amount = self::number($erogato);
-        $capitalEuro = $capital !== null && trim($capital) !== '' ? self::number($capital) / 100 : null;
+        $limit = $capital !== null && trim($capital) !== '' ? self::number($capital) / 100 : $ceiling;
 
-        if ($capitalEuro !== null && $capitalEuro > 0 && $amount > $capitalEuro && $amount / 100 <= $capitalEuro) {
-            $amount = round($amount / 100, 2);
+        if ($limit !== null && $limit > 0 && $amount > $limit) {
+            if ($amount / 100 <= $limit) {
+                $amount = round($amount / 100, 2);
+            } elseif ($valid) {
+                $valid = false;
+                $message = 'Erogato oltre il capitale.';
+            }
         }
 
         return [
@@ -144,6 +156,52 @@ class MediafacileSimulationService
             'commission' => $commission === '' ? null : self::number($commission),
             'message' => $message === '' ? null : $message,
         ];
+    }
+
+    /** Montante (rata × durata) dai parametri inviati; null per il prestito (ha l'importo richiesto) o se mancano rata e durata. */
+    private static function ceiling(array $params): ?float
+    {
+        if (isset($params['Importo_richiesto'])) {
+            return null;
+        }
+
+        $rata = self::number((string) ($params['Importo_rata'] ?? ''));
+        $durata = self::number((string) ($params['Durata'] ?? ''));
+
+        return $rata > 0 && $durata > 0 ? $rata * $durata : null;
+    }
+
+    /**
+     * Una o più simulazioni (scenari), ognuna con i suoi parametri: unicofinance ne fa una con i dati esatti, unicoagent due
+     * (migliore e peggiore). Di ogni risposta si leggono le offerte (con il tetto del montante) e `$record` riceve nome, parametri,
+     * risposta grezza e offerte, anche quando lo scenario non ha offerte valide. Le offerte valide di tutti gli scenari vanno nel riepilogo.
+     *
+     * @param  array<string, array<string, string>>  $scenarios  nome dello scenario => parametri, senza Passkey
+     * @param  (\Closure(string, array<string, string>, string, list<array<string, mixed>>): void)|null  $record
+     * @return array{offers: list<array{valid: bool, erogato: float, bank: ?string, commission: ?float, message: ?string}>, summary: array<string, mixed>}
+     *
+     * @throws SimulationUnavailable
+     */
+    public function run(string $url, string $passkey, array $scenarios, ?\Closure $record = null): array
+    {
+        $all = [];
+
+        foreach ($scenarios as $name => $params) {
+            $raw = $this->request($url, $passkey, $params);
+            $offers = self::offers($raw, $params);
+
+            if ($record !== null) {
+                $record((string) $name, $params, $raw, $offers);
+            }
+
+            if (array_filter($offers, fn (array $offer): bool => $offer['valid']) === []) {
+                throw new SimulationUnavailable('Nessuna offerta valida'.(count($scenarios) > 1 ? " nello scenario {$name}" : '').'.');
+            }
+
+            $all = [...$all, ...$offers];
+        }
+
+        return ['offers' => $all, 'summary' => self::summary($all) ?? throw new SimulationUnavailable('Nessuna offerta valida.')];
     }
 
     /**
