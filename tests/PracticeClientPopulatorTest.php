@@ -105,4 +105,42 @@ class PracticeClientPopulatorTest extends TestCase
         $this->assertNull((new PracticeClientPopulator(new PracticeModuleData))->apply($pratica, $this->document('reddito', $this->identity(), $pratica)));
         $this->assertSame(0, Client::query()->count());
     }
+
+    public function test_dal_questionario_kyc_si_riportano_anagrafica_cittadinanza_e_domicilio_senza_toccare_i_dati_presenti(): void
+    {
+        CoreDatabase::truncate('addresses');
+        $pratica = Pratica::create(['codice_pratica' => 'P-9', 'upload_at' => now()]);
+        $fields = ['surname' => 'Mercuri', 'name' => 'Valentina', 'fiscal_code' => 'MRCVNT87S68G791N', 'birth_date' => '28/11/1987', 'birth_place' => 'POLISTENA',
+            'citizenship' => 'Italia', 'address_street' => 'CONTRADA CAMPIZZI,SNC', 'address_city' => 'Rosarno', 'address_province' => 'rc', 'address_zip' => '89025',
+            'document_number' => 'CA73406KC', 'pep_status' => 'nessuna'];
+        $document = $this->document('questionario_kyc', $fields, $pratica);
+
+        $client = (new PracticeClientPopulator(new PracticeModuleData))->apply($pratica, $document);
+
+        $this->assertSame('Italia', $client->citizenship);
+        $this->assertSame('POLISTENA', $client->birth_place);
+        $domicilio = $client->addresses()->where('address_type_id', 2)->first();
+        $this->assertSame(['Domicilio', 'CONTRADA CAMPIZZI,SNC', 'Rosarno', 'RC', '89025'], [$domicilio->name, $domicilio->street, $domicilio->city, $domicilio->province, $domicilio->zip_code]);
+        $this->assertNull($document->fresh()->docnumber, 'Gli estremi del documento si leggono dal documento, non dal questionario.');
+
+        // Un domicilio già scritto a mano non si sovrascrive; una riga vuota si completa.
+        $domicilio->update(['city' => 'Melicucco']);
+        $document2 = $this->document('questionario_kyc', $fields, $pratica);
+        (new PracticeClientPopulator(new PracticeModuleData))->apply($pratica, $document2);
+        $this->assertSame('Melicucco', $domicilio->fresh()->city);
+        $this->assertSame(1, $client->addresses()->where('address_type_id', 2)->count());
+    }
+
+    public function test_dal_documento_d_identita_la_residenza_stampata_va_nell_indirizzo_di_residenza(): void
+    {
+        CoreDatabase::truncate('addresses');
+        $pratica = Pratica::create(['codice_pratica' => 'P-10', 'upload_at' => now()]);
+        $document = $this->document('identita', $this->identity(['residence_street' => 'Via Fosse Ardeatine, N. 4', 'residence_city' => 'Melicucco', 'residence_province' => 'rc', 'residence_zip' => '']), $pratica);
+
+        $client = (new PracticeClientPopulator(new PracticeModuleData))->apply($pratica, $document);
+
+        $residenza = $client->addresses()->where('address_type_id', 1)->firstOrFail();
+        $this->assertSame(['Residenza', 'Via Fosse Ardeatine, N. 4', 'Melicucco', 'RC', null], [$residenza->name, $residenza->street, $residenza->city, $residenza->province, $residenza->zip_code]);
+        $this->assertSame(0, $client->addresses()->where('address_type_id', 2)->count());
+    }
 }

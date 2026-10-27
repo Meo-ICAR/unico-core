@@ -536,6 +536,34 @@ class DocumentPipelineTest extends TestCase
         $this->assertSame('image', $sent[1]['messages'][0]['content'][0]['type']);
     }
 
+    public function test_anthropic_reader_reads_the_kyc_questionnaire_with_its_own_schema_and_no_union_types(): void
+    {
+        $sent = [];
+        $reader = new AnthropicDocumentReader('chiave', 'modello-x', function (array $payload) use (&$sent): array {
+            $sent[] = $payload;
+
+            return ['content' => [['type' => 'text', 'text' => json_encode(['legible' => true, 'pep_status' => 'nessuna'])]], 'stop_reason' => 'end_turn'];
+        });
+
+        $fields = $reader->read('questionario_kyc', 'application/pdf', 'PDF');
+
+        $this->assertSame('nessuna', $fields['pep_status']);
+        $this->assertStringContainsString('anti-money-laundering questionnaire', $sent[0]['system']);
+        $properties = $sent[0]['output_config']['format']['schema']['properties'];
+        $this->assertSame(['carica_pubblica', 'familiare', 'stretti_legami', 'carica_locale', 'nessuna', ''], $properties['pep_status']['enum']);
+        $this->assertArrayHasKey('address_city', $properties);
+
+        // L'API accetta al massimo 16 campi con tipo multiplo o anyOf.
+        $unions = array_filter($properties, fn (array $property): bool => is_array($property['type'] ?? null) || isset($property['anyOf']));
+        $this->assertLessThanOrEqual(16, count($unions));
+
+        // Anche il profilo base resta valido: nessun enum con tipo multiplo.
+        $reader->read('identita', 'application/pdf', 'PDF');
+        $documentType = $sent[1]['output_config']['format']['schema']['properties']['document_type'];
+        $this->assertArrayHasKey('anyOf', $documentType);
+        $this->assertArrayNotHasKey('enum', $documentType);
+    }
+
     public function test_anthropic_reader_ignores_unsupported_files_refusals_and_garbage(): void
     {
         $calls = 0;

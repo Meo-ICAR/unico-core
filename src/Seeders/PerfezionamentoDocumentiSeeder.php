@@ -23,6 +23,8 @@ class PerfezionamentoDocumentiSeeder extends Seeder
     private const DOCUMENTI_IDENTIFICATIVI = [
         "Carta d'Identità" => 'identita',
         'Codice fiscale / Tessera sanitaria' => 'codice_fiscale',
+        'Tessera Sanitaria / Codice fiscale' => 'codice_fiscale',
+        'Codice Fiscale' => 'codice_fiscale',
     ];
 
     /**
