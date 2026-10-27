@@ -428,8 +428,8 @@ return [
     |
     */
     'mediafacile' => [
-        // Servizio di simulazione Mediafacile (WS Offerte): secondi di attesa della risposta (il servizio impiega 15-20 secondi).
-        'timeout' => (int) env('MEDIAFACILE_TIMEOUT', 45),
+        // Servizio di simulazione Mediafacile (WS Offerte): secondi di attesa della risposta (60: la cessione, con tutte le offerte, può impiegare più di 45 secondi).
+        'timeout' => (int) env('MEDIAFACILE_TIMEOUT', 60),
     ],
 
     'openapi' => [
