@@ -60,6 +60,7 @@ class DocumentReminderService
 
         $this->excludeSupersededVersions($query);
         $this->excludeInactiveSubjects($query);
+        $this->excludeConfiguredTypes($query);
 
         return $query->orderBy('expires_at');
     }
@@ -114,6 +115,17 @@ class DocumentReminderService
     }
 
     /**
+     * Esclude i documenti legati ai tipi di soggetto indicati in `exclude_documentable_types` (env UNICO_CORE_REMINDER_EXCLUDE_TYPES, alias
+     * separati da virgola, es. `pratica,client`): scadenziario, controlli e solleciti non li riportano. Vuoto = nessuna esclusione.
+     */
+    public function excludeConfiguredTypes(Builder $query): Builder
+    {
+        $types = array_values(array_filter(array_map('trim', explode(',', (string) $this->setting('exclude_documentable_types', '')))));
+
+        return $types === [] ? $query : $query->whereNotIn('documents.documentable_type', $types);
+    }
+
+    /**
      * Esclude i documenti di chi non c'è più: produttori dimessi (`dismissed_at`) o eliminati, dipendenti cessati (`termination_date`) o
      * eliminati. Lo scadenziario, i controlli e i solleciti non li considerano.
      */
@@ -149,6 +161,7 @@ class DocumentReminderService
         // Come lo scadenziario: niente vecchie versioni (sostituite o rinnovate) né documenti di chi non c'è più.
         $this->excludeSupersededVersions($documents);
         $this->excludeInactiveSubjects($documents);
+        $this->excludeConfiguredTypes($documents);
 
         $documents = $documents->orderBy('expires_at')->get();
 

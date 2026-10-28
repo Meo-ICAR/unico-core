@@ -561,4 +561,18 @@ class RemindersTest extends TestCase
         $this->assertContains($withAnomalies->id, $ids);
         $this->assertNotContains($clean->id, $ids);
     }
+
+    public function test_documents_of_the_configured_subject_types_are_left_out(): void
+    {
+        $e = $this->employee();
+        $doc = $this->doc($e, null, ['expires_at' => '2026-10-15']);
+
+        config(['unico-core.documents.reminders.exclude_documentable_types' => 'pratica, client']);
+        $this->assertContains($doc->id, $this->ids());
+        $this->assertSame(1, $this->service->expiryStatus()->count);
+
+        config(['unico-core.documents.reminders.exclude_documentable_types' => 'pratica,employee']);
+        $this->assertNotContains($doc->id, $this->ids());
+        $this->assertSame(0, $this->service->expiryStatus()->count);
+    }
 }

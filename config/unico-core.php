@@ -297,6 +297,9 @@ return [
             'resend_after_days' => 5,
             'missing_reminder_days' => 7,
             'default_notify_days_before' => [15, 7, 0],
+            // Alias dei soggetti (morph map, separati da virgola) i cui documenti non compaiono in scadenziario, controlli e solleciti.
+            // Es. `pratica,client` esclude i documenti delle pratiche e dei relativi clienti. Vuoto = nessuna esclusione.
+            'exclude_documentable_types' => env('UNICO_CORE_REMINDER_EXCLUDE_TYPES', ''),
             'template_code' => 'DOC_EXPIRING',
             // Dominio degli identificativi di conversazione dei solleciti (<doc-ID@dominio>); vuoto = host di APP_URL.
             'thread_domain' => env('UNICO_CORE_REMINDER_THREAD_DOMAIN'),
