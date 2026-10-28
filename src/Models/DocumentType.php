@@ -21,6 +21,18 @@ use Unico\Core\MorphMap;
  */
 class DocumentType extends Model
 {
+    /** Valori di `is_end_month` (anche sul documento): approssimazione della scadenza. */
+    public const END_NONE = 0;
+
+    public const END_MONTH = 1;
+
+    public const END_YEAR = 2;
+
+    /**
+     * @var array<int, string>
+     */
+    public const END_OPTIONS = [self::END_NONE => 'Nessuna', self::END_MONTH => 'Fine mese', self::END_YEAR => 'Fine anno'];
+
     use SoftDeletes, UsesCoreConnection;
 
     public const SOURCE_CLIENTE = 'cliente';
@@ -158,7 +170,7 @@ class DocumentType extends Model
             'is_sensible' => 'boolean',
             'is_stored' => 'boolean',
             'is_versioned' => 'boolean',
-            'is_end_month' => 'boolean',
+            'is_end_month' => 'integer',
             'is_ai_abstract' => 'boolean',
             'is_ai_check' => 'boolean',
             'allow_auto_verification' => 'boolean',
@@ -177,10 +189,10 @@ class DocumentType extends Model
      * Null se il tipo non è monitorato, non ha una durata o l'unità è sconosciuta.
      * L'unità `hours` è ammessa; poiché la scadenza è una data, l'ora viene troncata.
      *
-     * @param  bool  $forceEndMonth  Arrotonda a fine mese anche se il tipo non lo prevede
-     *                               (flag `is_end_month` del singolo documento).
+     * @param  int|bool  $forceRounding  Arrotondamento imposto dal singolo documento (`is_end_month` del documento, vedi `END_MONTH` e
+     *                                   `END_YEAR`): vale il maggiore tra questo e quello del tipo. `true` equivale a fine mese.
      */
-    public function durationCalculate(DateTimeInterface|string|null $emittedAt, bool $forceEndMonth = false): ?Carbon
+    public function durationCalculate(DateTimeInterface|string|null $emittedAt, int|bool $forceRounding = self::END_NONE): ?Carbon
     {
         if (blank($emittedAt) || ! $this->is_monitored || ! $this->duration) {
             return null;
@@ -196,7 +208,11 @@ class DocumentType extends Model
             default => null,
         };
 
-        if ($expiration && ($this->is_end_month || $forceEndMonth)) {
+        $rounding = max((int) $this->is_end_month, (int) $forceRounding);
+
+        if ($expiration && $rounding >= self::END_YEAR) {
+            $expiration = $expiration->endOfYear();
+        } elseif ($expiration && $rounding === self::END_MONTH) {
             $expiration = $expiration->endOfMonth();
         }
 

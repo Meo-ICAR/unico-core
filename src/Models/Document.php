@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -51,7 +52,7 @@ class Document extends Model implements HasMedia
             'metadata' => 'array',
             'is_template' => 'boolean',
             'is_unique' => 'boolean',
-            'is_end_month' => 'boolean',
+            'is_end_month' => 'integer',
             'is_monitored' => 'boolean',
             'emitted_at' => 'date',
             'expires_at' => 'date',
@@ -171,7 +172,7 @@ class Document extends Model implements HasMedia
             return;
         }
 
-        $expiry = $this->documentType?->durationCalculate($this->emitted_at, (bool) $this->is_end_month);
+        $expiry = $this->documentType?->durationCalculate($this->emitted_at, (int) $this->is_end_month);
 
         if ($expiry !== null) {
             $this->expires_at = $expiry;
@@ -458,7 +459,7 @@ class Document extends Model implements HasMedia
                 'description' => $this->description,
                 'is_monitored' => $this->is_monitored ?? false,
                 'is_unique' => $this->is_unique ?? false,
-                'is_end_month' => $this->is_end_month ?? false,
+                'is_end_month' => $this->is_end_month ?? 0,
                 'status' => DocumentStatus::PENDING,
             ]);
 
@@ -489,7 +490,7 @@ class Document extends Model implements HasMedia
                 'status' => DocumentStatus::APPROVED,
                 'is_monitored' => $this->is_monitored ?? false,
                 'is_unique' => $this->is_unique ?? false,
-                'is_end_month' => $this->is_end_month ?? false,
+                'is_end_month' => $this->is_end_month ?? 0,
                 'is_template' => false,
                 'training_hours' => $this->training_hours,
                 'training_organization' => $this->training_organization,
@@ -507,6 +508,26 @@ class Document extends Model implements HasMedia
 
             return $new;
         });
+    }
+
+    /**
+     * Rinnovo con il file: clona il documento (`renew()`, che lo lascia come versione precedente) e dà alla copia il nuovo allegato oppure,
+     * senza, quello del documento attuale.
+     *
+     * @param  string|null  $newAttachmentPath  File già caricato sul disco `public`, che viene spostato nella copia.
+     */
+    public function renewWithFile(DateTimeInterface|string|null $emittedAt = null, ?string $newAttachmentPath = null): self
+    {
+        $new = $this->renew($emittedAt);
+
+        if (filled($newAttachmentPath)) {
+            $new->addMediaFromDisk($newAttachmentPath, 'public')->toMediaCollection(self::COLLECTION);
+            Storage::disk('public')->delete($newAttachmentPath);
+        } else {
+            $this->getMedia(self::COLLECTION)->each(fn ($media) => $media->copy($new, self::COLLECTION, $media->disk));
+        }
+
+        return $new;
     }
 
     /**

@@ -15,6 +15,7 @@ use Unico\Core\Documents\Reminders\ScheduleSynchronizer;
 use Unico\Core\Enums\DocumentStatus;
 use Unico\Core\Mail\OutgoingMailer;
 use Unico\Core\Mail\ThreadId;
+use Unico\Core\Models\Client;
 use Unico\Core\Models\Company;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\DocumentAnalysis;
@@ -574,5 +575,44 @@ class RemindersTest extends TestCase
         config(['unico-core.documents.reminders.exclude_documentable_types' => 'pratica,employee']);
         $this->assertNotContains($doc->id, $this->ids());
         $this->assertSame(0, $this->service->expiryStatus()->count);
+    }
+
+    public function test_twelve_months_rounded_to_year_end_and_a_60_days_notice(): void
+    {
+        $type = $this->type(['duration' => 12, 'duration_unit' => 'months', 'is_end_month' => DocumentType::END_YEAR, 'notify_days_before' => [60, 15, 7, 0]]);
+        $this->assertSame('2027-12-31', $type->durationCalculate('2026-11-15')->toDateString());
+        $this->assertSame('2027-12-31', $type->durationCalculate('2026-03-10')->toDateString());
+
+        $monthly = $this->type(['duration' => 12, 'duration_unit' => 'months', 'is_end_month' => DocumentType::END_MONTH]);
+        $this->assertSame('2027-11-30', $monthly->durationCalculate('2026-11-15')->toDateString());
+        $this->assertSame('2027-12-31', $this->type(['duration' => 12, 'duration_unit' => 'months'])->durationCalculate('2026-11-15', DocumentType::END_YEAR)->toDateString(), 'Il flag del documento forza il fine anno');
+
+        $e = $this->employee();
+        $early = $this->doc($e, $type, ['expires_at' => Carbon::now()->addDays(55)->toDateString()]);
+        $tooFar = $this->doc($e, $type, ['expires_at' => Carbon::now()->addDays(65)->toDateString()]);
+        $plain = $this->doc($e, null, ['expires_at' => Carbon::now()->addDays(55)->toDateString()]);
+
+        $ids = $this->ids();
+        $this->assertContains($early->id, $ids, 'Il preavviso di 60 giorni anticipa la comparsa nello scadenziario');
+        $this->assertNotContains($tooFar->id, $ids);
+        $this->assertNotContains($plain->id, $ids, 'Gli altri tipi restano sulla finestra comune');
+        $this->assertSame(1, $this->service->expiryStatus()->count);
+    }
+
+    public function test_excluding_clients_keeps_the_consultants(): void
+    {
+        $e = $this->employee();
+        $consultant = Client::create(['name' => 'Studio Alfa', 'is_person' => false, 'is_company' => true]);
+        $plain = Client::create(['name' => 'Cliente da fattura', 'is_person' => true, 'is_company' => false]);
+        $ofConsultant = $this->doc($e, null, ['documentable_type' => 'client', 'documentable_id' => $consultant->id]);
+        $ofPlain = $this->doc($e, null, ['documentable_type' => 'client', 'documentable_id' => $plain->id]);
+        $ofEmployee = $this->doc($e);
+
+        config(['unico-core.documents.reminders.exclude_documentable_types' => 'pratica,client']);
+
+        $ids = $this->ids();
+        $this->assertContains($ofConsultant->id, $ids, 'I documenti dei consulenti restano');
+        $this->assertNotContains($ofPlain->id, $ids, 'Quelli degli altri client no');
+        $this->assertContains($ofEmployee->id, $ids);
     }
 }

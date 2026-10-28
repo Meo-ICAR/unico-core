@@ -10,9 +10,11 @@ use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -20,9 +22,10 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\IconSize;
+use Filament\Support\View\ComponentAttributeBag;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -30,27 +33,23 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Filament\Tables\View\Components\Columns\IconColumnComponent\IconComponent;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\HtmlString;
-use Filament\Support\Enums\IconSize;
-use Filament\Support\View\ComponentAttributeBag;
-use Filament\Tables\View\Components\Columns\IconColumnComponent\IconComponent;
-use function Filament\Support\generate_icon_html;
 use Illuminate\Support\Str;
 use pxlrbt\FilamentExcel\Actions\ExportAction;
 use Unico\Core\Documents\Api\DocumentApiService;
-use Unico\Core\Documents\PlicoArchive;
-use Unico\Core\Documents\PracticeTaskDocuments;
-use Unico\Core\Enums\DocumentAnomaly;
 use Unico\Core\Documents\Contracts\AiCallLog;
 use Unico\Core\Documents\Listeners\AnalyzeUploadedDocument;
+use Unico\Core\Documents\PlicoArchive;
+use Unico\Core\Documents\PracticeTaskDocuments;
 use Unico\Core\Documents\Reminders\DocumentReminderService;
+use Unico\Core\Enums\DocumentAnomaly;
 use Unico\Core\Enums\DocumentStatus;
 use Unico\Core\Enums\SignatureRequestStatus;
 use Unico\Core\Filament\Actions\DocumentOutcomeAction;
@@ -77,6 +76,8 @@ use Unico\Core\Signature\Exceptions\SignatureRequestException;
 use Unico\Core\Signature\SignatureRequestService;
 use Unico\Core\Signature\SignerDefaults;
 use Unico\Core\ValueObjects\OamSemester;
+
+use function Filament\Support\generate_icon_html;
 
 /**
  * Documenti collegati al record: caricamento, plico, firma, rinnovo, stampa e download.
@@ -718,7 +719,6 @@ class DocumentsRelationManager extends RelationManager
             array_unshift($filters, Filter::make('semestre_attuale')
                 ->label('Solo semestre in corso')
                 ->toggle()
-                ->default(true)
                 ->query(fn (Builder $query, array $data): Builder => $data['isActive']
                     ? $query->perSemestreOam(OamSemester::getInBaseAlMeseCorrente())
                     : $query));
@@ -871,20 +871,14 @@ class DocumentsRelationManager extends RelationManager
                         ->required(),
                     FileUpload::make('new_attachment')
                         ->label('Nuovo allegato (opzionale)')
-                        ->helperText('Se carichi un file, viene creata una nuova versione del documento con il nuovo allegato; il documento attuale viene conservato come versione precedente con stato "scaduto".')
+                        ->helperText('Se carichi un file, la nuova versione ha il nuovo allegato; altrimenti conserva quello del documento attuale. Il documento attuale resta come versione precedente con stato "scaduto".')
                         ->disk('public')
                         ->directory('document-renewals')
                         ->acceptedFileTypes(['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                         ->maxSize(20480),
                 ])
                 ->action(function (Document $record, array $data): void {
-                    $newDocument = $record->renew($data['emitted_at']);
-
-                    if (filled($data['new_attachment'] ?? null)) {
-                        $newDocument->addMediaFromDisk($data['new_attachment'], 'public')
-                            ->toMediaCollection(Document::COLLECTION);
-                        Storage::disk('public')->delete($data['new_attachment']);
-                    }
+                    $record->renewWithFile($data['emitted_at'], $data['new_attachment'] ?? null);
 
                     Notification::make()
                         ->title('Documento rinnovato')
@@ -915,6 +909,12 @@ class DocumentsRelationManager extends RelationManager
                     ->default('Senza documento')
                     ->url(fn (Document $record): ?string => Route::has('documents.download') ? $record->download_url : null, shouldOpenInNewTab: true)
                     ->color(fn (Document $record): ?string => (Route::has('documents.download') && $record->download_url) ? 'info' : null),
+                IconColumn::make('annotazioni')
+                    ->label('')
+                    ->state(fn (Document $record): ?string => filled($record->internal_notes) ? 'annotazioni' : null)
+                    ->icon(fn (?string $state): ?string => $state === null ? null : 'heroicon-m-exclamation-triangle')
+                    ->color('warning')
+                    ->tooltip(fn (Document $record): ?string => filled($record->internal_notes) ? Str::limit(trim($record->internal_notes), 1500) : null),
                 IconColumn::make('status')
                     ->label('Stato')
                     ->icon(fn (Document $record): ?string => $record->status?->getIcon())
@@ -1169,7 +1169,7 @@ class DocumentsRelationManager extends RelationManager
      */
     private static function pannelloProduttori(): bool
     {
-        return in_array(\Filament\Facades\Filament::getCurrentPanel()?->getId(), (array) config('unico-core.documents.producer_panels', []), true);
+        return in_array(Filament::getCurrentPanel()?->getId(), (array) config('unico-core.documents.producer_panels', []), true);
     }
 
     /** Il testo `document_types.instructions` di quel tipo, se c'è. */

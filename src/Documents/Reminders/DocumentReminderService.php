@@ -16,9 +16,11 @@ use Unico\Core\Mail\EmailTemplateResolver;
 use Unico\Core\Mail\OutgoingMailer;
 use Unico\Core\Mail\SenderAccountResolver;
 use Unico\Core\Mail\ThreadId;
+use Unico\Core\Models\Client;
 use Unico\Core\Models\Document;
 use Unico\Core\Models\DocumentReminder;
 use Unico\Core\Models\DocumentSchedule;
+use Unico\Core\Models\DocumentType;
 use Unico\Core\Models\EmailTemplate;
 use Unico\Core\Models\Employee;
 use Unico\Core\Models\Fornitore;
@@ -42,11 +44,11 @@ class DocumentReminderService
 
         $query = $this->documentClass()::query()
             ->with(['documentType', 'documentable'])
-            ->where(function (Builder $query) use ($until, $resendAfter) {
-                $query->where(function (Builder $expiring) use ($until, $resendAfter) {
+            ->where(function (Builder $query) use ($until, $resendAfter, $windowDays) {
+                $query->where(function (Builder $expiring) use ($until, $resendAfter, $windowDays) {
                     $expiring->where('is_monitored', true)
                         ->whereNotNull('expires_at')
-                        ->where('expires_at', '<=', $until)
+                        ->where(fn (Builder $inWindow) => $this->withinNoticeWindow($inWindow, $windowDays, $until))
                         ->whereNotIn('status', [DocumentStatus::REJECTED->value, DocumentStatus::NA->value])
                         ->where(fn (Builder $q) => $q->whereNull('last_sent_at')->orWhere('last_sent_at', '<', now()->subDays($resendAfter)));
                 })
@@ -115,14 +117,46 @@ class DocumentReminderService
     }
 
     /**
+     * Scadenza dentro la finestra: quella comune (`$until`) oppure, per i tipi con un preavviso più lungo in `notify_days_before`
+     * (es. 60 giorni per la formazione OAM), il loro preavviso massimo.
+     *
+     * @param  Builder<Document>  $query
+     */
+    private function withinNoticeWindow(Builder $query, int $windowDays, string $until): void
+    {
+        $query->where('expires_at', '<=', $until);
+
+        $longer = DocumentType::query()->whereNotNull('notify_days_before')->get(['id', 'notify_days_before'])
+            ->groupBy(fn (DocumentType $type): int => (int) collect($type->notify_days_before)->max())
+            ->filter(fn (Collection $types, int $days): bool => $days > $windowDays);
+
+        foreach ($longer as $days => $types) {
+            $query->orWhere(fn (Builder $type) => $type
+                ->whereIn('document_type_id', $types->modelKeys())
+                ->where('expires_at', '<=', now()->addDays($days)->toDateString()));
+        }
+    }
+
+    /**
      * Esclude i documenti legati ai tipi di soggetto indicati in `exclude_documentable_types` (env UNICO_CORE_REMINDER_EXCLUDE_TYPES, alias
      * separati da virgola, es. `pratica,client`): scadenziario, controlli e solleciti non li riportano. Vuoto = nessuna esclusione.
+     * Dei `client` si escludono solo quelli che non sono consulenti aziendali (`is_company`): i consulenti restano in scadenziario.
      */
     public function excludeConfiguredTypes(Builder $query): Builder
     {
         $types = array_values(array_filter(array_map('trim', explode(',', (string) $this->setting('exclude_documentable_types', '')))));
 
-        return $types === [] ? $query : $query->whereNotIn('documents.documentable_type', $types);
+        if ($types === []) {
+            return $query;
+        }
+
+        $others = array_values(array_diff($types, ['client']));
+
+        $query->when($others !== [], fn (Builder $q) => $q->whereNotIn('documents.documentable_type', $others));
+
+        return $query->when(in_array('client', $types, true), fn (Builder $q) => $q->where(fn (Builder $client) => $client
+            ->where('documents.documentable_type', '!=', 'client')
+            ->orWhereIn('documents.documentable_id', Client::query()->where('is_company', true)->select('id'))));
     }
 
     /**
@@ -155,7 +189,7 @@ class DocumentReminderService
             ->with('documentType')
             ->where('is_monitored', true)
             ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', now()->addDays($windowDays)->toDateString())
+            ->where(fn (Builder $inWindow) => $this->withinNoticeWindow($inWindow, $windowDays, now()->addDays($windowDays)->toDateString()))
             ->whereNotIn('status', [DocumentStatus::REJECTED->value, DocumentStatus::NA->value]);
 
         // Come lo scadenziario: niente vecchie versioni (sostituite o rinnovate) né documenti di chi non c'è più.
