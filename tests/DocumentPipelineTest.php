@@ -564,6 +564,33 @@ class DocumentPipelineTest extends TestCase
         $this->assertArrayNotHasKey('enum', $documentType);
     }
 
+    public function test_anthropic_reader_has_a_profile_for_payslips_cu_salary_certificate_and_financing_without_union_types(): void
+    {
+        foreach (['busta_paga' => ['net_amount', 'cessione_amount', 'tfr_accrued'], 'cu' => ['year', 'income_open_ended', 'irpef_withheld'],
+            'certificato_stipendio' => ['monthly_net', 'existing_debt_remaining', 'signed'], 'finanziamento' => ['total_credit', 'taeg', 'signed']] as $kind => $campi) {
+            $sent = [];
+            $reader = new AnthropicDocumentReader('chiave', 'modello-x', function (array $payload) use (&$sent): array {
+                $sent[] = $payload;
+
+                return ['content' => [['type' => 'text', 'text' => json_encode(['legible' => true, 'surname' => 'Olivo'])]], 'stop_reason' => 'end_turn'];
+            });
+
+            $fields = $reader->read($kind, 'application/pdf', 'PDF');
+
+            $this->assertSame('Olivo', $fields['surname'], $kind);
+            $this->assertStringContainsString('Italian credit-brokerage practice', $sent[0]['system'], $kind);
+            $schema = $sent[0]['output_config']['format']['schema'];
+
+            foreach (array_merge(['legible', 'surname', 'name', 'fiscal_code'], $campi) as $campo) {
+                $this->assertArrayHasKey($campo, $schema['properties'], "$kind: $campo");
+            }
+
+            $this->assertSame(array_keys($schema['properties']), $schema['required'], $kind);
+            $this->assertSame([], array_filter($schema['properties'], fn (array $p): bool => is_array($p['type']) || isset($p['anyOf'])), "$kind: nessuna unione di tipi");
+            $this->assertSame('string', $schema['properties']['net_amount']['type'] ?? 'string');
+        }
+    }
+
     public function test_anthropic_reader_ignores_unsupported_files_refusals_and_garbage(): void
     {
         $calls = 0;

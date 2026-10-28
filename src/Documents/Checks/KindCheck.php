@@ -14,6 +14,11 @@ class KindCheck implements DocumentCheck
         'codice_fiscale' => 'tessera del codice fiscale',
         'reddito' => 'documento di reddito',
         'informativa' => 'informativa privacy',
+        'busta_paga' => 'busta paga',
+        'cu' => 'Certificazione Unica',
+        'certificato_stipendio' => 'certificato di stipendio',
+        'finanziamento' => 'contratto di finanziamento',
+        'questionario_kyc' => 'questionario di adeguata verifica',
         'altro' => 'altro tipo di documento',
     ];
 
