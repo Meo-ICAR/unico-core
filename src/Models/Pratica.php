@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Unico\Core\Concerns\UsesCoreConnection;
 use Unico\Core\Documents\ConcludedPracticeExpiry;
+use Unico\Core\Enums\DisbursementMethod;
+use Unico\Core\Enums\PaymentMethod;
+use Unico\Core\Enums\PeriodicCommunication;
 
 /** Registro delle pratiche di finanziamento/mutuo caricate. */
 class Pratica extends Model
@@ -59,6 +62,9 @@ class Pratica extends Model
             'mediation_fee_amount' => 'decimal:2',
             'istruttoria_costs' => 'decimal:2',
             'offer_valid_until' => 'date',
+            'repayment_method' => PaymentMethod::class,
+            'disbursement_method' => DisbursementMethod::class,
+            'periodic_communication' => PeriodicCommunication::class,
         ];
     }
 

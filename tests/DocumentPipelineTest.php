@@ -567,7 +567,7 @@ class DocumentPipelineTest extends TestCase
     public function test_anthropic_reader_has_a_profile_for_payslips_cu_salary_certificate_and_financing_without_union_types(): void
     {
         foreach (['busta_paga' => ['net_amount', 'cessione_amount', 'tfr_accrued'], 'cu' => ['year', 'income_open_ended', 'irpef_withheld'],
-            'certificato_stipendio' => ['monthly_net', 'existing_debt_remaining', 'signed'], 'finanziamento' => ['total_credit', 'taeg', 'signed']] as $kind => $campi) {
+            'certificato_stipendio' => ['monthly_net', 'existing_debt_remaining', 'signed'], 'finanziamento' => ['total_credit', 'taeg', 'signed', 'repayment_method', 'disbursement_method', 'periodic_communication']] as $kind => $campi) {
             $sent = [];
             $reader = new AnthropicDocumentReader('chiave', 'modello-x', function (array $payload) use (&$sent): array {
                 $sent[] = $payload;

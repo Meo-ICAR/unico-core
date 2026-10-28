@@ -106,6 +106,8 @@ TXT;
                 'installments' => 'number of installments', 'total_due' => 'total amount payable by the consumer (importo totale dovuto)',
                 'tan' => 'fixed nominal rate (TAN)', 'taeg' => 'TAEG', 'teg' => 'TEG', 'stamp_duty' => 'stamp duty (imposta di bollo)',
                 'insurance' => 'insurers named (life and employment risk)', 'declared_net_income' => 'net monthly income declared by the borrower',
+                'repayment_method' => 'how the installments are repaid, as printed (e.g. trattenuta sullo stipendio/pensione, addebito SDD, bollettino)', 'disbursement_method' => 'how the loan is disbursed, as printed (e.g. Bonifico)',
+                'periodic_communication' => 'channel chosen for the periodic transparency communications, as printed (e.g. Elettronica (e-mail))',
                 'date' => 'date of the document', 'notes' => 'anything unusual, in Italian, one short sentence'],
             ['signed' => 'true only if a customer signature is visibly present, false if the signature areas are empty or you cannot tell'],
         ],
