@@ -92,10 +92,13 @@ class EmployeeType extends Model
         return in_array($this->outsourcable_status, ['yes', 'partial'], true);
     }
 
-    /** Dipendenti che ricoprono il ruolo (`employee_roles`). */
+    /** Dipendenti in servizio che ricoprono il ruolo (`employee_roles`): chi è disattivato o cessato non lo ricopre più. */
     public function employees(): Builder
     {
-        return Employee::query()->whereJsonContains('employee_roles', $this->name);
+        return Employee::query()
+            ->whereJsonContains('employee_roles', $this->name)
+            ->where(fn (Builder $active) => $active->whereNull('is_active')->orWhere('is_active', true))
+            ->where(fn (Builder $active) => $active->whereNull('termination_date')->orWhereDate('termination_date', '>', now()));
     }
 
     /** Esterni (client) che ricoprono il ruolo: solo per i ruoli esternalizzabili. */
