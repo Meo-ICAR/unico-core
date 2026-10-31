@@ -39,6 +39,10 @@ class Fornitore extends Model
             'isdipendente' => 'boolean',
             'contributodalmese' => 'date',
             'employee_roles' => 'array',
+            'iban_updated_at' => 'datetime',
+            'iban_verified_at' => 'datetime',
+            'withholding_percent' => 'decimal:2',
+            'invoice_data_at' => 'datetime',
         ];
     }
 
