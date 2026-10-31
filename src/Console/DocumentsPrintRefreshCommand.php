@@ -24,7 +24,7 @@ class DocumentsPrintRefreshCommand extends Command
 
         Document::query()
             ->whereIn('status', array_map(fn (DocumentStatus $status): string => $status->value, [DocumentStatus::PENDING, DocumentStatus::MISSING_DATA, DocumentStatus::PRINT]))
-            ->whereNull('renewed_by')
+            ->whereNull('renewed_by_id')
             ->whereHas('documentType', fn ($query) => $query->where('is_signed', true)->whereHas('pdfModule'))
             ->with(['documentType.pdfModule', 'documentable'])
             ->chunkById(200, function ($documenti) use ($readiness, &$controllati, &$cambiati): void {

@@ -79,7 +79,7 @@ class DocumentReminderService
 
         $query
             ->whereNull('documents.replaced_by_id')
-            ->whereNull('documents.renewed_by')
+            ->whereNull('documents.renewed_by_id')
             ->where('documents.status', '!=', DocumentStatus::EXPIRED->value)
             ->whereNotExists(function ($newer) use ($ignored): void {
                 $newer->selectRaw('1')

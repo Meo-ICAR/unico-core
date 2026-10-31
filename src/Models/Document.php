@@ -276,7 +276,7 @@ class Document extends Model implements HasMedia
     /** La nuova versione del documento (rinnovo). */
     public function newVersion(): BelongsTo
     {
-        return $this->belongsTo(static::class, 'renewed_by');
+        return $this->belongsTo(static::class, 'renewed_by_id');
     }
 
     /** Il requisito del plico da cui nasce il documento: task, fase, ruoli, chi firma. */
@@ -388,7 +388,7 @@ class Document extends Model implements HasMedia
     {
         return $query
             ->whereNull('replaced_by_id')
-            ->whereNull('renewed_by')
+            ->whereNull('renewed_by_id')
             ->whereNotIn('status', array_map(fn (DocumentStatus $s) => $s->value, DocumentStatus::inactive()));
     }
 
@@ -432,7 +432,7 @@ class Document extends Model implements HasMedia
 
     /**
      * Il documento su cui caricare il file corretto. Se questo è respinto (o anomalo, illeggibile, integrativo) e ha già un file, nasce
-     * una nuova versione dello stesso documento e questo resta com'è, con lo storico dell'invio: `renewed_by` indica la versione
+     * una nuova versione dello stesso documento e questo resta com'è, con lo storico dell'invio: `renewed_by_id` indica la versione
      * successiva. Negli altri casi è il documento stesso.
      *
      * @param  int|null  $exceptMediaId  il file appena caricato, che non conta come «già presente»
@@ -441,7 +441,7 @@ class Document extends Model implements HasMedia
     {
         $previous = $this->getMedia(self::COLLECTION)->reject(fn ($media): bool => $media->getKey() === $exceptMediaId);
 
-        if (! $this->needsCorrection() || $previous->isEmpty() || $this->renewed_by !== null) {
+        if (! $this->needsCorrection() || $previous->isEmpty() || $this->renewed_by_id !== null) {
             return $this;
         }
 
@@ -463,7 +463,7 @@ class Document extends Model implements HasMedia
                 'status' => DocumentStatus::PENDING,
             ]);
 
-            $this->forceFill(['renewed_by' => $new->getKey()])->saveQuietly();
+            $this->forceFill(['renewed_by_id' => $new->getKey()])->saveQuietly();
 
             return $new;
         });
@@ -500,7 +500,8 @@ class Document extends Model implements HasMedia
             $this->update([
                 'status' => DocumentStatus::EXPIRED,
                 'replaced_by_id' => $new->id,
-                'renewed_by' => $new->id,
+                'renewed_by' => config('unico-core.audit.stamp_users', true) ? Auth::id() : null,
+                'renewed_by_id' => $new->id,
                 'metadata' => array_merge($this->metadata ?? [], [
                     'replaced_at' => now()->toIso8601String(),
                 ]),
